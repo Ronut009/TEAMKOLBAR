@@ -11,7 +11,7 @@ import { Input } from './input.js';
 export class Player {
   constructor(startX = 160, startY = 368) {
     this.x = startX;
-    this.y = startY; // Exact foot anchor point on platform surface
+    this.y = startY;
 
     this.vx = 0;
     this.vy = 0;
@@ -31,9 +31,9 @@ export class Player {
 
     // Platformer Jump Quality of Life (Coyote Time & Jump Buffer)
     this.coyoteTimer = 0;
-    this.coyoteMax = 0.12; // 120ms to jump after leaving a ledge
+    this.coyoteMax = 0.12;
     this.jumpBufferTimer = 0;
-    this.jumpBufferMax = 0.12; // 120ms pre-landing jump buffer
+    this.jumpBufferMax = 0.12;
     this.canDoubleJump = true;
 
     // Landing animation trigger
@@ -42,12 +42,12 @@ export class Player {
     // Sprite Display Dimensions (Normalized to 160x280 canvas with foot at y=274)
     this.spriteWidth = 46;
     this.spriteHeight = 80;
-    this.footOffsetY = 274 / 280; // Exact foot ratio
+    this.footOffsetY = 274 / 280;
 
     this.divineWidth = 56;
     this.divineHeight = 62;
 
-    this.facing = 'right'; // 'left' | 'right'
+    this.facing = 'right';
     this.isMoving = false;
     this.animTime = 0;
 
@@ -247,6 +247,13 @@ export class Player {
       }
       if (this.divineTimer <= 0) {
         this.revertToMortal();
+
+        // If standing on the divine golden bridge when power expires, fall!
+        if (this.currentPlatform && this.currentPlatform.divineOnly) {
+          this.isGrounded = false;
+          this.currentPlatform = null;
+          this.vy = 80;
+        }
       }
     }
 
@@ -281,7 +288,6 @@ export class Player {
       this.jumpBufferTimer = this.jumpBufferMax;
     }
 
-    // Grounded or Coyote Time Jump
     const canGroundJump = (this.isGrounded || this.coyoteTimer > 0);
     if (this.jumpBufferTimer > 0) {
       if (canGroundJump) {
@@ -289,13 +295,11 @@ export class Player {
         this.coyoteTimer = 0;
 
         if (isDownHeld && this.currentPlatform && this.currentPlatform.oneWay) {
-          // Drop down through current one-way platform
           this.dropThroughTimer = 0.28;
           this.isGrounded = false;
           this.currentPlatform = null;
           this.vy = 90;
         } else {
-          // Normal Jump
           const impulse = this.isDivine ? this.divineJumpImpulse : this.jumpImpulse;
           this.vy = impulse;
           this.isGrounded = false;
@@ -304,7 +308,6 @@ export class Player {
           this.spawnPoof(8);
         }
       } else if (this.canDoubleJump) {
-        // Celestial Double Jump (Air Leap)
         this.jumpBufferTimer = 0;
         this.canDoubleJump = false;
         this.vy = this.isDivine ? this.divineJumpImpulse : this.jumpImpulse * 0.95;
@@ -312,7 +315,6 @@ export class Player {
       }
     }
 
-    // Variable jump height: release early to cut jump short
     const jumpHeld = Input.isDown('jump') || Input.isDown('Space') || Input.isDown('KeyW') || Input.isDown('ArrowUp');
     if (!jumpHeld && this.vy < -160) {
       this.vy = -160;
@@ -328,33 +330,28 @@ export class Player {
     this.x += this.vx * dt;
     this.y += this.vy * dt;
 
-    // Hard boundary left/right
     this.x = Math.max(16, Math.min(this.x, level.width - 16));
-
-    // Resolve side collisions against the pit's stone walls
     this.x = level.resolvePitWallCollision(this.x, this.y);
 
-    // Platform Landing Detection (when falling)
     if (this.vy >= 0) {
       const dropping = (this.dropThroughTimer > 0);
-      const landed = level.checkPlatformLanding(prevY, this.y, this.x, dropping);
+      const landed = level.checkPlatformLanding(prevY, this.y, this.x, dropping, this.isDivine);
 
       if (landed) {
         this.y = landed.y;
         this.vy = 0;
         if (!this.isGrounded) {
-          this.landingTimer = 0.12; // Brief landing recovery
+          this.landingTimer = 0.12;
         }
         this.isGrounded = true;
         this.currentPlatform = landed;
         this.canDoubleJump = true;
         this.coyoteTimer = 0;
       } else if (this.isGrounded) {
-        // Stepped off ledge into empty air / pit!
-        if (!level.isOnPlatform(this.x, this.y)) {
+        if (!level.isOnPlatform(this.x, this.y, this.isDivine)) {
           this.isGrounded = false;
           this.currentPlatform = null;
-          this.coyoteTimer = this.coyoteMax; // Activate coyote window
+          this.coyoteTimer = this.coyoteMax;
         }
       }
     }
@@ -514,7 +511,7 @@ export class Player {
 
   render(ctx) {
     const cx = Math.floor(this.x);
-    const cy = Math.floor(this.y); // Exact foot position on stone surface
+    const cy = Math.floor(this.y);
     const isFacingLeft = (this.facing === 'left');
 
     ctx.save();
@@ -526,35 +523,32 @@ export class Player {
 
     // 2. Render Sprite
     ctx.save();
-    ctx.translate(cx, cy); // Anchor at exact feet position
+    ctx.translate(cx, cy);
     if (isFacingLeft) {
       ctx.scale(-1, 1);
     }
 
     if (this.isDivine) {
-      // Maa Kali Divine Form
       const rw = this.divineWidth;
       const rh = this.divineHeight;
       if (this.anims.divine.complete && this.anims.divine.naturalWidth > 0) {
         ctx.drawImage(this.anims.divine, -rw / 2, -rh, rw, rh);
       }
     } else {
-      // Determine Current Mortal Animation Frame
       let currentImg = this.anims.idle;
 
       if (this.isAttacking) {
         currentImg = this.anims.attack[this.attackFrame] || this.anims.idle;
       } else if (!this.isGrounded) {
-        // Expressive Jump Frames based on vertical velocity
         if (this.vy < -120) {
-          currentImg = this.anims.jump[1] || this.anims.jump[0]; // Rising
+          currentImg = this.anims.jump[1] || this.anims.jump[0];
         } else if (Math.abs(this.vy) <= 120) {
-          currentImg = this.anims.jump[2] || this.anims.jump[3]; // Apex (Sword held high!)
+          currentImg = this.anims.jump[2] || this.anims.jump[3];
         } else {
-          currentImg = this.anims.jump[3] || this.anims.jump[4]; // Descending
+          currentImg = this.anims.jump[3] || this.anims.jump[4];
         }
       } else if (this.landingTimer > 0) {
-        currentImg = this.anims.jump[4] || this.anims.idle; // Brief landing crouch
+        currentImg = this.anims.jump[4] || this.anims.idle;
       } else if (this.isMoving) {
         currentImg = this.anims.run[this.runFrame] || this.anims.idle;
       }
@@ -563,8 +557,6 @@ export class Player {
       const rh = this.spriteHeight;
 
       if (currentImg && currentImg.complete && currentImg.naturalWidth > 0) {
-        // Foot is anchored with mathematical precision at y=0 (surface of platform)
-        // Draw with zero clipping and zero floating gap
         const drawOffsetY = -rh * this.footOffsetY;
         ctx.drawImage(currentImg, -rw / 2, drawOffsetY, rw, rh);
       }

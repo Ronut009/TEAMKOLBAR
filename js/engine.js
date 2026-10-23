@@ -110,7 +110,7 @@ export class Engine {
 
     // 3. Update player and level
     this.player.update(dt, this.level, this.dialogueActive);
-    this.level.update(this.player.x, this.player.y, dt);
+    this.level.update(this.player.x, this.player.y, dt, this.player.isDivine);
 
     // 4. Update Camera viewport
     this.updateCamera(dt);
@@ -188,7 +188,7 @@ export class Engine {
     ctx.translate(-Math.floor(this.camX), -Math.floor(this.camY));
 
     // 1. Submerged Temple Map (Artwork, god rays, golden bridge shimmer, blue lotus auras)
-    this.level.renderBackground(ctx);
+    this.level.renderBackground(ctx, this.player.isDivine);
 
     // 2. Character Platform Shadow
     this.player.renderShadow(ctx);

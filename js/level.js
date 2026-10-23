@@ -1,8 +1,8 @@
 /**
  * ==========================================================================
  * GLITCHVERSE - SUBMERGED RUINS TEMPLE MAP (js/level.js)
- * Synchronized platforms, strict pit boundaries (x: 462-548),
- * golden constellation bridge, and Undertale inspection spots.
+ * Features visual stone stepping platforms, dynamic Divine-only Golden Bridge,
+ * strict pit bounds, and Undertale inspection landmarks.
  * ==========================================================================
  */
 
@@ -11,16 +11,30 @@ export class Level {
     this.width = 1024;
     this.height = 434;
 
-    this.mapImg = new Image();
-    this.mapLoaded = false;
-    this.mapImg.onload = () => { this.mapLoaded = true; };
-    this.mapImg.src = 'assets/temple_map.png';
-    if (this.mapImg.complete && this.mapImg.naturalWidth > 0) {
-      this.mapLoaded = true;
+    // Base map without bridge (mortal view)
+    this.baseMapImg = new Image();
+    this.baseMapLoaded = false;
+    this.baseMapImg.onload = () => { this.baseMapLoaded = true; };
+    this.baseMapImg.src = 'assets/temple_map_base.png';
+    if (this.baseMapImg.complete && this.baseMapImg.naturalWidth > 0) {
+      this.baseMapLoaded = true;
     }
 
-    // Platform definitions aligned to the visual temple architecture
-    // Note: Pit chasm is between x=462 and x=548.
+    // Isolated Golden Constellation Bridge overlay (manifested in Divine Form)
+    this.bridgeImg = new Image();
+    this.bridgeLoaded = false;
+    this.bridgeImg.onload = () => { this.bridgeLoaded = true; };
+    this.bridgeImg.src = 'assets/golden_bridge.png';
+    if (this.bridgeImg.complete && this.bridgeImg.naturalWidth > 0) {
+      this.bridgeLoaded = true;
+    }
+
+    // Fallback full artwork if needed
+    this.fullMapImg = new Image();
+    this.fullMapImg.src = 'assets/temple_map.png';
+
+    // Platform definitions
+    // The Golden Bridge is only solid when Divine Form (X ability) is active!
     this.platforms = [
       // 1. Lower Left Ground (Stretches from far left to x=462)
       { id: 'floor_left', x1: 0, x2: 462, y: 368, oneWay: false },
@@ -28,10 +42,10 @@ export class Level {
       // 2. Lower Right Ground (Stretches from x=548 to far right)
       { id: 'floor_right', x1: 548, x2: 1024, y: 368, oneWay: false },
 
-      // 3. Left Ruined Pillar Step (Intermediate step to upper balcony)
-      { id: 'pillar_step_left', x1: 170, x2: 245, y: 270, oneWay: true },
+      // 3. Left Carved Stepping Platform (Visual stone ledge at y=270)
+      { id: 'pillar_step_left', x1: 172, x2: 248, y: 270, oneWay: true },
 
-      // 4. Right Ruined Pediment Step (Intermediate step to right balcony)
+      // 4. Right Carved Stepping Platform (Visual stone ledge at y=275)
       { id: 'pillar_step_right', x1: 640, x2: 710, y: 275, oneWay: true },
 
       // 5. Upper Left Balcony (Overgrown roof with glowing lotus)
@@ -40,14 +54,14 @@ export class Level {
       // 6. Upper Right Temple Balcony (Temple roof with carved statues)
       { id: 'balcony_right', x1: 728, x2: 1024, y: 172, oneWay: true },
 
-      // 7. The Golden Constellation Bridge (Arched celestial bridge)
-      { id: 'golden_bridge', x1: 388, x2: 728, y: 172, oneWay: true }
+      // 7. The Golden Constellation Bridge (Only active in Divine Form)
+      { id: 'golden_bridge', x1: 388, x2: 728, y: 172, oneWay: true, divineOnly: true }
     ];
 
     // Pit Side Walls (Prevent phasing into side of platforms below y=368)
     this.pitWalls = {
-      leftWallX: 462,   // Left stone platform edge
-      rightWallX: 548,  // Right stone platform edge
+      leftWallX: 462,
+      rightWallX: 548,
       wallTopY: 368,
       wallBottomY: 434
     };
@@ -60,11 +74,11 @@ export class Level {
       },
       {
         x: 355, y: 172, radius: 40,
-        text: "* Sacred blue lotus atop the ruined pillar.\n* Magical bubbles rise from its petals toward the surface light."
+        text: "* Sacred blue lotus atop the ruined balcony.\n* A faint golden aura shimmers across the empty sky toward the east."
       },
       {
         x: 558, y: 172, radius: 55,
-        text: "* The Bridge of Constellations.\n* Ancient golden star-runes hum quietly beneath your sandals."
+        text: "* The Bridge of Constellations.\n* Dormant in the mortal realm. Only the Divine Avatar [X] can awaken its golden stars."
       },
       {
         x: 725, y: 172, radius: 40,
@@ -80,7 +94,7 @@ export class Level {
     this.initSpores(45);
 
     this.bridgeStars = [];
-    this.initBridgeStars(25);
+    this.initBridgeStars(30);
 
     this.camera = {
       x: 0,
@@ -94,6 +108,7 @@ export class Level {
     };
 
     this.animTime = 0;
+    this.bridgeOpacity = 0.0;
   }
 
   initSpores(count) {
@@ -117,7 +132,7 @@ export class Level {
       this.bridgeStars.push({
         x: 388 + Math.random() * (728 - 388),
         y: 168 + (Math.random() - 0.5) * 8,
-        size: 1 + Math.random() * 2,
+        size: 1.5 + Math.random() * 2,
         twinkleSpeed: 2 + Math.random() * 3,
         phase: Math.random() * Math.PI * 2
       });
@@ -127,15 +142,19 @@ export class Level {
   /**
    * Collision check: Given previous and current foot position,
    * returns the platform landed upon, if any.
+   * Golden bridge only lands if isDivine is true!
    */
-  checkPlatformLanding(prevY, currY, x, droppingThrough = false) {
+  checkPlatformLanding(prevY, currY, x, droppingThrough = false, isDivine = false) {
     for (const plat of this.platforms) {
+      if (plat.divineOnly && !isDivine) {
+        continue; // Golden bridge does not exist in mortal form!
+      }
+
       if (x >= plat.x1 && x <= plat.x2) {
         if (plat.oneWay && droppingThrough) {
           continue;
         }
 
-        // Landing tolerance: crossing surface line downward
         if (prevY <= plat.y + 6 && currY >= plat.y - 2) {
           return plat;
         }
@@ -147,8 +166,11 @@ export class Level {
   /**
    * Check if foot at (x, y) is on a valid platform
    */
-  isOnPlatform(x, y) {
+  isOnPlatform(x, y, isDivine = false) {
     for (const plat of this.platforms) {
+      if (plat.divineOnly && !isDivine) {
+        continue;
+      }
       if (x >= plat.x1 - 2 && x <= plat.x2 + 2 && Math.abs(y - plat.y) <= 4) {
         return plat;
       }
@@ -156,20 +178,11 @@ export class Level {
     return null;
   }
 
-  /**
-   * Checks horizontal collisions against the pit's stone walls
-   * @param {number} x
-   * @param {number} y - Foot y position
-   * @returns {number} Corrected X position
-   */
   resolvePitWallCollision(x, y) {
-    // If foot is down in the pit below ground level (y > 368)
     if (y > this.pitWalls.wallTopY + 2 && y <= this.pitWalls.wallBottomY) {
-      // Trying to enter left stone wall from the pit
       if (x < this.pitWalls.leftWallX + 8 && x > this.pitWalls.leftWallX - 10) {
         return this.pitWalls.leftWallX + 8;
       }
-      // Trying to enter right stone wall from the pit
       if (x > this.pitWalls.rightWallX - 8 && x < this.pitWalls.rightWallX + 10) {
         return this.pitWalls.rightWallX - 8;
       }
@@ -187,8 +200,12 @@ export class Level {
     return null;
   }
 
-  update(playerX, playerY, dt) {
+  update(playerX, playerY, dt, isDivine = false) {
     this.animTime += dt;
+
+    // Smooth bridge opacity fade in/out
+    const targetBridgeOpacity = isDivine ? 1.0 : 0.0;
+    this.bridgeOpacity += (targetBridgeOpacity - this.bridgeOpacity) * Math.min(1.0, dt * 6.0);
 
     const minZoomW = window.innerWidth / this.width;
     const minZoomH = window.innerHeight / this.height;
@@ -227,18 +244,144 @@ export class Level {
   // RENDERING
   // ==========================================================================
 
-  renderBackground(ctx) {
+  renderBackground(ctx, isDivine = false) {
     ctx.save();
-    if (this.mapLoaded) {
-      ctx.drawImage(this.mapImg, 0, 0, this.width, this.height);
-    } else {
-      ctx.fillStyle = '#1c142c';
-      ctx.fillRect(0, 0, this.width, this.height);
+
+    // 1. Draw Base Map (Mortal ruins with open chasm)
+    if (this.baseMapLoaded) {
+      ctx.drawImage(this.baseMapImg, 0, 0, this.width, this.height);
+    } else if (this.fullMapImg.complete) {
+      ctx.drawImage(this.fullMapImg, 0, 0, this.width, this.height);
     }
 
+    // 2. Render God-Rays
     this.renderGodRays(ctx);
-    this.renderGoldenBridgeShimmer(ctx);
+
+    // 3. Render Visual Carved Stone Stepping Platforms (Left: y=270, Right: y=275)
+    this.renderSteppingPlatforms(ctx);
+
+    // 4. Render Golden Constellation Bridge (ONLY visible when Divine Form is active)
+    this.renderGoldenBridge(ctx, isDivine);
+
+    // 5. Render Blue Lotus Auras
     this.renderLotusAuras(ctx);
+
+    ctx.restore();
+  }
+
+  /**
+   * Renders the visual carved sandstone stepping platform at y=270 on the left
+   * and at y=275 on the right so jumping feels grounded with zero floating!
+   */
+  renderSteppingPlatforms(ctx) {
+    ctx.save();
+
+    // Left Stepping Platform (x1=172, x2=248, y=270, w=76, h=14)
+    const lx = 172;
+    const ly = 270;
+    const lw = 76;
+    const lh = 14;
+
+    // Platform shadow
+    ctx.fillStyle = 'rgba(10, 8, 20, 0.55)';
+    ctx.fillRect(lx - 2, ly + lh - 2, lw + 4, 6);
+
+    // Carved ancient sandstone slab
+    const slabGrad = ctx.createLinearGradient(lx, ly, lx, ly + lh);
+    slabGrad.addColorStop(0, '#584a3c');
+    slabGrad.addColorStop(0.3, '#706050');
+    slabGrad.addColorStop(0.7, '#44382c');
+    slabGrad.addColorStop(1, '#2c221a');
+    ctx.fillStyle = slabGrad;
+    ctx.fillRect(lx, ly, lw, lh);
+
+    // Top surface moss & stone highlight
+    ctx.fillStyle = '#8f9a65';
+    ctx.fillRect(lx, ly, lw, 2);
+    ctx.fillStyle = '#bfa882';
+    ctx.fillRect(lx + 2, ly + 2, lw - 4, 1);
+
+    // Ancient Sanskrit/Solar filigree border inlay
+    ctx.strokeStyle = '#c89e3a';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(lx + 4, ly + 4, lw - 8, lh - 7);
+
+    // Lotus corner brackets
+    ctx.fillStyle = '#ffea79';
+    ctx.fillRect(lx + 2, ly + 4, 2, 4);
+    ctx.fillRect(lx + lw - 4, ly + 4, 2, 4);
+
+    // Right Stepping Platform (x1=640, x2=710, y=275, w=70, h=14)
+    const rx = 640;
+    const ry = 275;
+    const rw = 70;
+    const rh = 14;
+
+    ctx.fillStyle = 'rgba(10, 8, 20, 0.55)';
+    ctx.fillRect(rx - 2, ry + rh - 2, rw + 4, 6);
+
+    ctx.fillStyle = slabGrad;
+    ctx.fillRect(rx, ry, rw, rh);
+
+    ctx.fillStyle = '#8f9a65';
+    ctx.fillRect(rx, ry, rw, 2);
+    ctx.fillStyle = '#bfa882';
+    ctx.fillRect(rx + 2, ry + 2, rw - 4, 1);
+
+    ctx.strokeStyle = '#c89e3a';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(rx + 4, ry + 4, rw - 8, rh - 7);
+
+    ctx.restore();
+  }
+
+  /**
+   * Renders the Golden Constellation Bridge ONLY when Divine Form (X ability) is used.
+   */
+  renderGoldenBridge(ctx, isDivine) {
+    if (this.bridgeOpacity <= 0.01) {
+      // Faint dormant celestial whisper (subtle star trace)
+      ctx.save();
+      ctx.globalAlpha = 0.08;
+      ctx.strokeStyle = '#ffd700';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 6]);
+      ctx.beginPath();
+      ctx.moveTo(388, 172);
+      ctx.lineTo(728, 172);
+      ctx.stroke();
+      ctx.restore();
+      return;
+    }
+
+    ctx.save();
+    ctx.globalAlpha = Math.min(1.0, this.bridgeOpacity);
+
+    // 1. Draw high-res Golden Bridge Overlay
+    if (this.bridgeLoaded) {
+      ctx.drawImage(this.bridgeImg, 0, 0, this.width, this.height);
+    }
+
+    // 2. Add dynamic celestial glow and animated stars
+    ctx.globalCompositeOperation = 'lighter';
+
+    const bridgeGrad = ctx.createLinearGradient(388, 172, 728, 172);
+    bridgeGrad.addColorStop(0, 'rgba(255, 215, 0, 0.3)');
+    bridgeGrad.addColorStop(0.5, 'rgba(255, 245, 180, 0.8)');
+    bridgeGrad.addColorStop(1, 'rgba(255, 215, 0, 0.3)');
+
+    ctx.fillStyle = bridgeGrad;
+    ctx.fillRect(388, 169, 340, 5);
+
+    // Animated shimmering constellation stars
+    for (const star of this.bridgeStars) {
+      const alpha = this.bridgeOpacity * (0.4 + 0.6 * Math.abs(Math.sin(this.animTime * star.twinkleSpeed + star.phase)));
+      ctx.fillStyle = `rgba(255, 248, 190, ${alpha})`;
+      ctx.beginPath();
+      ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
     ctx.restore();
   }
 
@@ -270,29 +413,6 @@ export class Level {
       ctx.closePath();
       ctx.fill();
     });
-
-    ctx.restore();
-  }
-
-  renderGoldenBridgeShimmer(ctx) {
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-
-    const bridgeGrad = ctx.createLinearGradient(388, 172, 728, 172);
-    bridgeGrad.addColorStop(0, 'rgba(255, 215, 0, 0.2)');
-    bridgeGrad.addColorStop(0.5, 'rgba(255, 240, 160, 0.55)');
-    bridgeGrad.addColorStop(1, 'rgba(255, 215, 0, 0.2)');
-
-    ctx.fillStyle = bridgeGrad;
-    ctx.fillRect(388, 168, 340, 7);
-
-    for (const star of this.bridgeStars) {
-      const alpha = 0.4 + 0.6 * Math.abs(Math.sin(this.animTime * star.twinkleSpeed + star.phase));
-      ctx.fillStyle = `rgba(255, 245, 180, ${alpha})`;
-      ctx.beginPath();
-      ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
-      ctx.fill();
-    }
 
     ctx.restore();
   }
