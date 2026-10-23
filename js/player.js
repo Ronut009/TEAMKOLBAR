@@ -15,12 +15,12 @@ export class Player {
     this.vx = 0;
     this.vy = 0;
     this.baseSpeed = 195;
-    this.divineSpeed = 250; // Increased divine agility
+    this.divineSpeed = 255;
     this.speed = this.baseSpeed;
     this.acceleration = 1600;
     this.friction = 1400;
 
-    // Hitbox for collision
+    // Physical bounding box for collisions
     this.width = 24;
     this.height = 36;
     this.colliderWidth = 20;
@@ -46,16 +46,22 @@ export class Player {
     this.divineTimer = 0.0;
     this.divinePulse = 0.0;
 
-    // Load Sprite Assets (Mortal Warrior & Divine Kali Avatar)
-    this.imgMortal = new Image();
-    this.imgMortal.src = 'assets/mc_mortal.png';
+    // Robust image preloading with cache handling
     this.mortalLoaded = false;
+    this.imgMortal = new Image();
     this.imgMortal.onload = () => { this.mortalLoaded = true; };
+    this.imgMortal.src = 'assets/mc_mortal.png';
+    if (this.imgMortal.complete && this.imgMortal.naturalWidth > 0) {
+      this.mortalLoaded = true;
+    }
 
-    this.imgDivine = new Image();
-    this.imgDivine.src = 'assets/mc_divine.png';
     this.divineLoaded = false;
+    this.imgDivine = new Image();
     this.imgDivine.onload = () => { this.divineLoaded = true; };
+    this.imgDivine.src = 'assets/mc_divine.png';
+    if (this.imgDivine.complete && this.imgDivine.naturalWidth > 0) {
+      this.divineLoaded = true;
+    }
 
     // Particles and divine aura trails
     this.particles = [];
@@ -151,7 +157,7 @@ export class Player {
           x: this.x + (Math.random() - 0.5) * 26,
           y: this.y - 15 - this.zHeight + (Math.random() - 0.5) * 20,
           vx: (Math.random() - 0.5) * 25,
-          vy: -15 - Math.random() * 35, // Floating upward
+          vy: -15 - Math.random() * 35,
           life: 0.45,
           maxLife: 0.45,
           size: 2 + Math.random() * 2,
@@ -288,13 +294,12 @@ export class Player {
 
   renderShadow(ctx, camX, camY) {
     const rx = Math.floor(this.x - camX);
-    const ry = Math.floor(this.y + 14 - camY);
+    const ry = Math.floor(this.y + 12 - camY);
     const heightFactor = Math.max(0.35, 1.0 - (this.zHeight / 360));
 
     ctx.save();
-    ctx.fillStyle = `rgba(0, 0, 0, ${0.48 * heightFactor})`;
+    ctx.fillStyle = `rgba(0, 0, 0, ${0.5 * heightFactor})`;
     ctx.beginPath();
-    // In divine form, shadow expands with Kali's dark pedestal
     const baseW = this.isDivine ? 22 : 16;
     const baseH = this.isDivine ? 9 : 6;
     ctx.ellipse(rx, ry, baseW * heightFactor, baseH * heightFactor, 0, 0, Math.PI * 2);
@@ -324,14 +329,14 @@ export class Player {
 
     // 1. Divine Aura & Halo (When in Kali Divine Form)
     if (this.isDivine) {
-      this.drawDivineAura(ctx, cx, cy - 20 - bob);
+      this.drawDivineAura(ctx, cx, cy - 24 - bob);
     }
 
     // 2. Undertale Red SOUL Heart indicator when leaping
     if (this.isJumping) {
       ctx.fillStyle = '#ff0000';
       ctx.font = '12px monospace';
-      ctx.fillText('❤', cx - 5, cy - 42 - bob);
+      ctx.fillText('❤', cx - 5, cy - 48 - bob);
     }
 
     // 3. Render Sprite (Mortal or Divine)
@@ -341,10 +346,13 @@ export class Player {
       ctx.scale(-1, 1); // Flip horizontally for left facing
     }
 
-    if (this.isDivine && this.divineLoaded) {
-      // Maa Kali Divine Form Sprite (161x182 native, scaled to ~52x58 px)
-      const renderW = 54;
-      const renderH = 61;
+    const mortalReady = this.mortalLoaded || (this.imgMortal.complete && this.imgMortal.naturalWidth > 0);
+    const divineReady = this.divineLoaded || (this.imgDivine.complete && this.imgDivine.naturalWidth > 0);
+
+    if (this.isDivine && divineReady) {
+      // Maa Kali Divine Form Sprite (161x182 native, scaled to ~55x62 px)
+      const renderW = 55;
+      const renderH = 62;
       ctx.drawImage(
         this.imgDivine,
         -renderW / 2,
@@ -352,10 +360,10 @@ export class Player {
         renderW,
         renderH
       );
-    } else if (this.mortalLoaded) {
-      // Mortal Warrior Sprite (176x192 native, scaled to ~46x50 px)
-      const renderW = 46;
-      const renderH = 50;
+    } else if (mortalReady) {
+      // Mortal Warrior Sprite (176x192 native, scaled to ~50x54 px)
+      const renderW = 50;
+      const renderH = 54;
       ctx.drawImage(
         this.imgMortal,
         -renderW / 2,
@@ -364,8 +372,8 @@ export class Player {
         renderH
       );
     } else {
-      // Fallback procedural avatar if images still loading
-      this.drawFallbackAvatar(ctx, 0, -16 - bob);
+      // Robust procedural fallback avatar so character is never invisible
+      this.drawFallbackAvatar(ctx, 0, -22 - bob);
     }
 
     ctx.restore();
@@ -381,13 +389,13 @@ export class Player {
     const radius = 26 + pulse;
 
     // Outer crimson/indigo ethereal bloom
-    const bloom = ctx.createRadialGradient(x, y, 4, x, y, radius + 12);
+    const bloom = ctx.createRadialGradient(x, y, 4, x, y, radius + 14);
     bloom.addColorStop(0, 'rgba(255, 0, 85, 0.45)');
     bloom.addColorStop(0.5, 'rgba(56, 225, 255, 0.25)');
     bloom.addColorStop(1, 'rgba(0, 0, 0, 0)');
     ctx.fillStyle = bloom;
     ctx.beginPath();
-    ctx.arc(x, y, radius + 12, 0, Math.PI * 2);
+    ctx.arc(x, y, radius + 14, 0, Math.PI * 2);
     ctx.fill();
 
     // Sharp golden mandala ring
@@ -413,13 +421,16 @@ export class Player {
   }
 
   /**
-   * Fallback procedural avatar if images are pending
+   * Fallback procedural avatar
    */
   drawFallbackAvatar(ctx, x, y) {
     ctx.fillStyle = '#e86a17';
-    ctx.fillRect(x - 8, y, 16, 16);
+    ctx.fillRect(x - 8, y + 10, 16, 16);
     ctx.fillStyle = '#e8ad82';
-    ctx.fillRect(x - 6, y - 10, 12, 10);
+    ctx.fillRect(x - 6, y, 12, 10);
+    ctx.fillStyle = '#000';
+    ctx.fillRect(x - 4, y + 3, 2, 2);
+    ctx.fillRect(x + 2, y + 3, 2, 2);
   }
 
   toggleDimension() {}
