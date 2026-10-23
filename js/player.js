@@ -34,7 +34,7 @@ export class Player {
     this.coyoteMax = 0.12;
     this.jumpBufferTimer = 0;
     this.jumpBufferMax = 0.12;
-    this.canDoubleJump = true;
+    this.canDoubleJump = false; // Divine ability (Key X)
 
     // Landing animation trigger
     this.landingTimer = 0;
@@ -148,6 +148,7 @@ export class Player {
     this.isDivine = true;
     this.divineTimer = this.divineDuration;
     this.speed = this.divineSpeed;
+    this.canDoubleJump = true;
 
     const flash = document.getElementById('divineFlash');
     if (flash) {
@@ -175,6 +176,7 @@ export class Player {
     this.isDivine = false;
     this.divineTimer = 0.0;
     this.speed = this.baseSpeed;
+    this.canDoubleJump = false;
 
     for (let i = 0; i < 16; i++) {
       const angle = (i / 16) * Math.PI * 2;
@@ -304,7 +306,7 @@ export class Player {
           this.vy = impulse;
           this.isGrounded = false;
           this.currentPlatform = null;
-          this.canDoubleJump = true;
+          this.canDoubleJump = this.isDivine;
           this.spawnPoof(8);
         }
       } else if (this.canDoubleJump) {
@@ -345,7 +347,7 @@ export class Player {
         }
         this.isGrounded = true;
         this.currentPlatform = landed;
-        this.canDoubleJump = true;
+        this.canDoubleJump = this.isDivine;
         this.coyoteTimer = 0;
       } else if (this.isGrounded) {
         if (!level.isOnPlatform(this.x, this.y, this.isDivine)) {

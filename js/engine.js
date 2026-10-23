@@ -39,6 +39,9 @@ export class Engine {
     this.dialogueBox = document.getElementById('dialogueBox');
     this.dialogueText = document.getElementById('dialogueText');
     this.interactPrompt = document.getElementById('interactPrompt');
+    this.interactPromptText = document.getElementById('interactPromptText');
+    this.levelCompleteModal = document.getElementById('levelCompleteModal');
+    this.levelCompleted = false;
 
     this.resizeCanvas = this.resizeCanvas.bind(this);
     this.loop = this.loop.bind(this);
@@ -83,24 +86,38 @@ export class Engine {
   }
 
   update(dt) {
+    // 0. Handle Restart [R]
+    if (Input.isPressed('reset') || Input.isPressed('KeyR')) {
+      this.resetGame();
+      return;
+    }
+
     // 1. Check nearby inspection points (Undertale interaction)
     const nearby = this.level.getNearbyInteractable(this.player.x, this.player.y);
     this.currentInteractable = nearby;
 
     if (this.interactPrompt) {
-      if (nearby && !this.dialogueActive) {
+      if (nearby && !this.dialogueActive && !this.levelCompleted) {
+        if (this.interactPromptText && nearby.prompt) {
+          this.interactPromptText.textContent = nearby.prompt;
+        }
         this.interactPrompt.style.display = 'block';
       } else {
         this.interactPrompt.style.display = 'none';
       }
     }
 
-    // 2. Handle [Z] / [Enter] to open or advance dialogue
-    if (Input.isPressed('interact') || Input.isPressed('z') || Input.isPressed('enter')) {
+    // 2. Handle [E] / [Z] / [Enter] to open or advance dialogue & pull lever
+    if (Input.isPressed('interact') || Input.isPressed('e') || Input.isPressed('z') || Input.isPressed('enter')) {
       if (this.dialogueActive) {
         this.closeDialogue();
       } else if (nearby) {
-        this.openDialogue(nearby.text);
+        if (nearby.type === 'lever' && !this.level.lever.activated) {
+          this.level.pullLever();
+          this.openDialogue("* You pull the ancient stone lever.\n* Deep rumbling echoes through the submerged temple!\n* A massive carved stone pillar emerges from the watery abyss!");
+        } else {
+          this.openDialogue(nearby.text);
+        }
       }
     } else if (Input.isPressed('cancel')) {
       if (this.dialogueActive) {
@@ -112,11 +129,35 @@ export class Engine {
     this.player.update(dt, this.level, this.dialogueActive);
     this.level.update(this.player.x, this.player.y, dt, this.player.isDivine);
 
-    // 4. Update Camera viewport
+    // 4. Check Level Complete
+    if (!this.levelCompleted && this.level.checkLevelComplete(this.player.x, this.player.y)) {
+      this.levelCompleted = true;
+      if (this.levelCompleteModal) {
+        this.levelCompleteModal.classList.add('active');
+      }
+    }
+
+    // 5. Update Camera viewport
     this.updateCamera(dt);
 
-    // 5. Update Divine Form HUD State
+    // 6. Update Divine Form HUD State
     this.updateDivineHUD();
+  }
+
+  resetGame() {
+    this.level.reset();
+    this.player.x = 160;
+    this.player.y = 368;
+    this.player.vx = 0;
+    this.player.vy = 0;
+    this.player.isGrounded = true;
+    this.player.currentPlatform = null;
+    this.levelCompleted = false;
+    this.closeDialogue();
+    if (this.levelCompleteModal) {
+      this.levelCompleteModal.classList.remove('active');
+    }
+    this.player.spawnPoof(16);
   }
 
   updateCamera(dt) {
@@ -140,6 +181,13 @@ export class Engine {
     const t = 1.0 - Math.exp(-6.5 * dt);
     this.camX += (targetX - this.camX) * t;
     this.camY += (targetY - this.camY) * t;
+
+    // Apply Screen Shake when lever activates or pillar rises
+    if (this.level.cameraShake > 0) {
+      const shakeMag = this.level.cameraShake * 5.0;
+      this.camX += (Math.random() - 0.5) * shakeMag;
+      this.camY += (Math.random() - 0.5) * shakeMag;
+    }
   }
 
   updateDivineHUD() {

@@ -1,8 +1,8 @@
 /**
  * ==========================================================================
  * GLITCHVERSE - SUBMERGED RUINS TEMPLE MAP (js/level.js)
- * Features visual stone stepping platforms, dynamic Divine-only Golden Bridge,
- * strict pit bounds, and Undertale inspection landmarks.
+ * Features visual stone stepping platform (left), ancient Lever mechanism at top,
+ * widened pit fall space, rising ancient pillar, and Undertale inspection landmarks.
  * ==========================================================================
  */
 
@@ -34,37 +34,65 @@ export class Level {
     this.fullMapImg.src = 'assets/temple_map.png';
 
     // Platform definitions
-    // The Golden Bridge is only solid when Divine Form (X ability) is active!
+    // The fall space is increased (x=430 to 690) so MC cannot jump across directly!
     this.platforms = [
-      // 1. Lower Left Ground (Stretches from far left to x=462)
-      { id: 'floor_left', x1: 0, x2: 462, y: 368, oneWay: false },
+      // 1. Lower Left Ground (Ends at x=430 at the edge of the widened fall)
+      { id: 'floor_left', x1: 0, x2: 430, y: 368, oneWay: false },
 
-      // 2. Lower Right Ground (Stretches from x=548 to far right)
-      { id: 'floor_right', x1: 548, x2: 1024, y: 368, oneWay: false },
+      // 2. Lower Right Ground (Starts at x=690 past the widened fall)
+      { id: 'floor_right', x1: 690, x2: 1024, y: 368, oneWay: false },
 
-      // 3. Left Carved Stepping Platform (Visual stone ledge at y=270)
+      // 3. Left Carved Stepping Platform (Visual stone ledge at y=270 to reach the upper balcony)
       { id: 'pillar_step_left', x1: 172, x2: 248, y: 270, oneWay: true },
 
-      // 4. Right Carved Stepping Platform (Visual stone ledge at y=275)
-      { id: 'pillar_step_right', x1: 640, x2: 710, y: 275, oneWay: true },
+      // (Right stepping platform tile removed as requested in Image 3!)
 
-      // 5. Upper Left Balcony (Overgrown roof with glowing lotus)
+      // 4. Upper Left Balcony (Overgrown roof with the ancient lever)
       { id: 'balcony_left', x1: 220, x2: 388, y: 172, oneWay: true },
 
-      // 6. Upper Right Temple Balcony (Temple roof with carved statues)
+      // 5. Upper Right Temple Balcony (Temple roof with carved statues)
       { id: 'balcony_right', x1: 728, x2: 1024, y: 172, oneWay: true },
 
-      // 7. The Golden Constellation Bridge (Only active in Divine Form)
+      // 6. The Golden Constellation Bridge (Only active in Divine Form [X])
       { id: 'golden_bridge', x1: 388, x2: 728, y: 172, oneWay: true, divineOnly: true }
     ];
 
-    // Pit Side Walls (Prevent phasing into side of platforms below y=368)
+    // Pit Side Walls (Widened from x=430 to 690)
     this.pitWalls = {
-      leftWallX: 462,
-      rightWallX: 548,
+      leftWallX: 430,
+      rightWallX: 690,
       wallTopY: 368,
       wallBottomY: 434
     };
+
+    // Ancient Lever at the top balcony (x=330, y=172)
+    this.lever = {
+      x: 330,
+      y: 172,
+      width: 24,
+      height: 30,
+      activated: false,
+      handleAngle: -0.55,       // radians: negative = left-up, positive = right-down
+      targetAngle: -0.55,
+      radius: 46
+    };
+
+    // Ancient Stone Pillar in the center of the fall space
+    this.pillar = {
+      x1: 528,
+      x2: 592,
+      width: 64,
+      y: 445,                   // Submerged below water line (y=368..434)
+      targetY: 445,
+      raisedY: 360,             // Raised platform level
+      isRaising: false,
+      isRaised: false,
+      waterFoamTimer: 0
+    };
+
+    this.pillarWaterSplashes = [];
+    this.cameraShake = 0;
+    this.isCompleted = false;
 
     // Undertale Inspectable Landmarks
     this.interactables = [
@@ -74,7 +102,7 @@ export class Level {
       },
       {
         x: 355, y: 172, radius: 40,
-        text: "* Sacred blue lotus atop the ruined balcony.\n* A faint golden aura shimmers across the empty sky toward the east."
+        text: "* Sacred blue lotus atop the ruined balcony.\n* An ancient mechanism overlooks the vast chasm below."
       },
       {
         x: 558, y: 172, radius: 55,
@@ -128,23 +156,83 @@ export class Level {
 
   initBridgeStars(count) {
     this.bridgeStars = [];
+    const xMin = 390;
+    const xMax = 726;
+    const yCenter = 172;
+
     for (let i = 0; i < count; i++) {
       this.bridgeStars.push({
-        x: 388 + Math.random() * (728 - 388),
-        y: 168 + (Math.random() - 0.5) * 8,
-        size: 1.5 + Math.random() * 2,
-        twinkleSpeed: 2 + Math.random() * 3,
+        x: xMin + Math.random() * (xMax - xMin),
+        y: yCenter - 8 + Math.random() * 16,
+        size: 1 + Math.random() * 2,
+        twinkleSpeed: 2 + Math.random() * 4,
         phase: Math.random() * Math.PI * 2
       });
     }
   }
 
   /**
+   * Pulls the ancient lever at the top balcony, triggering screen rumble
+   * and raising the stone pillar from the watery abyss.
+   */
+  pullLever() {
+    if (this.lever.activated) return false;
+    this.lever.activated = true;
+    this.lever.targetAngle = 0.55;
+    this.pillar.targetY = this.pillar.raisedY;
+    this.pillar.isRaising = true;
+    this.cameraShake = 0.85;
+
+    // Burst of celestial spark particles
+    for (let i = 0; i < 22; i++) {
+      const a = (i / 22) * Math.PI * 2;
+      this.spores.push({
+        x: this.lever.x,
+        y: this.lever.y - 14,
+        size: 2.5,
+        vx: Math.cos(a) * (30 + Math.random() * 60),
+        vy: Math.sin(a) * (30 + Math.random() * 60),
+        alpha: 1.0,
+        color: i % 2 === 0 ? '#ffd700' : '#4eedff'
+      });
+    }
+    return true;
+  }
+
+  reset() {
+    this.lever.activated = false;
+    this.lever.handleAngle = -0.55;
+    this.lever.targetAngle = -0.55;
+    this.pillar.y = 445;
+    this.pillar.targetY = 445;
+    this.pillar.isRaising = false;
+    this.pillar.isRaised = false;
+    this.cameraShake = 0;
+    this.isCompleted = false;
+  }
+
+  /**
    * Collision check: Given previous and current foot position,
    * returns the platform landed upon, if any.
    * Golden bridge only lands if isDivine is true!
+   * Raised pillar lands once surfaced above water!
    */
   checkPlatformLanding(prevY, currY, x, droppingThrough = false, isDivine = false) {
+    // Dynamic raised pillar platform
+    if (this.pillar.y <= 380) {
+      if (x >= this.pillar.x1 && x <= this.pillar.x2) {
+        if (!droppingThrough && prevY <= this.pillar.y + 6 && currY >= this.pillar.y - 2) {
+          return {
+            id: 'raised_pillar',
+            x1: this.pillar.x1,
+            x2: this.pillar.x2,
+            y: Math.round(this.pillar.y),
+            oneWay: true
+          };
+        }
+      }
+    }
+
     for (const plat of this.platforms) {
       if (plat.divineOnly && !isDivine) {
         continue; // Golden bridge does not exist in mortal form!
@@ -167,6 +255,18 @@ export class Level {
    * Check if foot at (x, y) is on a valid platform
    */
   isOnPlatform(x, y, isDivine = false) {
+    if (this.pillar.y <= 380) {
+      if (x >= this.pillar.x1 - 2 && x <= this.pillar.x2 + 2 && Math.abs(y - this.pillar.y) <= 4) {
+        return {
+          id: 'raised_pillar',
+          x1: this.pillar.x1,
+          x2: this.pillar.x2,
+          y: Math.round(this.pillar.y),
+          oneWay: true
+        };
+      }
+    }
+
     for (const plat of this.platforms) {
       if (plat.divineOnly && !isDivine) {
         continue;
@@ -180,6 +280,10 @@ export class Level {
 
   resolvePitWallCollision(x, y) {
     if (y > this.pitWalls.wallTopY + 2 && y <= this.pitWalls.wallBottomY) {
+      // If player is on or near the raised pillar, allow standing on it without pushback
+      if (this.pillar.y <= 380 && x >= this.pillar.x1 - 6 && x <= this.pillar.x2 + 6) {
+        return x;
+      }
       if (x < this.pitWalls.leftWallX + 8 && x > this.pitWalls.leftWallX - 10) {
         return this.pitWalls.leftWallX + 8;
       }
@@ -191,45 +295,95 @@ export class Level {
   }
 
   getNearbyInteractable(px, py) {
+    // 1. Check Ancient Lever at the top balcony first
+    const distToLever = Math.hypot(px - this.lever.x, py - (this.lever.y - 12));
+    if (distToLever <= this.lever.radius) {
+      return {
+        type: 'lever',
+        x: this.lever.x,
+        y: this.lever.y - 12,
+        activated: this.lever.activated,
+        prompt: this.lever.activated ? '[E] LEVER (ENGAGED)' : '[E] PULL LEVER',
+        text: this.lever.activated
+          ? "* The ancient lever is fully engaged.\n* The sacred stone pillar stands proud in the chasm below."
+          : "* An ancient bronze and sandstone mechanism overlooking the chasm.\n* Pull the lever to activate the submerged temple ruins."
+      };
+    }
+
+    // 2. Check Other Undertale Inspection Landmarks
     for (const item of this.interactables) {
       const dist = Math.hypot(px - item.x, py - item.y);
       if (dist <= item.radius) {
-        return item;
+        return {
+          type: 'inspection',
+          x: item.x,
+          y: item.y,
+          prompt: '[E] CHECK',
+          text: item.text
+        };
       }
     }
     return null;
   }
 
+  checkLevelComplete(px, py) {
+    if (this.isCompleted) return false;
+    // When MC reaches the far right sanctum portal (x >= 925, y >= 340)
+    if (px >= 925 && py >= 340) {
+      this.isCompleted = true;
+      return true;
+    }
+    return false;
+  }
+
   update(playerX, playerY, dt, isDivine = false) {
     this.animTime += dt;
+
+    // Decay camera shake
+    if (this.cameraShake > 0) {
+      this.cameraShake = Math.max(0, this.cameraShake - dt * 2.0);
+    }
+
+    // Animate Lever handle angle
+    this.lever.handleAngle += (this.lever.targetAngle - this.lever.handleAngle) * Math.min(1.0, dt * 8.0);
+
+    // Animate Rising Pillar
+    if (this.pillar.isRaising) {
+      const diff = this.pillar.targetY - this.pillar.y;
+      if (Math.abs(diff) > 0.4) {
+        this.pillar.y += diff * Math.min(1.0, dt * 2.5);
+        this.cameraShake = Math.max(this.cameraShake, 0.35);
+
+        // Water splash bubbles & spray around y=368
+        this.pillar.waterFoamTimer += dt;
+        if (this.pillar.waterFoamTimer > 0.05) {
+          this.pillar.waterFoamTimer = 0;
+          this.spawnPillarSplash();
+        }
+      } else {
+        this.pillar.y = this.pillar.targetY;
+        this.pillar.isRaising = false;
+        this.pillar.isRaised = true;
+      }
+    }
+
+    // Update pillar water splashes
+    for (let i = this.pillarWaterSplashes.length - 1; i >= 0; i--) {
+      const sp = this.pillarWaterSplashes[i];
+      sp.x += sp.vx * dt;
+      sp.y += sp.vy * dt;
+      sp.vy += 400 * dt; // gravity on water droplets
+      sp.life -= dt;
+      if (sp.life <= 0) {
+        this.pillarWaterSplashes.splice(i, 1);
+      }
+    }
 
     // Smooth bridge opacity fade in/out
     const targetBridgeOpacity = isDivine ? 1.0 : 0.0;
     this.bridgeOpacity += (targetBridgeOpacity - this.bridgeOpacity) * Math.min(1.0, dt * 6.0);
 
-    const minZoomW = window.innerWidth / this.width;
-    const minZoomH = window.innerHeight / this.height;
-    const desiredZoom = Math.min(2.5, Math.max(1.0, Math.min(minZoomW, minZoomH) * 1.05));
-    this.camera.zoom = desiredZoom;
-
-    const viewW = window.innerWidth / this.camera.zoom;
-    const viewH = window.innerHeight / this.camera.zoom;
-    this.camera.width = viewW;
-    this.camera.height = viewH;
-
-    this.camera.targetX = playerX - viewW / 2;
-    this.camera.targetY = playerY - viewH / 2 - 20;
-
-    const maxCamX = Math.max(0, this.width - viewW);
-    const maxCamY = Math.max(0, this.height - viewH);
-
-    this.camera.targetX = Math.max(0, Math.min(this.camera.targetX, maxCamX));
-    this.camera.targetY = Math.max(0, Math.min(this.camera.targetY, maxCamY));
-
-    const t = 1.0 - Math.exp(-this.camera.lerpSpeed * dt);
-    this.camera.x += (this.camera.targetX - this.camera.x) * t;
-    this.camera.y += (this.camera.targetY - this.camera.y) * t;
-
+    // Update floating spores / underwater bubbles
     for (const s of this.spores) {
       s.x += s.vx * dt;
       s.y += s.vy * dt;
@@ -237,6 +391,22 @@ export class Level {
         s.y = this.height;
         s.x = Math.random() * this.width;
       }
+    }
+  }
+
+  spawnPillarSplash() {
+    for (let i = 0; i < 4; i++) {
+      const side = Math.random() > 0.5 ? this.pillar.x1 : this.pillar.x2;
+      this.pillarWaterSplashes.push({
+        x: side + (Math.random() - 0.5) * 8,
+        y: 368 + (Math.random() - 0.5) * 4,
+        vx: (Math.random() - 0.5) * 80,
+        vy: -60 - Math.random() * 80,
+        life: 0.35 + Math.random() * 0.25,
+        maxLife: 0.6,
+        size: 1.5 + Math.random() * 2,
+        color: Math.random() > 0.4 ? '#4eedff' : '#e0f8ff'
+      });
     }
   }
 
@@ -254,24 +424,205 @@ export class Level {
       ctx.drawImage(this.fullMapImg, 0, 0, this.width, this.height);
     }
 
-    // 2. Render God-Rays
-    this.renderGodRays(ctx);
+    // 2. Render Widened Fall Space (Deep sunken water abyss from x=430 to 690)
+    this.renderFallSpace(ctx);
 
-    // 3. Render Visual Carved Stone Stepping Platforms (Left: y=270, Right: y=275)
+    // 3. Render Rising Ancient Pillar (Inside the fall space)
+    this.renderRisingPillar(ctx);
+
+    // 4. Render Left Stepping Platform (Only left step at y=270, right step removed!)
     this.renderSteppingPlatforms(ctx);
 
-    // 4. Render Golden Constellation Bridge (ONLY visible when Divine Form is active)
+    // 5. Render Ancient Lever on the Top Balcony (y=172)
+    this.renderLever(ctx);
+
+    // 6. Render God-Rays
+    this.renderGodRays(ctx);
+
+    // 7. Render Golden Constellation Bridge (ONLY visible when Divine Form [X] is active)
     this.renderGoldenBridge(ctx, isDivine);
 
-    // 5. Render Blue Lotus Auras
+    // 8. Render Sanctum Exit Portal
+    this.renderSanctumExit(ctx);
+
+    // 9. Render Blue Lotus Auras
     this.renderLotusAuras(ctx);
 
     ctx.restore();
   }
 
   /**
-   * Renders the visual carved sandstone stepping platform at y=270 on the left
-   * and at y=275 on the right so jumping feels grounded with zero floating!
+   * Renders the widened fall space (x=430 to 690, y=368 to 434) with
+   * deep twilight water, submerged ruins, water ripples, and foam edges.
+   */
+  renderFallSpace(ctx) {
+    ctx.save();
+
+    const fx1 = 430;
+    const fx2 = 690;
+    const fw = fx2 - fx1;
+    const fy = 368;
+    const fh = 434 - fy;
+
+    // 1. Deep sunken water gradient
+    const waterGrad = ctx.createLinearGradient(fx1, fy, fx1, fy + fh);
+    waterGrad.addColorStop(0, '#0e2038');
+    waterGrad.addColorStop(0.35, '#091526');
+    waterGrad.addColorStop(0.8, '#040b15');
+    waterGrad.addColorStop(1, '#02050b');
+    ctx.fillStyle = waterGrad;
+    ctx.fillRect(fx1, fy, fw, fh);
+
+    // 2. Submerged temple blocks beneath the water
+    ctx.fillStyle = 'rgba(25, 42, 60, 0.45)';
+    ctx.fillRect(fx1 + 20, fy + 24, 70, fh - 24);
+    ctx.fillRect(fx2 - 80, fy + 18, 65, fh - 18);
+
+    // 3. Left & Right cliff walls descending into the water
+    // Left cliff face
+    const leftWallGrad = ctx.createLinearGradient(fx1 - 4, fy, fx1 + 10, fy);
+    leftWallGrad.addColorStop(0, '#3a3028');
+    leftWallGrad.addColorStop(1, 'rgba(10, 20, 35, 0.85)');
+    ctx.fillStyle = leftWallGrad;
+    ctx.fillRect(fx1 - 2, fy, 12, fh);
+
+    // Right cliff face
+    const rightWallGrad = ctx.createLinearGradient(fx2 - 10, fy, fx2 + 4, fy);
+    rightWallGrad.addColorStop(0, 'rgba(10, 20, 35, 0.85)');
+    rightWallGrad.addColorStop(1, '#3a3028');
+    ctx.fillStyle = rightWallGrad;
+    ctx.fillRect(fx2 - 10, fy, 12, fh);
+
+    // 4. Water surface ripples and foam line at y=368
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const waveTime = this.animTime * 3.0;
+
+    ctx.strokeStyle = 'rgba(78, 237, 255, 0.55)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    for (let x = fx1; x <= fx2; x += 6) {
+      const dy = Math.sin((x * 0.08) + waveTime) * 1.5;
+      if (x === fx1) ctx.moveTo(x, fy + dy);
+      else ctx.lineTo(x, fy + dy);
+    }
+    ctx.stroke();
+
+    // Secondary soft turquoise water glow
+    const surfaceGlow = ctx.createLinearGradient(fx1, fy - 4, fx1, fy + 12);
+    surfaceGlow.addColorStop(0, 'rgba(78, 237, 255, 0.25)');
+    surfaceGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = surfaceGlow;
+    ctx.fillRect(fx1, fy - 2, fw, 14);
+    ctx.restore();
+
+    ctx.restore();
+  }
+
+  /**
+   * Renders the Ancient Stone Pillar in the center of the fall space.
+   * Starts submerged below water (y=445) and rises to y=360 when the lever is pulled.
+   */
+  renderRisingPillar(ctx) {
+    if (this.pillar.y > 440) return; // Completely submerged
+
+    ctx.save();
+    const px = this.pillar.x1;
+    const py = Math.round(this.pillar.y);
+    const pw = this.pillar.width;
+    const bottomY = 434;
+
+    // 1. Fluted Pillar Shaft (from py+14 down to bottomY)
+    const shaftX = px + 6;
+    const shaftW = pw - 12;
+    const shaftH = Math.max(0, bottomY - (py + 14));
+
+    if (shaftH > 0) {
+      const shaftGrad = ctx.createLinearGradient(shaftX, 0, shaftX + shaftW, 0);
+      shaftGrad.addColorStop(0, '#3e3225');
+      shaftGrad.addColorStop(0.2, '#66533f');
+      shaftGrad.addColorStop(0.5, '#7f6b53');
+      shaftGrad.addColorStop(0.8, '#5b4a37');
+      shaftGrad.addColorStop(1, '#2c2217');
+      ctx.fillStyle = shaftGrad;
+      ctx.fillRect(shaftX, py + 14, shaftW, shaftH);
+
+      // Fluted stone grooves
+      ctx.fillStyle = 'rgba(20, 15, 10, 0.45)';
+      for (let gx = shaftX + 6; gx < shaftX + shaftW - 4; gx += 8) {
+        ctx.fillRect(gx, py + 14, 2, shaftH);
+      }
+
+      // Ancient horizontal stone bands with Vedic relief pattern
+      ctx.fillStyle = '#9e8564';
+      ctx.fillRect(shaftX, py + 26, shaftW, 2);
+      ctx.fillRect(shaftX, py + 42, shaftW, 2);
+    }
+
+    // 2. Carved Stone Pillar Capital (Platform Top)
+    const capGrad = ctx.createLinearGradient(px, py, px, py + 14);
+    capGrad.addColorStop(0, '#857057');
+    capGrad.addColorStop(0.3, '#9d866a');
+    capGrad.addColorStop(0.7, '#63513e');
+    capGrad.addColorStop(1, '#3b2f22');
+    ctx.fillStyle = capGrad;
+    ctx.fillRect(px, py, pw, 14);
+
+    // Mossy walking surface
+    ctx.fillStyle = '#7a8c54';
+    ctx.fillRect(px, py, pw, 2);
+    ctx.fillStyle = '#bda884';
+    ctx.fillRect(px + 2, py + 2, pw - 4, 1);
+
+    // Carved Surya Sun Rune on the capital face
+    const runeX = px + pw / 2;
+    const runeY = py + 7;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const runePulse = this.pillar.isRaised ? (0.6 + 0.4 * Math.sin(this.animTime * 3.5)) : 0.3;
+    ctx.fillStyle = `rgba(255, 215, 0, ${runePulse})`;
+    ctx.beginPath();
+    ctx.arc(runeX, runeY, 3, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Small radial rune rays
+    ctx.strokeStyle = `rgba(255, 215, 0, ${runePulse * 0.8})`;
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI + (this.animTime * 0.5);
+      ctx.beginPath();
+      ctx.moveTo(runeX + Math.cos(a) * 4, runeY + Math.sin(a) * 4);
+      ctx.lineTo(runeX + Math.cos(a) * 6, runeY + Math.sin(a) * 6);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // 3. Water dripping and splash particles at water line
+    if (this.pillar.isRaising || this.pillar.waterFoamTimer > 0) {
+      for (const sp of this.pillarWaterSplashes) {
+        ctx.fillStyle = sp.color;
+        ctx.globalAlpha = Math.max(0, sp.life / sp.maxLife);
+        ctx.beginPath();
+        ctx.arc(sp.x, sp.y, sp.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // Waterline foam ring
+    if (py < 368) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = 'rgba(180, 240, 255, 0.45)';
+      ctx.fillRect(shaftX - 3, 366, shaftW + 6, 3);
+      ctx.restore();
+    }
+
+    ctx.restore();
+  }
+
+  /**
+   * Renders the visual carved sandstone stepping platform at y=270 on the LEFT ONLY.
+   * (The right stepping platform tile has been removed as requested in Image 3!)
    */
   renderSteppingPlatforms(ctx) {
     ctx.save();
@@ -311,26 +662,100 @@ export class Level {
     ctx.fillRect(lx + 2, ly + 4, 2, 4);
     ctx.fillRect(lx + lw - 4, ly + 4, 2, 4);
 
-    // Right Stepping Platform (x1=640, x2=710, y=275, w=70, h=14)
-    const rx = 640;
-    const ry = 275;
-    const rw = 70;
-    const rh = 14;
+    ctx.restore();
+  }
 
-    ctx.fillStyle = 'rgba(10, 8, 20, 0.55)';
-    ctx.fillRect(rx - 2, ry + rh - 2, rw + 4, 6);
+  /**
+   * Renders the Ancient Lever at the top balcony (x=330, y=172).
+   */
+  renderLever(ctx) {
+    ctx.save();
 
-    ctx.fillStyle = slabGrad;
-    ctx.fillRect(rx, ry, rw, rh);
+    const lx = this.lever.x;
+    const ly = this.lever.y;
 
-    ctx.fillStyle = '#8f9a65';
-    ctx.fillRect(rx, ry, rw, 2);
-    ctx.fillStyle = '#bfa882';
-    ctx.fillRect(rx + 2, ry + 2, rw - 4, 1);
+    // 1. Pedestal Base (carved stone block)
+    const baseW = 18;
+    const baseH = 12;
+    const baseGrad = ctx.createLinearGradient(lx - baseW / 2, ly - baseH, lx + baseW / 2, ly);
+    baseGrad.addColorStop(0, '#604f3d');
+    baseGrad.addColorStop(1, '#34291e');
+    ctx.fillStyle = baseGrad;
+    ctx.fillRect(lx - baseW / 2, ly - baseH, baseW, baseH);
 
-    ctx.strokeStyle = '#c89e3a';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(rx + 4, ry + 4, rw - 8, rh - 7);
+    // Golden mechanical bracket
+    ctx.fillStyle = '#b8903c';
+    ctx.fillRect(lx - 4, ly - baseH - 4, 8, 6);
+
+    // Central circular pivot rune
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const runeColor = this.lever.activated ? '#ffd700' : '#4eedff';
+    ctx.fillStyle = runeColor;
+    ctx.beginPath();
+    ctx.arc(lx, ly - baseH - 1, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // 2. Lever Arm Handle
+    ctx.save();
+    ctx.translate(lx, ly - baseH - 1);
+    ctx.rotate(this.lever.handleAngle);
+
+    // Lever rod (bronze)
+    ctx.strokeStyle = '#d4aa48';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(0, -22);
+    ctx.stroke();
+
+    // Lotus handle knob
+    ctx.fillStyle = this.lever.activated ? '#ffd700' : '#ff4a75';
+    ctx.beginPath();
+    ctx.arc(0, -23, 4, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+
+    // 3. Gentle golden aura when activated
+    if (this.lever.activated) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const glowGrad = ctx.createRadialGradient(lx, ly - baseH - 10, 2, lx, ly - baseH - 10, 24);
+      glowGrad.addColorStop(0, 'rgba(255, 215, 0, 0.45)');
+      glowGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = glowGrad;
+      ctx.beginPath();
+      ctx.arc(lx, ly - baseH - 10, 24, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    ctx.restore();
+  }
+
+  /**
+   * Renders the Sanctum Exit Altar at x=950, y=368.
+   */
+  renderSanctumExit(ctx) {
+    ctx.save();
+    const sx = 950;
+    const sy = 368;
+
+    // Glowing victory portal arches
+    ctx.globalCompositeOperation = 'lighter';
+    const pulse = 0.5 + 0.5 * Math.sin(this.animTime * 2.5);
+
+    const archGrad = ctx.createRadialGradient(sx, sy - 40, 6, sx, sy - 40, 52);
+    archGrad.addColorStop(0, `rgba(255, 235, 120, ${0.45 * pulse})`);
+    archGrad.addColorStop(0.6, `rgba(255, 120, 60, ${0.2 * pulse})`);
+    archGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+    ctx.fillStyle = archGrad;
+    ctx.beginPath();
+    ctx.arc(sx, sy - 40, 52, 0, Math.PI * 2);
+    ctx.fill();
 
     ctx.restore();
   }
