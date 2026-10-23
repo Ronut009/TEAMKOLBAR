@@ -17,12 +17,15 @@
   <div class="crt-scanlines"></div>
   <div class="crt-vignette"></div>
 
+  <!-- Divine Transformation Fullscreen Flash Effect -->
+  <div class="divine-flash" id="divineFlash"></div>
+
   <!-- Minimalist Undertale Bottom HUD -->
   <div class="undertale-hud" id="hud">
     <div class="hud-character">
-      <span class="soul-heart">❤</span>
-      <span class="hud-name">CHARA</span>
-      <span class="hud-lv">LV 1</span>
+      <span class="soul-heart" id="soulHeart">❤</span>
+      <span class="hud-name" id="hudName">CHARA</span>
+      <span class="hud-lv" id="hudLv">LV 1</span>
     </div>
     <div class="hud-hp-group">
       <span class="hud-hp-label">HP</span>
@@ -30,6 +33,15 @@
         <div class="hud-hp-fill" id="hpFill" style="width: 100%;"></div>
       </div>
       <span class="hud-hp-num" id="hpNum">20 / 20</span>
+    </div>
+
+    <!-- Divine Form 6-Second Gauge -->
+    <div class="divine-status-group" id="divineGroup">
+      <span class="divine-label" id="divineLabel">[X] DIVINE</span>
+      <div class="divine-bar-track">
+        <div class="divine-bar-fill" id="divineFill" style="width: 0%;"></div>
+      </div>
+      <span class="divine-time" id="divineTime"></span>
     </div>
   </div>
 

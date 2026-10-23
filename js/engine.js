@@ -1,7 +1,7 @@
 /**
  * ==========================================================================
  * GLITCHVERSE - CORE ENGINE (js/engine.js)
- * Fullscreen dynamic viewport, Y-sorted rendering, and Undertale dialogue system.
+ * Fullscreen dynamic viewport, Y-sorted rendering, and Undertale HUD binding.
  * ==========================================================================
  */
 
@@ -25,11 +25,15 @@ export class Engine {
     this.currentInteractable = null;
 
     // Cached DOM elements
+    this.hudEl = document.getElementById('hud');
+    this.hudName = document.getElementById('hudName');
+    this.divineFill = document.getElementById('divineFill');
+    this.divineTime = document.getElementById('divineTime');
+    this.divineLabel = document.getElementById('divineLabel');
+
     this.dialogueBox = document.getElementById('dialogueBox');
     this.dialogueText = document.getElementById('dialogueText');
     this.interactPrompt = document.getElementById('interactPrompt');
-    this.hpFill = document.getElementById('hpFill');
-    this.hpNum = document.getElementById('hpNum');
 
     this.resizeCanvas = this.resizeCanvas.bind(this);
     this.loop = this.loop.bind(this);
@@ -94,21 +98,38 @@ export class Engine {
     // 2. Handle [Z] / [Enter] to open or advance dialogue
     if (Input.isPressed('interact') || Input.isPressed('z') || Input.isPressed('enter')) {
       if (this.dialogueActive) {
-        // Close dialogue
         this.closeDialogue();
       } else if (nearby) {
-        // Open dialogue with text
         this.openDialogue(nearby.text);
-      }
-    } else if (Input.isPressed('cancel') || Input.isPressed('x')) {
-      if (this.dialogueActive) {
-        this.closeDialogue();
       }
     }
 
     // 3. Update player and level
     this.player.update(dt, this.level, this.dialogueActive);
     this.level.update(this.player.x, this.player.y, dt);
+
+    // 4. Update Divine Form HUD State
+    this.updateDivineHUD();
+  }
+
+  updateDivineHUD() {
+    if (!this.hudEl) return;
+
+    if (this.player.isDivine) {
+      this.hudEl.classList.add('divine-mode');
+      if (this.hudName) this.hudName.textContent = 'KALI';
+      if (this.divineLabel) this.divineLabel.textContent = 'DIVINE FORM';
+
+      const pct = Math.max(0, (this.player.divineTimer / this.player.divineDuration) * 100);
+      if (this.divineFill) this.divineFill.style.width = pct + '%';
+      if (this.divineTime) this.divineTime.textContent = this.player.divineTimer.toFixed(1) + 's';
+    } else {
+      this.hudEl.classList.remove('divine-mode');
+      if (this.hudName) this.hudName.textContent = 'CHARA';
+      if (this.divineLabel) this.divineLabel.textContent = '[X] DIVINE';
+      if (this.divineFill) this.divineFill.style.width = '0%';
+      if (this.divineTime) this.divineTime.textContent = '';
+    }
   }
 
   openDialogue(text) {
@@ -157,7 +178,7 @@ export class Engine {
       item.render();
     }
 
-    // 4. Aerial Particles
+    // 4. Aerial Particles & Divine Trails
     this.player.renderParticles(ctx, cam.x, cam.y);
 
     // 5. Atmospheric Lighting & Ambient Sparks
