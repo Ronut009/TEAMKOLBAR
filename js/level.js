@@ -1,8 +1,9 @@
 /**
  * ==========================================================================
  * GLITCHVERSE - SUBMERGED RUINS TEMPLE MAP (js/level.js)
- * Features visual stone stepping platform (left), ancient Lever mechanism at top,
- * widened pit fall space, rising ancient pillar, and Undertale inspection landmarks.
+ * Features visual stone stepping platform (left), celestial Golden Bridge [X],
+ * Ancient Lever on RIGHT TOP balcony, widened pit fall space, rising ancient pillar,
+ * and Black Space Doorway (Level Complete).
  * ==========================================================================
  */
 
@@ -47,10 +48,10 @@ export class Level {
 
       // (Right stepping platform tile removed as requested in Image 3!)
 
-      // 4. Upper Left Balcony (Overgrown roof with the ancient lever)
+      // 4. Upper Left Balcony (Overgrown roof platform)
       { id: 'balcony_left', x1: 220, x2: 388, y: 172, oneWay: true },
 
-      // 5. Upper Right Temple Balcony (Temple roof with carved statues)
+      // 5. Upper Right Temple Balcony (Temple roof where the ancient lever is located!)
       { id: 'balcony_right', x1: 728, x2: 1024, y: 172, oneWay: true },
 
       // 6. The Golden Constellation Bridge (Only active in Divine Form [X])
@@ -65,9 +66,10 @@ export class Level {
       wallBottomY: 434
     };
 
-    // Ancient Lever at the top balcony (x=330, y=172)
+    // Ancient Lever on the RIGHT TOP balcony (x=785, y=172)
+    // Reached by crossing the invisible golden bridge using Divine Form [X]!
     this.lever = {
-      x: 330,
+      x: 785,
       y: 172,
       width: 24,
       height: 30,
@@ -102,19 +104,19 @@ export class Level {
       },
       {
         x: 355, y: 172, radius: 40,
-        text: "* Sacred blue lotus atop the ruined balcony.\n* An ancient mechanism overlooks the vast chasm below."
+        text: "* Sacred blue lotus atop the ruined left balcony.\n* An invisible celestial bridge spans the sky to the east.\n* Awaken your Divine Form [X] to cross to the upper mechanism!"
       },
       {
         x: 558, y: 172, radius: 55,
-        text: "* The Bridge of Constellations.\n* Dormant in the mortal realm. Only the Divine Avatar [X] can awaken its golden stars."
+        text: "* The Bridge of Constellations.\n* Dormant in mortal form. Awaken your Divine Avatar [X] to reveal the bridge and cross to the right balcony."
       },
       {
-        x: 725, y: 172, radius: 40,
-        text: "* A lotus offering at the entrance to the upper sanctuary.\n* It radiates a soothing celestial warmth."
+        x: 740, y: 172, radius: 40,
+        text: "* Upper Right Temple Balcony.\n* The ancient lever mechanism awaits ahead!"
       },
       {
-        x: 875, y: 368, radius: 55,
-        text: "* The Sunken Temple Sanctum.\n* Stone carvings of ancient deities watch in silent vigil."
+        x: 898, y: 368, radius: 45,
+        text: "* The Dark Temple Sanctum.\n* A passage shrouded in eternal black space."
       }
     ];
 
@@ -172,7 +174,7 @@ export class Level {
   }
 
   /**
-   * Pulls the ancient lever at the top balcony, triggering screen rumble
+   * Pulls the ancient lever on the RIGHT TOP balcony, triggering screen rumble
    * and raising the stone pillar from the watery abyss.
    */
   pullLever() {
@@ -295,7 +297,7 @@ export class Level {
   }
 
   getNearbyInteractable(px, py) {
-    // 1. Check Ancient Lever at the top balcony first
+    // 1. Check Ancient Lever on the RIGHT TOP balcony first (x=785, y=172)
     const distToLever = Math.hypot(px - this.lever.x, py - (this.lever.y - 12));
     if (distToLever <= this.lever.radius) {
       return {
@@ -305,12 +307,24 @@ export class Level {
         activated: this.lever.activated,
         prompt: this.lever.activated ? '[E] LEVER (ENGAGED)' : '[E] PULL LEVER',
         text: this.lever.activated
-          ? "* The ancient lever is fully engaged.\n* The sacred stone pillar stands proud in the chasm below."
-          : "* An ancient bronze and sandstone mechanism overlooking the chasm.\n* Pull the lever to activate the submerged temple ruins."
+          ? "* The ancient lever is fully engaged.\n* Deep in the chasm, the sacred stone pillar stands raised!\n* The black sanctum doorway below is now open. Step into the darkness to complete the level!"
+          : "* An ancient mechanism atop the east temple balcony.\n* Pull the lever to raise the pillar and unlock the dark sanctum doorway!"
       };
     }
 
-    // 2. Check Other Undertale Inspection Landmarks
+    // 2. Check Black Space Doorway (x=898, y=368)
+    const distToDoor = Math.hypot(px - 898, py - 368);
+    if (distToDoor <= 40 && !this.lever.activated) {
+      return {
+        type: 'doorway_locked',
+        x: 898,
+        y: 368,
+        prompt: '[E] DOORWAY',
+        text: "* The ancient temple entrance is cloaked in deep black shadow.\n* You must cross the celestial bridge [X] to the right balcony and pull the lever to open it!"
+      };
+    }
+
+    // 3. Check Other Undertale Inspection Landmarks
     for (const item of this.interactables) {
       const dist = Math.hypot(px - item.x, py - item.y);
       if (dist <= item.radius) {
@@ -326,10 +340,13 @@ export class Level {
     return null;
   }
 
+  /**
+   * Checks if player has walked into the black space doorway (x=885..918, y=368)
+   * to complete the level, requiring the lever on the right top to be activated first!
+   */
   checkLevelComplete(px, py) {
     if (this.isCompleted) return false;
-    // When MC reaches the far right sanctum portal (x >= 925, y >= 340)
-    if (px >= 925 && py >= 340) {
+    if (this.lever.activated && px >= 885 && px <= 918 && py >= 355 && py <= 380) {
       this.isCompleted = true;
       return true;
     }
@@ -433,7 +450,7 @@ export class Level {
     // 4. Render Left Stepping Platform (Only left step at y=270, right step removed!)
     this.renderSteppingPlatforms(ctx);
 
-    // 5. Render Ancient Lever on the Top Balcony (y=172)
+    // 5. Render Ancient Lever on the RIGHT TOP Balcony (x=785, y=172)
     this.renderLever(ctx);
 
     // 6. Render God-Rays
@@ -442,7 +459,7 @@ export class Level {
     // 7. Render Golden Constellation Bridge (ONLY visible when Divine Form [X] is active)
     this.renderGoldenBridge(ctx, isDivine);
 
-    // 8. Render Sanctum Exit Portal
+    // 8. Render Sanctum Black Space Doorway Glow & Embers
     this.renderSanctumExit(ctx);
 
     // 9. Render Blue Lotus Auras
@@ -479,14 +496,12 @@ export class Level {
     ctx.fillRect(fx2 - 80, fy + 18, 65, fh - 18);
 
     // 3. Left & Right cliff walls descending into the water
-    // Left cliff face
     const leftWallGrad = ctx.createLinearGradient(fx1 - 4, fy, fx1 + 10, fy);
     leftWallGrad.addColorStop(0, '#3a3028');
     leftWallGrad.addColorStop(1, 'rgba(10, 20, 35, 0.85)');
     ctx.fillStyle = leftWallGrad;
     ctx.fillRect(fx1 - 2, fy, 12, fh);
 
-    // Right cliff face
     const rightWallGrad = ctx.createLinearGradient(fx2 - 10, fy, fx2 + 4, fy);
     rightWallGrad.addColorStop(0, 'rgba(10, 20, 35, 0.85)');
     rightWallGrad.addColorStop(1, '#3a3028');
@@ -508,7 +523,6 @@ export class Level {
     }
     ctx.stroke();
 
-    // Secondary soft turquoise water glow
     const surfaceGlow = ctx.createLinearGradient(fx1, fy - 4, fx1, fy + 12);
     surfaceGlow.addColorStop(0, 'rgba(78, 237, 255, 0.25)');
     surfaceGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
@@ -666,7 +680,7 @@ export class Level {
   }
 
   /**
-   * Renders the Ancient Lever at the top balcony (x=330, y=172).
+   * Renders the Ancient Lever on the RIGHT TOP balcony (x=785, y=172).
    */
   renderLever(ctx) {
     ctx.save();
@@ -736,26 +750,36 @@ export class Level {
   }
 
   /**
-   * Renders the Sanctum Exit Altar at x=950, y=368.
+   * Renders the Sanctum Black Space Doorway (x=898, y=368).
+   * Displays soft celestial embers and entrance glow once the lever is activated.
    */
   renderSanctumExit(ctx) {
     ctx.save();
-    const sx = 950;
+    const sx = 898;
     const sy = 368;
 
-    // Glowing victory portal arches
-    ctx.globalCompositeOperation = 'lighter';
-    const pulse = 0.5 + 0.5 * Math.sin(this.animTime * 2.5);
+    if (this.lever.activated) {
+      ctx.globalCompositeOperation = 'lighter';
+      const pulse = 0.5 + 0.5 * Math.sin(this.animTime * 2.8);
 
-    const archGrad = ctx.createRadialGradient(sx, sy - 40, 6, sx, sy - 40, 52);
-    archGrad.addColorStop(0, `rgba(255, 235, 120, ${0.45 * pulse})`);
-    archGrad.addColorStop(0.6, `rgba(255, 120, 60, ${0.2 * pulse})`);
-    archGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      const archGrad = ctx.createRadialGradient(sx, sy - 35, 4, sx, sy - 35, 46);
+      archGrad.addColorStop(0, `rgba(255, 225, 100, ${0.4 * pulse})`);
+      archGrad.addColorStop(0.5, `rgba(78, 237, 255, ${0.25 * pulse})`);
+      archGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
 
-    ctx.fillStyle = archGrad;
-    ctx.beginPath();
-    ctx.arc(sx, sy - 40, 52, 0, Math.PI * 2);
-    ctx.fill();
+      ctx.fillStyle = archGrad;
+      ctx.beginPath();
+      ctx.arc(sx, sy - 35, 46, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Floating golden embers at the doorway entrance
+      for (let i = 0; i < 6; i++) {
+        const emberX = sx - 16 + (i * 7);
+        const emberY = sy - 10 - ((this.animTime * 20 + i * 15) % 45);
+        ctx.fillStyle = 'rgba(255, 215, 0, 0.7)';
+        ctx.fillRect(emberX, emberY, 2, 2);
+      }
+    }
 
     ctx.restore();
   }

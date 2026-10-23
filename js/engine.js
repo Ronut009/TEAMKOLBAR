@@ -129,12 +129,16 @@ export class Engine {
     this.player.update(dt, this.level, this.dialogueActive);
     this.level.update(this.player.x, this.player.y, dt, this.player.isDivine);
 
-    // 4. Check Level Complete
+    // 4. Check Level Complete (Walking into Black Space Doorway)
     if (!this.levelCompleted && this.level.checkLevelComplete(this.player.x, this.player.y)) {
       this.levelCompleted = true;
       if (this.levelCompleteModal) {
         this.levelCompleteModal.classList.add('active');
       }
+    }
+
+    if (this.levelCompleted && this.player.doorwayFade > 0) {
+      this.player.doorwayFade = Math.max(0, this.player.doorwayFade - dt * 2.2);
     }
 
     // 5. Update Camera viewport
@@ -152,6 +156,7 @@ export class Engine {
     this.player.vy = 0;
     this.player.isGrounded = true;
     this.player.currentPlatform = null;
+    this.player.doorwayFade = 1.0;
     this.levelCompleted = false;
     this.closeDialogue();
     if (this.levelCompleteModal) {

@@ -48,6 +48,7 @@ export class Player {
     this.divineHeight = 62;
 
     this.facing = 'right';
+    this.doorwayFade = 1.0;
     this.isMoving = false;
     this.animTime = 0;
 
@@ -517,6 +518,9 @@ export class Player {
     const isFacingLeft = (this.facing === 'left');
 
     ctx.save();
+    if (this.doorwayFade !== undefined) {
+      ctx.globalAlpha = Math.max(0, Math.min(1.0, this.doorwayFade));
+    }
 
     // 1. Divine Aura (When in Maa Kali Divine Form)
     if (this.isDivine) {
