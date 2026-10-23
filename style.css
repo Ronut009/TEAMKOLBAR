@@ -225,6 +225,52 @@ html, body {
   min-width: 24px;
 }
 
+/* Morph Ability Badge [Q] */
+.morph-status-group {
+  display: flex;
+  align-items: center;
+  padding-left: 8px;
+  border-left: 1px solid #444;
+}
+
+.morph-badge {
+  font-size: 8px;
+  color: #4eedff;
+  letter-spacing: 0.5px;
+  text-shadow: 0 0 6px rgba(78, 237, 255, 0.6);
+  animation: pulseMorph 1.8s infinite alternate ease-in-out;
+}
+
+@keyframes pulseMorph {
+  0% { filter: drop-shadow(0 0 2px #4eedff); }
+  100% { filter: drop-shadow(0 0 8px #ffd700); color: #ffffaa; }
+}
+
+/* Key Inventory Indicator */
+.key-status-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 8px;
+  border-left: 1px solid #444;
+}
+
+.key-icon {
+  font-size: 11px;
+  animation: bounceKey 1.4s infinite ease-in-out;
+}
+
+@keyframes bounceKey {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+.key-label {
+  font-size: 8px;
+  color: #ffff00;
+  letter-spacing: 0.5px;
+}
+
 /* ==========================================================================
    UNDERTALE CLASSIC DIALOGUE BOX
    ========================================================================== */

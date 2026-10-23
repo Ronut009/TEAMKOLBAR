@@ -25,6 +25,7 @@ export class InputManager {
       interact: ['KeyE', 'Enter', 'KeyF'],
       cancel: ['KeyC', 'Escape'],
       divine: ['KeyX'],
+      morph: ['KeyQ'],
       reset: ['KeyR'],
 
       // Direct shortcuts
@@ -35,8 +36,11 @@ export class InputManager {
       x: ['KeyX'],
       z: ['KeyZ'],
       e: ['KeyE'],
+      q: ['KeyQ'],
       f: ['KeyF'],
       r: ['KeyR'],
+      one: ['Digit1', 'Numpad1'],
+      two: ['Digit2', 'Numpad2'],
       space: ['Space'],
       enter: ['Enter']
     };

@@ -43,6 +43,17 @@
       </div>
       <span class="divine-time" id="divineTime"></span>
     </div>
+
+    <!-- Morph Ability Indicator [Q] -->
+    <div class="morph-status-group" id="morphGroup">
+      <span class="morph-badge" id="morphBadge">✦ [Q] MORPH</span>
+    </div>
+
+    <!-- Key Inventory Indicator -->
+    <div class="key-status-group" id="keyGroup" style="display: none;">
+      <span class="key-icon">🔑</span>
+      <span class="key-label">KEY</span>
+    </div>
   </div>
 
   <!-- Undertale Style Dialogue / Inspection Box -->
@@ -62,12 +73,12 @@
   <div class="level-complete-modal" id="levelCompleteModal">
     <div class="complete-inner">
       <div class="complete-star">✦ ✦ ✦</div>
-      <h1 class="complete-title">LEVEL COMPLETE</h1>
-      <p class="complete-subtitle">RUINS OF SURYA CONQUERED</p>
+      <h1 class="complete-title" id="completeTitle">LEVEL COMPLETE</h1>
+      <p class="complete-subtitle" id="completeSubtitle">RUINS OF SURYA CONQUERED</p>
       <div class="complete-divider"></div>
-      <p class="complete-flavor">* The ancient sun temple whispers your name in eternal stone.</p>
+      <p class="complete-flavor" id="completeFlavor">* The ancient sun temple whispers your name in eternal stone.</p>
       <p class="complete-flavor" style="color: #ffff00; margin-top: 6px;">* You are filled with DETERMINATION.</p>
-      <div class="complete-prompt">[R] PLAY AGAIN</div>
+      <div class="complete-prompt" id="completePrompt">[E] ENTER LEVEL 2  |  [R] REPLAY</div>
     </div>
   </div>
 

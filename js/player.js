@@ -77,6 +77,16 @@ export class Player {
 
     this.hp = 20;
     this.maxHp = 20;
+    this.hasKey = false;
+    this.invulnerableTimer = 0.0;
+
+    // Climbing Mechanics (Level 2 Ladders)
+    this.isClimbing = false;
+    this.currentLadder = null;
+    this.climbFrame = 0;
+    this.climbTimer = 0;
+    this.climbFrameDuration = 0.11;
+    this.climbDir = 'up';
   }
 
   loadAnimations() {
@@ -109,6 +119,49 @@ export class Player {
     }
 
     this.anims.divine.src = 'assets/mc_divine.png';
+
+    // Preload Climbing Animations
+    this.anims.climbUp = [];
+    this.anims.climbDown = [];
+    for (let i = 0; i < 6; i++) {
+      const imgUp = new Image();
+      imgUp.src = `assets/anims/climb_up_${i}.png`;
+      this.anims.climbUp.push(imgUp);
+
+      const imgDown = new Image();
+      imgDown.src = `assets/anims/climb_down_${i}.png`;
+      this.anims.climbDown.push(imgDown);
+    }
+  }
+
+  takeDamage(amount, knockbackX = 0, knockbackY = 0) {
+    if (this.invulnerableTimer > 0) return;
+    this.hp = Math.max(0, this.hp - amount);
+    this.invulnerableTimer = 0.85;
+
+    if (this.isClimbing) {
+      this.isClimbing = false;
+      this.currentLadder = null;
+    }
+
+    this.vx = knockbackX;
+    this.vy = knockbackY;
+    this.isGrounded = false;
+    this.currentPlatform = null;
+
+    for (let i = 0; i < 14; i++) {
+      const a = (i / 14) * Math.PI * 2;
+      this.particles.push({
+        x: this.x,
+        y: this.y - 20,
+        vx: Math.cos(a) * (40 + Math.random() * 40),
+        vy: Math.sin(a) * (40 + Math.random() * 40),
+        life: 0.35,
+        maxLife: 0.35,
+        size: 2.5,
+        color: '#ff2244'
+      });
+    }
   }
 
   triggerAttack() {
@@ -202,6 +255,88 @@ export class Player {
     if (this.landingTimer > 0) this.landingTimer -= dt;
     if (this.coyoteTimer > 0) this.coyoteTimer -= dt;
     if (this.jumpBufferTimer > 0) this.jumpBufferTimer -= dt;
+    if (this.invulnerableTimer > 0) this.invulnerableTimer -= dt;
+
+    // Check Ladder Climbing (Level 2 Ladders)
+    if (level && level.ladders) {
+      const isUp = Input.isDown('up') || Input.isDown('KeyW') || Input.isDown('ArrowUp');
+      const isDown = Input.isDown('down') || Input.isDown('KeyS') || Input.isDown('ArrowDown');
+      const jumpPressed = Input.isPressed('jump') || Input.isPressed('Space');
+
+      let overlappingLadder = null;
+      for (const lad of level.ladders) {
+        if (Math.abs(this.x - lad.x) <= 22 && this.y >= lad.y1 - 10 && this.y <= lad.y2 + 20) {
+          overlappingLadder = lad;
+          break;
+        }
+      }
+
+      if (overlappingLadder) {
+        if (!this.isClimbing && (isUp || (isDown && !this.isGrounded))) {
+          this.isClimbing = true;
+          this.currentLadder = overlappingLadder;
+          this.x = overlappingLadder.x;
+          this.vx = 0;
+          this.vy = 0;
+          this.isGrounded = false;
+        }
+      } else if (this.isClimbing) {
+        this.isClimbing = false;
+        this.currentLadder = null;
+      }
+
+      if (this.isClimbing && this.currentLadder) {
+        if (jumpPressed) {
+          this.isClimbing = false;
+          this.currentLadder = null;
+          this.vy = this.jumpImpulse * 0.85;
+          this.vx = (this.facing === 'left' ? -130 : 130);
+        } else {
+          let climbMove = 0;
+          if (isUp) climbMove -= 1;
+          if (isDown) climbMove += 1;
+
+          if (climbMove < 0) {
+            this.climbDir = 'up';
+            this.vy = -130;
+            this.climbTimer += dt;
+            if (this.climbTimer >= this.climbFrameDuration) {
+              this.climbTimer = 0;
+              this.climbFrame = (this.climbFrame + 1) % 6;
+            }
+            if (this.y <= this.currentLadder.y1 + 4) {
+              this.y = this.currentLadder.y1;
+              this.isClimbing = false;
+              this.currentLadder = null;
+              this.isGrounded = true;
+            }
+          } else if (climbMove > 0) {
+            this.climbDir = 'down';
+            this.vy = 130;
+            this.climbTimer += dt;
+            if (this.climbTimer >= this.climbFrameDuration) {
+              this.climbTimer = 0;
+              this.climbFrame = (this.climbFrame + 1) % 6;
+            }
+            if (this.y >= this.currentLadder.y2 - 2) {
+              this.y = this.currentLadder.y2;
+              this.isClimbing = false;
+              this.currentLadder = null;
+              this.isGrounded = true;
+            }
+          } else {
+            this.vy = 0;
+          }
+
+          this.vx = 0;
+          this.y += this.vy * dt;
+          this.x = this.currentLadder.x;
+
+          this.updateParticles(dt);
+          return;
+        }
+      }
+    }
 
     if (dialogueActive) {
       this.vx = 0;
@@ -521,6 +656,9 @@ export class Player {
     if (this.doorwayFade !== undefined) {
       ctx.globalAlpha = Math.max(0, Math.min(1.0, this.doorwayFade));
     }
+    if (this.invulnerableTimer > 0 && Math.floor(this.invulnerableTimer * 14) % 2 === 0) {
+      ctx.globalAlpha = 0.35;
+    }
 
     // 1. Divine Aura (When in Maa Kali Divine Form)
     if (this.isDivine) {
@@ -543,7 +681,11 @@ export class Player {
     } else {
       let currentImg = this.anims.idle;
 
-      if (this.isAttacking) {
+      if (this.isClimbing) {
+        currentImg = (this.climbDir === 'down'
+          ? this.anims.climbDown[this.climbFrame]
+          : this.anims.climbUp[this.climbFrame]) || this.anims.climbUp[0];
+      } else if (this.isAttacking) {
         currentImg = this.anims.attack[this.attackFrame] || this.anims.idle;
       } else if (!this.isGrounded) {
         if (this.vy < -120) {
