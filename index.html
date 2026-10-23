@@ -54,6 +54,27 @@
       <span class="key-icon">🔑</span>
       <span class="key-label">KEY</span>
     </div>
+
+    <!-- Kill Counter Indicator -->
+    <div class="kills-status-group" id="killsGroup" style="display: none;">
+      <span class="kills-badge" id="killsBadge">☠ KILLS: 0</span>
+    </div>
+  </div>
+
+  <!-- Kill Notification Toast Banner -->
+  <div class="kill-toast" id="killToast">
+    <span class="kill-toast-icon">☠</span>
+    <span class="kill-toast-text" id="killToastText">+1 KILL — ARCHER ELIMINATED!</span>
+  </div>
+
+  <!-- Player 0 HP Death Screen Modal -->
+  <div class="death-screen-modal" id="deathScreen">
+    <div class="death-inner">
+      <div class="death-heart">💔</div>
+      <h1 class="death-title">YOU DIED</h1>
+      <p class="death-desc">* HP reduced to 0 / 20.</p>
+      <p class="death-flavor">* Stay determined! Respawning at checkpoint...</p>
+    </div>
   </div>
 
   <!-- Undertale Style Dialogue / Inspection Box -->

@@ -61,6 +61,14 @@ export class Engine {
     this.completeFlavor = document.getElementById('completeFlavor');
     this.completePrompt = document.getElementById('completePrompt');
 
+    // Kill Notification & Death Screen Elements
+    this.deathScreen = document.getElementById('deathScreen');
+    this.killToast = document.getElementById('killToast');
+    this.killToastText = document.getElementById('killToastText');
+    this.killsGroup = document.getElementById('killsGroup');
+    this.killsBadge = document.getElementById('killsBadge');
+
+    this.playerDying = false;
     this.levelCompleted = false;
 
     this.resizeCanvas = this.resizeCanvas.bind(this);
@@ -138,13 +146,30 @@ export class Engine {
     this.player.hasKey = false;
     this.player.isClimbing = false;
     this.player.isGrounded = true;
+    this.player.isDead = false;
     this.player.doorwayFade = 1.0;
     this.player.currentPlatform = null;
+    this.playerDying = false;
+    if (this.deathScreen) {
+      this.deathScreen.classList.remove('active');
+    }
     this.player.spawnPoof(20);
   }
 
   update(dt) {
-    // 0. Level switching shortcuts [1] and [2]
+    // 0. Check Player 0 HP Defeat
+    if (this.player.hp <= 0 && !this.playerDying) {
+      this.handlePlayerDeath();
+      return;
+    }
+
+    if (this.playerDying) {
+      this.player.updateParticles(dt);
+      this.updateCamera(dt);
+      return;
+    }
+
+    // Level switching shortcuts [1] and [2]
     if (Input.isPressed('one') && this.currentLevelIndex !== 1) {
       this.loadLevel(1);
       return;
@@ -276,6 +301,26 @@ export class Engine {
     this.loadLevel(this.currentLevelIndex);
   }
 
+  handlePlayerDeath() {
+    this.playerDying = true;
+    this.closeDialogue();
+    if (this.level) this.level.cameraShake = 1.0;
+    this.player.spawnDeathBurst();
+
+    if (this.deathScreen) {
+      this.deathScreen.classList.add('active');
+    }
+
+    // After brief dramatic pause, respawn at the exact same level and reset the map!
+    setTimeout(() => {
+      this.loadLevel(this.currentLevelIndex);
+      this.playerDying = false;
+      if (this.deathScreen) {
+        this.deathScreen.classList.remove('active');
+      }
+    }, 1400);
+  }
+
   updateCamera(dt) {
     const scaleX = this.canvas.width / this.level.width;
     const scaleY = this.canvas.height / this.level.height;
@@ -320,6 +365,28 @@ export class Engine {
     // Key Inventory Badge
     if (this.keyGroup) {
       this.keyGroup.style.display = (this.player && this.player.hasKey) ? 'flex' : 'none';
+    }
+
+    // Kill Counter Badge (Tracks kills in level)
+    if (this.killsGroup && this.killsBadge) {
+      if (this.level && this.level.kills !== undefined && this.level.kills > 0) {
+        this.killsGroup.style.display = 'flex';
+        this.killsBadge.textContent = '☠ KILLS: ' + this.level.kills;
+      } else {
+        this.killsGroup.style.display = 'none';
+      }
+    }
+
+    // Kill Toast Sync
+    if (this.killToast) {
+      if (this.level && this.level.killToastTimer > 0) {
+        if (this.killToastText && this.level.killToastText) {
+          this.killToastText.textContent = this.level.killToastText;
+        }
+        this.killToast.classList.add('active');
+      } else {
+        this.killToast.classList.remove('active');
+      }
     }
 
     // Divine Form HUD State

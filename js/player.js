@@ -79,6 +79,7 @@ export class Player {
     this.maxHp = 20;
     this.hasKey = false;
     this.invulnerableTimer = 0.0;
+    this.isDead = false;
 
     // Climbing Mechanics (Level 2 Ladders)
     this.isClimbing = false;
@@ -136,9 +137,19 @@ export class Player {
   }
 
   takeDamage(amount, knockbackX = 0, knockbackY = 0) {
-    if (this.invulnerableTimer > 0) return;
+    if (this.invulnerableTimer > 0 || this.isDead) return;
     this.hp = Math.max(0, this.hp - amount);
     this.invulnerableTimer = 0.85;
+
+    if (this.hp <= 0) {
+      this.hp = 0;
+      this.isDead = true;
+      this.vx = 0;
+      this.vy = 0;
+      this.isGrounded = true;
+      this.spawnDeathBurst();
+      return;
+    }
 
     if (this.isClimbing) {
       this.isClimbing = false;
@@ -161,6 +172,24 @@ export class Player {
         maxLife: 0.35,
         size: 2.5,
         color: '#ff2244'
+      });
+    }
+  }
+
+  spawnDeathBurst() {
+    this.isDead = true;
+    for (let i = 0; i < 36; i++) {
+      const a = (i / 36) * Math.PI * 2;
+      const speed = 70 + Math.random() * 110;
+      this.particles.push({
+        x: this.x,
+        y: this.y - 20,
+        vx: Math.cos(a) * speed,
+        vy: Math.sin(a) * speed - 30,
+        life: 0.85,
+        maxLife: 0.85,
+        size: 3.5 + Math.random() * 2.5,
+        color: (i % 3 === 0) ? '#ff2244' : (i % 3 === 1 ? '#ffffff' : '#ffd700')
       });
     }
   }
@@ -601,7 +630,9 @@ export class Player {
     this.vx = 0;
     this.vy = 0;
     this.isGrounded = true;
+    this.isDead = false;
     this.currentPlatform = null;
+    this.spawnPoof(12);
 
     for (let i = 0; i < 24; i++) {
       const angle = (i / 24) * Math.PI * 2;
@@ -724,6 +755,8 @@ export class Player {
   }
 
   render(ctx) {
+    if (this.isDead) return;
+
     const cx = Math.floor(this.x);
     const cy = Math.floor(this.y);
     const isFacingLeft = (this.facing === 'left');

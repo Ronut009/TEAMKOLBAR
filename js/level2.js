@@ -6,11 +6,14 @@
  * 2. Purple Scorpions with Threat Detection Radius, Knockback & 5 Damage (20 HP -> 15 HP)
  * 3. Bottom-Left Cave Chest containing the Sanctum Key
  * 4. Locked Cyan Padlock Door at Lower Right
- * 5. Unreachable Archer shooting arrows
- * 6. Morph Ability [Q]: Transforms the overhead square box into a round rolling boulder
+ * 5. Modular Archer & Attached Arrow Objects (Shoots, Dies to Boulder/Attacks, +1 Kill)
+ * 6. Dynamic Archer removal and replacement by other archers
+ * 7. Morph Ability [Q]: Transforms overhead square box into round rolling boulder
  *    that plunges down to crush and eliminate the archer!
  * ==========================================================================
  */
+
+import { Archer, Arrow } from './archer.js';
 
 export class Level2 {
   constructor() {
@@ -45,6 +48,15 @@ export class Level2 {
     this.archerDefeatedImg.src = 'assets/anims/archer_defeated.png';
     this.archerArrowImg = new Image();
     this.archerArrowImg.src = 'assets/anims/archer_arrow.png';
+
+    // Bundled Archer Sprite Collection for Archer Entity Rendering
+    this.archerSprites = {
+      idle: this.archerIdleImg,
+      defeated: this.archerDefeatedImg,
+      arrow: this.archerArrowImg,
+      pullFrames: this.archerPullFrames,
+      shootFrames: this.archerShootFrames
+    };
 
     // Platforms
     this.platforms = [
@@ -141,19 +153,13 @@ export class Level2 {
       }
     ];
 
-    // Unreachable Archer Enemy (Middle Right Ledge)
-    this.archer = {
-      x: 855,
-      y: 325,
-      alive: true,
-      crushed: false,
-      state: 'idle', // 'pull', 'shoot', 'idle'
-      frame: 0,
-      animTimer: 0,
-      shootCooldown: 2.2,
-      cooldownTimer: 1.0,
-      arrows: []
-    };
+    // Modular Archer & Attached Arrow Objects (Level 2)
+    this.archers = [
+      new Archer(855, 325, 'archer_primary')
+    ];
+    this.kills = 0;
+    this.killToastTimer = 0;
+    this.killToastText = '';
 
     // Morphable Object (Square Box above the Archer)
     // When [Q] is pressed, morphs into a round rolling stone boulder!
@@ -230,16 +236,77 @@ export class Level2 {
     }
   }
 
+  get archer() {
+    return this.archers[0] || null;
+  }
+
+  addArcher(x, y, id = null) {
+    const newArcher = new Archer(x, y, id || `archer_${this.archers.length + 1}`);
+    this.archers.push(newArcher);
+    return newArcher;
+  }
+
+  removeArcher(archerOrId) {
+    const id = (typeof archerOrId === 'string') ? archerOrId : archerOrId.id;
+    const index = this.archers.findIndex(a => a.id === id);
+    if (index !== -1) {
+      this.archers.splice(index, 1);
+      return true;
+    }
+    return false;
+  }
+
+  useAnotherArcher(x = 760, y = 175) {
+    const newArcher = this.addArcher(x, y, `archer_reinforcement_${this.kills}`);
+    // Spawn dust puff when reinforcement archer arrives
+    for (let i = 0; i < 16; i++) {
+      const a = (i / 16) * Math.PI * 2;
+      this.spores.push({
+        x: x,
+        y: y - 20,
+        size: 2.5,
+        vx: Math.cos(a) * 45,
+        vy: Math.sin(a) * 45,
+        alpha: 0.9,
+        color: '#ffea79'
+      });
+    }
+    return newArcher;
+  }
+
+  registerKill(archer) {
+    this.kills++;
+    this.cameraShake = 1.0;
+    this.killToastTimer = 2.8;
+    this.killToastText = `+1 KILL — ${archer.id.toUpperCase().replace('_', ' ')} ELIMINATED!`;
+
+    // Visual impact shockwave & rubble particles
+    for (let i = 0; i < 28; i++) {
+      const a = (i / 28) * Math.PI * 2;
+      const spd = 60 + Math.random() * 80;
+      this.spores.push({
+        x: archer.x,
+        y: archer.y - 10,
+        size: 3 + Math.random() * 3,
+        vx: Math.cos(a) * spd,
+        vy: Math.sin(a) * spd * 0.6 - 30,
+        alpha: 1.0,
+        color: i % 2 === 0 ? '#bfa882' : '#ffffff'
+      });
+    }
+  }
+
   reset() {
     this.scorpions.forEach(s => {
       s.x = s.startX;
       s.alive = true;
     });
 
-    this.archer.alive = true;
-    this.archer.crushed = false;
-    this.archer.arrows = [];
-    this.archer.cooldownTimer = 1.0;
+    // Reset archers to initial setup (Archer 1) with fresh attached arrow object
+    this.archers = [ new Archer(855, 325, 'archer_primary') ];
+    this.kills = 0;
+    this.killToastTimer = 0;
+    this.killToastText = '';
 
     this.morphBox.x = this.morphBox.initialX;
     this.morphBox.y = this.morphBox.initialY;
@@ -436,39 +503,23 @@ export class Level2 {
       }
     }
 
-    // 2. Update Archer & Arrows
-    if (this.archer.alive) {
-      this.archer.cooldownTimer -= dt;
-      if (this.archer.cooldownTimer <= 0) {
-        this.archer.cooldownTimer = this.archer.shootCooldown;
-        // Fire arrow to the left
-        this.archer.arrows.push({
-          x: this.archer.x - 20,
-          y: this.archer.y - 28,
-          vx: -320,
-          life: 2.5
-        });
-      }
+    if (this.killToastTimer > 0) {
+      this.killToastTimer -= dt;
     }
 
-    // Update active arrows
-    for (let i = this.archer.arrows.length - 1; i >= 0; i--) {
-      const arr = this.archer.arrows[i];
-      arr.x += arr.vx * dt;
-      arr.life -= dt;
+    // 2. Update Archer Entities & Attached/Flying Arrow Objects
+    for (let i = this.archers.length - 1; i >= 0; i--) {
+      const arc = this.archers[i];
+      arc.update(dt, player, this);
 
-      // Hit player check
-      if (player && Math.hypot(playerX - arr.x, playerY - (arr.y + 10)) < 24) {
-        if (player.invulnerableTimer <= 0) {
-          player.takeDamage(4, -220, -160);
-          this.cameraShake = 0.4;
-          this.archer.arrows.splice(i, 1);
-          continue;
+      // Once crushed archer fades and can be removed:
+      // Remove the archer from the battlefield and spawn/use another archer!
+      if (arc.canBeRemoved) {
+        this.removeArcher(arc);
+        // Automatically deploy reinforcement archer on upper battlement!
+        if (this.archers.length === 0) {
+          this.useAnotherArcher(760, 175);
         }
-      }
-
-      if (arr.life <= 0 || arr.x < 0) {
-        this.archer.arrows.splice(i, 1);
       }
     }
 
@@ -487,24 +538,14 @@ export class Level2 {
         this.morphBox.vx = 0;
         this.morphBox.vy = 0;
 
-        // CRUSH ARCHER!
-        this.archer.alive = false;
-        this.archer.crushed = true;
-        this.cameraShake = 1.0;
-
-        // Big impact dust & rubble shockwave
-        for (let i = 0; i < 28; i++) {
-          const a = (i / 28) * Math.PI * 2;
-          const spd = 60 + Math.random() * 80;
-          this.spores.push({
-            x: this.archer.x,
-            y: this.archer.y - 10,
-            size: 3 + Math.random() * 3,
-            vx: Math.cos(a) * spd,
-            vy: Math.sin(a) * spd * 0.6 - 30,
-            alpha: 1.0,
-            color: i % 2 === 0 ? '#bfa882' : '#ffffff'
-          });
+        // CRUSH ARCHER DUE TO THE MOVE!
+        for (const archer of this.archers) {
+          if (archer.alive && Math.abs(this.morphBox.x - archer.x) < 55) {
+            const killed = archer.die('crushed');
+            if (killed) {
+              this.registerKill(archer);
+            }
+          }
         }
       }
     }
@@ -535,8 +576,8 @@ export class Level2 {
     // 2. Render Scorpions & Danger Radii
     this.renderScorpions(ctx);
 
-    // 3. Render Archer & Arrows
-    this.renderArcher(ctx);
+    // 3. Render Archer Entities & Attached/Flying Arrows
+    this.renderArchers(ctx);
 
     // 4. Render Morphable Box / Rolling Boulder
     this.renderMorphBox(ctx);
@@ -601,40 +642,44 @@ export class Level2 {
     }
   }
 
-  renderArcher(ctx) {
-    ctx.save();
-    const ax = this.archer.x;
-    const ay = this.archer.y;
-
-    if (this.archer.crushed) {
-      // Defeated / Crushed under boulder
-      if (this.archerDefeatedImg.complete) {
-        ctx.drawImage(this.archerDefeatedImg, ax - 45, ay - 35, 90, 40);
-      }
-    } else {
-      // Alive Archer
-      const frameImg = this.archerPullFrames[0] || this.archerIdleImg;
-      if (frameImg && frameImg.complete) {
-        ctx.save();
-        // Facing left towards player
-        ctx.translate(ax, ay);
-        ctx.scale(-1, 1);
-        ctx.drawImage(frameImg, -45, -78, 90, 80);
-        ctx.restore();
-      }
+  renderArchers(ctx) {
+    for (const archer of this.archers) {
+      archer.render(ctx, this.archerSprites);
     }
+    this.renderKillToast(ctx);
+  }
 
-    // Render flying arrows
-    for (const arr of this.archer.arrows) {
-      if (this.archerArrowImg.complete) {
-        ctx.drawImage(this.archerArrowImg, arr.x, arr.y, 36, 8);
-      } else {
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(arr.x, arr.y, 30, 3);
-      }
+  renderKillToast(ctx) {
+    if (this.killToastTimer > 0) {
+      ctx.save();
+      const alpha = Math.min(1.0, this.killToastTimer * 1.5);
+      ctx.globalAlpha = alpha;
+
+      const toastW = 360;
+      const toastH = 34;
+      const toastX = this.width / 2 - toastW / 2;
+      const toastY = 55;
+
+      // Dark golden boxed banner
+      ctx.fillStyle = 'rgba(10, 8, 14, 0.9)';
+      ctx.fillRect(toastX, toastY, toastW, toastH);
+      ctx.strokeStyle = '#ffd700';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(toastX, toastY, toastW, toastH);
+
+      // Inner subtle glow border
+      ctx.strokeStyle = 'rgba(255, 235, 120, 0.6)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(toastX + 3, toastY + 3, toastW - 6, toastH - 6);
+
+      ctx.fillStyle = '#ffff55';
+      ctx.font = '10px "Press Start 2P", monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(this.killToastText || '+1 KILL!', this.width / 2, toastY + toastH / 2);
+
+      ctx.restore();
     }
-
-    ctx.restore();
   }
 
   renderMorphBox(ctx) {

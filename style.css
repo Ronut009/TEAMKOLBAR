@@ -420,3 +420,132 @@ html, body {
   0%, 100% { opacity: 1; border-color: #fff; }
   50% { opacity: 0.6; border-color: #ffd700; }
 }
+
+/* ==========================================================================
+   KILL COUNTER, KILL TOAST & 0 HP DEATH SCREEN
+   ========================================================================== */
+.kills-status-group {
+  display: flex;
+  align-items: center;
+  padding-left: 8px;
+  border-left: 1px solid #444;
+}
+
+.kills-badge {
+  font-size: 8px;
+  color: #ff5555;
+  letter-spacing: 0.5px;
+  text-shadow: 0 0 6px rgba(255, 85, 85, 0.6);
+  animation: pulseKills 2s infinite alternate ease-in-out;
+}
+
+@keyframes pulseKills {
+  0% { color: #ff5555; }
+  100% { color: #ffd700; text-shadow: 0 0 8px #ffd700; }
+}
+
+.kill-toast {
+  position: absolute;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-60px);
+  background: #000;
+  border: 3px solid #ffd700;
+  border-radius: 4px;
+  padding: 10px 22px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 0 16px rgba(255, 215, 0, 0.5);
+  z-index: 45;
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.25s cubic-bezier(0.18, 0.89, 0.32, 1.28), opacity 0.25s ease;
+}
+
+.kill-toast.active {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+}
+
+.kill-toast-icon {
+  font-size: 14px;
+  color: #ff3344;
+}
+
+.kill-toast-text {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 10px;
+  color: #ffd700;
+  letter-spacing: 1px;
+}
+
+.death-screen-modal {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 60;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.35s ease;
+}
+
+.death-screen-modal.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.death-inner {
+  background: #000;
+  border: 4px solid #ff2244;
+  border-radius: 6px;
+  padding: 30px 40px;
+  text-align: center;
+  box-shadow: 0 0 30px rgba(255, 34, 68, 0.6);
+  animation: deathPop 0.35s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+}
+
+@keyframes deathPop {
+  0% { transform: scale(0.85); }
+  100% { transform: scale(1.0); }
+}
+
+.death-heart {
+  font-size: 36px;
+  margin-bottom: 12px;
+  animation: pulseBrokenHeart 0.8s infinite alternate ease-in-out;
+}
+
+@keyframes pulseBrokenHeart {
+  0% { transform: scale(1); filter: drop-shadow(0 0 4px #ff0055); }
+  100% { transform: scale(1.15); filter: drop-shadow(0 0 16px #ff0000); }
+}
+
+.death-title {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 20px;
+  color: #ff2244;
+  letter-spacing: 3px;
+  margin-bottom: 14px;
+  text-shadow: 2px 2px 0 #000, 0 0 12px rgba(255, 34, 68, 0.8);
+}
+
+.death-desc {
+  font-family: 'VT323', monospace;
+  font-size: 18px;
+  color: #e0e0e0;
+  margin-bottom: 6px;
+}
+
+.death-flavor {
+  font-family: 'VT323', monospace;
+  font-size: 16px;
+  color: #ffff00;
+  letter-spacing: 0.5px;
+}
