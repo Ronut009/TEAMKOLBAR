@@ -122,7 +122,6 @@ export class Level {
     ];
 
     this.spores = [];
-    this.initSpores(45);
 
     this.bridgeStars = [];
     this.initBridgeStars(24);
@@ -144,17 +143,6 @@ export class Level {
 
   initSpores(count) {
     this.spores = [];
-    for (let i = 0; i < count; i++) {
-      this.spores.push({
-        x: Math.random() * this.width,
-        y: Math.random() * this.height,
-        size: 1 + Math.random() * 2.5,
-        vx: -4 + Math.random() * 8,
-        vy: -12 - Math.random() * 16,
-        alpha: 0.2 + Math.random() * 0.6,
-        color: Math.random() > 0.3 ? '#4eedff' : '#a2eaff'
-      });
-    }
   }
 
   initBridgeStars(count) {
@@ -185,20 +173,6 @@ export class Level {
     this.pillar.targetY = this.pillar.raisedY;
     this.pillar.isRaising = true;
     this.cameraShake = 0.85;
-
-    // Burst of celestial spark particles
-    for (let i = 0; i < 22; i++) {
-      const a = (i / 22) * Math.PI * 2;
-      this.spores.push({
-        x: this.lever.x,
-        y: this.lever.y - 14,
-        size: 2.5,
-        vx: Math.cos(a) * (30 + Math.random() * 60),
-        vy: Math.sin(a) * (30 + Math.random() * 60),
-        alpha: 1.0,
-        color: i % 2 === 0 ? '#ffd700' : '#4eedff'
-      });
-    }
     return true;
   }
 
@@ -400,16 +374,6 @@ export class Level {
     // Smooth bridge opacity fade in/out
     const targetBridgeOpacity = isDivine ? 1.0 : 0.0;
     this.bridgeOpacity += (targetBridgeOpacity - this.bridgeOpacity) * Math.min(1.0, dt * 6.0);
-
-    // Update floating spores / underwater bubbles
-    for (const s of this.spores) {
-      s.x += s.vx * dt;
-      s.y += s.vy * dt;
-      if (s.y < 0) {
-        s.y = this.height;
-        s.x = Math.random() * this.width;
-      }
-    }
   }
 
   spawnPillarSplash() {
@@ -1692,14 +1656,7 @@ export class Level {
   }
 
   renderSpores(ctx) {
-    ctx.save();
-    for (const s of this.spores) {
-      ctx.fillStyle = s.color;
-      ctx.globalAlpha = s.alpha;
-      ctx.beginPath();
-      ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.restore();
+    // Bubbles removed entirely per user request
   }
 }
+

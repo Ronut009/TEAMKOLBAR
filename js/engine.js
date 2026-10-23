@@ -443,9 +443,6 @@ export class Engine {
     // 4. Divine Sparks, Damage & Leap Particles
     this.player.renderParticles(ctx);
 
-    // 5. Ambient Dust / Lotus Spores
-    this.level.renderSpores(ctx);
-
     ctx.restore();
   }
 }

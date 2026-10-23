@@ -201,7 +201,6 @@ export class Level2 {
     ];
 
     this.spores = [];
-    this.initSpores(40);
 
     this.bridgeStars = [];
     this.initBridgeStars(24);
@@ -214,17 +213,6 @@ export class Level2 {
 
   initSpores(count) {
     this.spores = [];
-    for (let i = 0; i < count; i++) {
-      this.spores.push({
-        x: Math.random() * this.width,
-        y: Math.random() * this.height,
-        size: 1 + Math.random() * 2,
-        vx: -6 + Math.random() * 12,
-        vy: -10 - Math.random() * 15,
-        alpha: 0.2 + Math.random() * 0.5,
-        color: Math.random() > 0.4 ? '#ffea79' : '#ff9955'
-      });
-    }
   }
 
   initBridgeStars(count) {
@@ -265,19 +253,6 @@ export class Level2 {
 
   useAnotherArcher(x = 760, y = 175) {
     const newArcher = this.addArcher(x, y, `archer_reinforcement_${this.kills}`);
-    // Spawn dust puff when reinforcement archer arrives
-    for (let i = 0; i < 16; i++) {
-      const a = (i / 16) * Math.PI * 2;
-      this.spores.push({
-        x: x,
-        y: y - 20,
-        size: 2.5,
-        vx: Math.cos(a) * 45,
-        vy: Math.sin(a) * 45,
-        alpha: 0.9,
-        color: '#ffea79'
-      });
-    }
     return newArcher;
   }
 
@@ -286,21 +261,6 @@ export class Level2 {
     this.cameraShake = 1.0;
     this.killToastTimer = 2.8;
     this.killToastText = `+1 KILL — ${archer.id.toUpperCase().replace('_', ' ')} ELIMINATED!`;
-
-    // Visual impact shockwave & rubble particles
-    for (let i = 0; i < 28; i++) {
-      const a = (i / 28) * Math.PI * 2;
-      const spd = 60 + Math.random() * 80;
-      this.spores.push({
-        x: archer.x,
-        y: archer.y - 10,
-        size: 3 + Math.random() * 3,
-        vx: Math.cos(a) * spd,
-        vy: Math.sin(a) * spd * 0.6 - 30,
-        alpha: 1.0,
-        color: i % 2 === 0 ? '#bfa882' : '#ffffff'
-      });
-    }
   }
 
   reset() {
@@ -341,20 +301,6 @@ export class Level2 {
     this.morphBox.isMorphed = true;
     this.morphBox.morphAuraTimer = 1.2;
     this.cameraShake = 0.5;
-
-    // Sound / burst particles around the box
-    for (let i = 0; i < 24; i++) {
-      const a = (i / 24) * Math.PI * 2;
-      this.spores.push({
-        x: this.morphBox.x,
-        y: this.morphBox.y,
-        size: 3,
-        vx: Math.cos(a) * (40 + Math.random() * 60),
-        vy: Math.sin(a) * (40 + Math.random() * 60),
-        alpha: 1.0,
-        color: i % 2 === 0 ? '#4eedff' : '#ffd700'
-      });
-    }
 
     // Give boulder initial roll to tumble off the ledge
     this.morphBox.vx = 60;
@@ -517,16 +463,6 @@ export class Level2 {
             }
           }
         }
-      }
-    }
-
-    // 3. Update Spores / Floating Sand Dust
-    for (const s of this.spores) {
-      s.x += s.vx * dt;
-      s.y += s.vy * dt;
-      if (s.y < 0) {
-        s.y = this.height;
-        s.x = Math.random() * this.width;
       }
     }
   }
@@ -877,15 +813,8 @@ export class Level2 {
   }
 
   renderSpores(ctx) {
-    ctx.save();
-    for (const s of this.spores) {
-      ctx.fillStyle = s.color;
-      ctx.globalAlpha = s.alpha;
-      ctx.beginPath();
-      ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.restore();
+    // Bubbles removed entirely per user request
   }
 }
+
 
