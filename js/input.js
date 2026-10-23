@@ -1,7 +1,7 @@
 /**
  * ==========================================================================
  * GLITCHVERSE - INPUT MANAGER (js/input.js)
- * Robust keyboard input handler with edge-triggering and Undertale bindings.
+ * Robust keyboard & mouse input handler with edge-triggering and attack support.
  * ==========================================================================
  */
 
@@ -11,32 +11,30 @@ export class InputManager {
     this.keysPressed = new Map();
 
     this.aliases = {
-      // 4-Way Movement
-      up: ['KeyW', 'ArrowUp'],
-      down: ['KeyS', 'ArrowDown'],
+      // Platformer Controls
       left: ['KeyA', 'ArrowLeft'],
       right: ['KeyD', 'ArrowRight'],
+      up: ['KeyW', 'ArrowUp'],
+      down: ['KeyS', 'ArrowDown'],
+      jump: ['Space', 'KeyW', 'ArrowUp'],
 
-      // Undertale Core Actions
-      jump: ['Space'],
-      leap: ['Space'],
-      interact: ['KeyZ', 'Enter', 'KeyF'], // Z / Enter / F
-      cancel: ['KeyX', 'ShiftLeft', 'ShiftRight'],
+      // Combat: Left Click, Z, J
+      attack: ['MouseLeft', 'KeyZ', 'KeyJ'],
 
-      // Future hooks
-      shift: ['KeyE'],
-      manipulate: ['KeyQ'],
+      // Interactions & Abilities
+      interact: ['KeyE', 'Enter', 'KeyF'],
+      cancel: ['KeyC', 'Escape'],
+      divine: ['KeyX'],
       reset: ['KeyR'],
 
-      // Raw key shorthands
+      // Direct shortcuts
       w: ['KeyW'],
       a: ['KeyA'],
       s: ['KeyS'],
       d: ['KeyD'],
-      z: ['KeyZ'],
       x: ['KeyX'],
+      z: ['KeyZ'],
       e: ['KeyE'],
-      q: ['KeyQ'],
       f: ['KeyF'],
       r: ['KeyR'],
       space: ['Space'],
@@ -45,6 +43,8 @@ export class InputManager {
 
     this._handleKeyDown = this._handleKeyDown.bind(this);
     this._handleKeyUp = this._handleKeyUp.bind(this);
+    this._handleMouseDown = this._handleMouseDown.bind(this);
+    this._handleMouseUp = this._handleMouseUp.bind(this);
     this._handleBlur = this._handleBlur.bind(this);
 
     this.init();
@@ -53,19 +53,21 @@ export class InputManager {
   init() {
     window.addEventListener('keydown', this._handleKeyDown);
     window.addEventListener('keyup', this._handleKeyUp);
+    window.addEventListener('mousedown', this._handleMouseDown);
+    window.addEventListener('mouseup', this._handleMouseUp);
     window.addEventListener('blur', this._handleBlur);
   }
 
   destroy() {
     window.removeEventListener('keydown', this._handleKeyDown);
     window.removeEventListener('keyup', this._handleKeyUp);
+    window.removeEventListener('mousedown', this._handleMouseDown);
+    window.removeEventListener('mouseup', this._handleMouseUp);
     window.removeEventListener('blur', this._handleBlur);
   }
 
   _handleKeyDown(e) {
     const code = e.code;
-
-    // Prevent default browser scrolling
     if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(code)) {
       e.preventDefault();
     }
@@ -80,6 +82,23 @@ export class InputManager {
     const code = e.code;
     this.keysDown.set(code, false);
     this.keysPressed.set(code, false);
+  }
+
+  _handleMouseDown(e) {
+    if (e.button === 0) {
+      // Left Click
+      if (!this.keysDown.get('MouseLeft')) {
+        this.keysPressed.set('MouseLeft', true);
+      }
+      this.keysDown.set('MouseLeft', true);
+    }
+  }
+
+  _handleMouseUp(e) {
+    if (e.button === 0) {
+      this.keysDown.set('MouseLeft', false);
+      this.keysPressed.set('MouseLeft', false);
+    }
   }
 
   _handleBlur() {
@@ -101,24 +120,6 @@ export class InputManager {
       return aliasList.some(code => Boolean(this.keysPressed.get(code)));
     }
     return Boolean(this.keysPressed.get(codeOrAlias));
-  }
-
-  getMovementVector() {
-    let dx = 0;
-    let dy = 0;
-
-    if (this.isDown('left')) dx -= 1;
-    if (this.isDown('right')) dx += 1;
-    if (this.isDown('up')) dy -= 1;
-    if (this.isDown('down')) dy += 1;
-
-    if (dx !== 0 && dy !== 0) {
-      const invSqrt = Math.SQRT1_2;
-      dx *= invSqrt;
-      dy *= invSqrt;
-    }
-
-    return { x: dx, y: dy };
   }
 
   update() {

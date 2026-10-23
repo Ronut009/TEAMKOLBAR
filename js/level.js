@@ -1,8 +1,8 @@
 /**
  * ==========================================================================
  * GLITCHVERSE - SUBMERGED RUINS TEMPLE MAP (js/level.js)
- * Recreates the submerged ancient temple with platforms, golden constellation
- * bridge, glowing lotuses, god-rays, and inspection spots.
+ * Recreates the submerged ancient temple with platforms, open pit chasm,
+ * golden constellation bridge, glowing lotuses, god-rays, and inspection spots.
  * ==========================================================================
  */
 
@@ -11,7 +11,7 @@ export class Level {
     this.width = 1024;
     this.height = 434;
 
-    // Load high-resolution pixel artwork of the submerged temple ruins
+    // Load pixel artwork of the submerged temple ruins
     this.mapImg = new Image();
     this.mapLoaded = false;
     this.mapImg.onload = () => { this.mapLoaded = true; };
@@ -22,36 +22,34 @@ export class Level {
 
     // Platforms definitions:
     // Walking surface Y is where the feet touch the stone.
+    // NOTE: Between x=384 and x=635 is the OPEN CHASM PIT (no ground!).
     this.platforms = [
-      // 1. Lower Left Ground (Stone pavement from far left to chasm edge)
-      { id: 'floor_left', x1: 0, x2: 462, y: 366, oneWay: false },
+      // 1. Lower Left Ground (Ends strictly at x=384 where ledge drops off)
+      { id: 'floor_left', x1: 0, x2: 384, y: 368, oneWay: false },
 
-      // 2. Lower Right Ground (Sanctum front courtyard)
-      { id: 'floor_right', x1: 544, x2: 1024, y: 366, oneWay: false },
+      // 2. Lower Right Ground (Starts strictly at x=635 where right platform begins)
+      { id: 'floor_right', x1: 635, x2: 1024, y: 368, oneWay: false },
 
-      // 3. Lower Chasm Stepping Stone (Sunken block so player can cross bottom)
-      { id: 'chasm_stepping', x1: 440, x2: 565, y: 388, oneWay: true },
+      // 3. Left Ruined Pillar Base (Stepping stone up to upper balcony)
+      { id: 'pillar_step_left', x1: 175, x2: 245, y: 272, oneWay: true },
 
-      // 4. Left Ruined Pillar Base (Stepping stone up to upper balcony)
-      { id: 'pillar_step_left', x1: 175, x2: 245, y: 270, oneWay: true },
+      // 4. Right Ruined Pediment (Stepping stone up to right balcony)
+      { id: 'pillar_step_right', x1: 640, x2: 705, y: 275, oneWay: true },
 
-      // 5. Right Ruined Pediment (Stepping stone up to right balcony)
-      { id: 'pillar_step_right', x1: 635, x2: 705, y: 275, oneWay: true },
-
-      // 6. Upper Left Balcony (Overgrown roof with glowing lotus)
+      // 5. Upper Left Balcony (Overgrown roof with glowing lotus)
       { id: 'balcony_left', x1: 220, x2: 388, y: 172, oneWay: true },
 
-      // 7. Upper Right Temple Balcony (Temple roof with carved statues)
+      // 6. Upper Right Temple Balcony (Temple roof with carved statues)
       { id: 'balcony_right', x1: 728, x2: 1024, y: 172, oneWay: true },
 
-      // 8. The Golden Constellation Bridge (Arched star bridge)
-      { id: 'golden_bridge', x1: 382, x2: 734, y: 172, oneWay: true }
+      // 7. The Golden Constellation Bridge (Arched star bridge)
+      { id: 'golden_bridge', x1: 388, x2: 728, y: 172, oneWay: true }
     ];
 
     // Undertale Inspectable Landmarks
     this.interactables = [
       {
-        x: 100, y: 366, radius: 45,
+        x: 100, y: 368, radius: 45,
         text: "* A celestial blue lotus blooms in the sunken courtyard.\n* Its gentle underwater glow fills you with DETERMINATION."
       },
       {
@@ -67,7 +65,7 @@ export class Level {
         text: "* A lotus offering at the entrance to the upper sanctuary.\n* It radiates a soothing celestial warmth."
       },
       {
-        x: 875, y: 366, radius: 55,
+        x: 875, y: 368, radius: 55,
         text: "* The Sunken Temple Sanctum.\n* Stone carvings of ancient deities watch in silent vigil."
       }
     ];
@@ -114,7 +112,7 @@ export class Level {
     this.bridgeStars = [];
     for (let i = 0; i < count; i++) {
       this.bridgeStars.push({
-        x: 388 + Math.random() * (730 - 388),
+        x: 388 + Math.random() * (728 - 388),
         y: 168 + (Math.random() - 0.5) * 8,
         size: 1 + Math.random() * 2,
         twinkleSpeed: 2 + Math.random() * 3,
@@ -126,22 +124,15 @@ export class Level {
   /**
    * Collision check: Given previous and current foot position,
    * returns the platform landed upon, if any.
-   * @param {number} prevY
-   * @param {number} currY
-   * @param {number} x
-   * @param {boolean} droppingThrough - True if holding Down + Jump
-   * @returns {Object|null}
    */
   checkPlatformLanding(prevY, currY, x, droppingThrough = false) {
     for (const plat of this.platforms) {
-      // Check horizontal span
       if (x >= plat.x1 && x <= plat.x2) {
         if (plat.oneWay && droppingThrough) {
-          continue; // Ignore one-way platform when dropping down
+          continue;
         }
 
-        // Crossed platform line from above or standing on it
-        if (prevY <= plat.y + 2 && currY >= plat.y - 1) {
+        if (prevY <= plat.y + 4 && currY >= plat.y - 1) {
           return plat;
         }
       }
@@ -174,11 +165,8 @@ export class Level {
   update(playerX, playerY, dt) {
     this.animTime += dt;
 
-    // 1. Calculate dynamic responsive camera zoom & follow
-    // Scale the 1024x434 world so it fits comfortably on any screen
     const minZoomW = window.innerWidth / this.width;
     const minZoomH = window.innerHeight / this.height;
-    // Choose an optimal zoom that displays the world with retro sharpness
     const desiredZoom = Math.min(2.5, Math.max(1.0, Math.min(minZoomW, minZoomH) * 1.05));
     this.camera.zoom = desiredZoom;
 
@@ -187,11 +175,9 @@ export class Level {
     this.camera.width = viewW;
     this.camera.height = viewH;
 
-    // Follow player smoothly
     this.camera.targetX = playerX - viewW / 2;
     this.camera.targetY = playerY - viewH / 2 - 20;
 
-    // Clamp within map bounds
     const maxCamX = Math.max(0, this.width - viewW);
     const maxCamY = Math.max(0, this.height - viewH);
 
@@ -202,7 +188,6 @@ export class Level {
     this.camera.x += (this.camera.targetX - this.camera.x) * t;
     this.camera.y += (this.camera.targetY - this.camera.y) * t;
 
-    // 2. Update floating bubbles & lotus spores
     for (const s of this.spores) {
       s.x += s.vx * dt;
       s.y += s.vy * dt;
@@ -219,24 +204,16 @@ export class Level {
 
   renderBackground(ctx) {
     ctx.save();
-    // 1. Draw base map artwork
     if (this.mapLoaded) {
       ctx.drawImage(this.mapImg, 0, 0, this.width, this.height);
     } else {
-      // Fallback deep twilight violet if image loading
       ctx.fillStyle = '#1c142c';
       ctx.fillRect(0, 0, this.width, this.height);
     }
 
-    // 2. Render Sunken Temple Light Rays (God-Rays shining through surface)
     this.renderGodRays(ctx);
-
-    // 3. Render Golden Bridge Shimmer (Twinkling star constellation runes)
     this.renderGoldenBridgeShimmer(ctx);
-
-    // 4. Render Blue Lotus Cyan Auras
     this.renderLotusAuras(ctx);
-
     ctx.restore();
   }
 
@@ -276,16 +253,14 @@ export class Level {
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
 
-    // Constellation bridge glow
-    const bridgeGrad = ctx.createLinearGradient(382, 172, 734, 172);
+    const bridgeGrad = ctx.createLinearGradient(388, 172, 728, 172);
     bridgeGrad.addColorStop(0, 'rgba(255, 215, 0, 0.2)');
     bridgeGrad.addColorStop(0.5, 'rgba(255, 240, 160, 0.55)');
     bridgeGrad.addColorStop(1, 'rgba(255, 215, 0, 0.2)');
 
     ctx.fillStyle = bridgeGrad;
-    ctx.fillRect(384, 168, 350, 7);
+    ctx.fillRect(388, 168, 340, 7);
 
-    // Twinkling golden stars along the constellation bridge
     for (const star of this.bridgeStars) {
       const alpha = 0.4 + 0.6 * Math.abs(Math.sin(this.animTime * star.twinkleSpeed + star.phase));
       ctx.fillStyle = `rgba(255, 245, 180, ${alpha})`;
@@ -301,12 +276,11 @@ export class Level {
     ctx.save();
     ctx.globalCompositeOperation = 'screen';
 
-    // Lotus flower coordinates
     const lotusPositions = [
-      { x: 100, y: 366 },
+      { x: 100, y: 368 },
       { x: 355, y: 172 },
       { x: 725, y: 172 },
-      { x: 890, y: 366 }
+      { x: 890, y: 368 }
     ];
 
     const time = this.animTime * 2.5;
