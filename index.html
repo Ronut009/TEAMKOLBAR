@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ruins of Surya</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- Fullscreen Game Canvas -->
+  <canvas id="gameCanvas"></canvas>
+
+  <!-- CRT Scanlines & Atmospheric Vignette -->
+  <div class="crt-scanlines"></div>
+  <div class="crt-vignette"></div>
+
+  <!-- Minimalist Undertale Bottom HUD -->
+  <div class="undertale-hud" id="hud">
+    <div class="hud-character">
+      <span class="soul-heart">❤</span>
+      <span class="hud-name">CHARA</span>
+      <span class="hud-lv">LV 1</span>
+    </div>
+    <div class="hud-hp-group">
+      <span class="hud-hp-label">HP</span>
+      <div class="hud-hp-bar">
+        <div class="hud-hp-fill" id="hpFill" style="width: 100%;"></div>
+      </div>
+      <span class="hud-hp-num" id="hpNum">20 / 20</span>
+    </div>
+  </div>
+
+  <!-- Undertale Style Dialogue / Inspection Box -->
+  <div class="dialogue-box" id="dialogueBox">
+    <div class="dialogue-inner">
+      <span class="dialogue-icon">✦</span>
+      <p class="dialogue-text" id="dialogueText">* The ancient dais radiates a warm, eternal light. (Press [Z] to close)</p>
+    </div>
+  </div>
+
+  <!-- Subtle Interaction Prompt Pill -->
+  <div class="interact-prompt" id="interactPrompt">
+    <span>[Z] CHECK</span>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
