@@ -1,6 +1,7 @@
 /**
  * ==========================================================================
- * UNDERWATER RUINS - MAIN ENTRY POINT (js/main.js)
+ * GLITCHVERSE - MAIN ENTRY POINT (js/main.js)
+ * Initializes submerged temple level, platformer player, and engine loop.
  * ==========================================================================
  */
 
@@ -11,18 +12,30 @@ import { Input } from './input.js';
 
 window.addEventListener('DOMContentLoaded', () => {
   const canvas = document.getElementById('gameCanvas');
-  if (!canvas) return;
+  if (!canvas) {
+    console.error('Failed to locate #gameCanvas element.');
+    return;
+  }
 
-  // Build underwater ruins level
+  // Initialize Submerged Temple Ruins Level (1024x434 map)
   const level = new Level();
 
-  // Spawn player on the left ruin platform (top surface at y=340)
-  // Player y is bottom-of-feet, so feet at y=340
-  const player = new Player(220, 340);
+  // Spawn Player on the lower left courtyard floor
+  const spawnX = 160;
+  const spawnY = 366;
+  const player = new Player(spawnX, spawnY);
 
+  // Initialize engine with responsive fullscreen camera
   const engine = new Engine(canvas, level, player);
 
-  window.__GAME__ = { engine, level, player, input: Input };
+  // Debug global reference
+  window.__GAME__ = {
+    engine,
+    level,
+    player,
+    input: Input
+  };
 
+  // Launch engine loop
   engine.start();
 });
