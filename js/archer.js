@@ -20,8 +20,8 @@ export class Arrow {
     this.vy = 0;
     this.speed = 220; // Homing flight speed
     this.angle = Math.PI; // In radians, initially facing left
-    this.life = 4.0;
-    this.maxLife = 4.0;
+    this.life = 6.2;
+    this.maxLife = 6.2;
     this.damage = 4;
     this.width = 44;
     this.height = 8;

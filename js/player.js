@@ -44,8 +44,19 @@ export class Player {
     this.spriteHeight = 80;
     this.footOffsetY = 274 / 280;
 
-    this.divineWidth = 56;
-    this.divineHeight = 62;
+    this.divineWidth = 70;
+    this.divineHeight = 100;
+
+    // Divine Transformation State & Animation (6-Frame Fiery Transition)
+    this.isTransforming = false;
+    this.transFrame = 0;
+    this.transTimer = 0;
+    this.transFrameDuration = 0.10; // ~0.60s total transition
+
+    // Hover Animation State (Hovering Idle & Hover Move)
+    this.hoverFrame = 0;
+    this.hoverTimer = 0;
+    this.hoverFrameDuration = 0.11;
 
     this.facing = 'right';
     this.doorwayFade = 1.0;
@@ -100,7 +111,10 @@ export class Player {
       run: [],
       attack: [],
       jump: [],
-      divine: new Image()
+      divine: new Image(),
+      kaliTrans: [],
+      kaliHoverIdle: [],
+      kaliHoverMove: []
     };
 
     this.anims.idle.src = 'assets/anims/idle.png';
@@ -123,7 +137,22 @@ export class Player {
       this.anims.jump.push(img);
     }
 
-    this.anims.divine.src = 'assets/mc_divine.png';
+    this.anims.divine.src = 'assets/anims/kali_hover_idle_0.png';
+
+    // Preload Maa Kali Divine Transformation, Hovering Idle, and Hover Move Frames
+    for (let i = 0; i < 6; i++) {
+      const transImg = new Image();
+      transImg.src = `assets/anims/kali_trans_${i}.png`;
+      this.anims.kaliTrans.push(transImg);
+
+      const idleImg = new Image();
+      idleImg.src = `assets/anims/kali_hover_idle_${i}.png`;
+      this.anims.kaliHoverIdle.push(idleImg);
+
+      const moveImg = new Image();
+      moveImg.src = `assets/anims/kali_hover_move_${i}.png`;
+      this.anims.kaliHoverMove.push(moveImg);
+    }
 
     // Preload Climbing Animations
     this.anims.climbUp = [];
@@ -232,10 +261,14 @@ export class Player {
   }
 
   triggerDivineTransformation() {
-    this.isDivine = true;
-    this.divineTimer = this.divineDuration;
+    if (this.isTransforming || this.isDivine) return;
+    this.isTransforming = true;
+    this.transFrame = 0;
+    this.transTimer = 0;
+    this.vx = 0;
+    this.vy = -30;
     this.speed = this.divineSpeed;
-    this.canDoubleJump = false; // Double jump removed as requested!
+    this.canDoubleJump = false;
 
     const flash = document.getElementById('divineFlash');
     if (flash) {
@@ -243,17 +276,17 @@ export class Player {
       setTimeout(() => flash.classList.remove('active'), 250);
     }
 
-    for (let i = 0; i < 28; i++) {
-      const angle = (i / 28) * Math.PI * 2;
-      const speed = 70 + Math.random() * 80;
+    for (let i = 0; i < 30; i++) {
+      const angle = (i / 30) * Math.PI * 2;
+      const speed = 70 + Math.random() * 90;
       this.particles.push({
         x: this.x,
-        y: this.y - 25,
+        y: this.y - 30,
         vx: Math.cos(angle) * speed,
         vy: Math.sin(angle) * speed,
-        life: 0.55 + Math.random() * 0.25,
-        maxLife: 0.8,
-        size: 3 + Math.random() * 2,
+        life: 0.6 + Math.random() * 0.3,
+        maxLife: 0.9,
+        size: 3 + Math.random() * 3,
         color: i % 2 === 0 ? '#ffd700' : '#ff0055'
       });
     }
@@ -261,6 +294,7 @@ export class Player {
 
   revertToMortal() {
     this.isDivine = false;
+    this.isTransforming = false;
     this.divineTimer = 0.0;
     this.speed = this.baseSpeed;
     this.canDoubleJump = false;
@@ -442,6 +476,45 @@ export class Player {
       return;
     }
 
+    // 0. Divine Transformation Sequence Playback
+    if (this.isTransforming) {
+      this.vx = 0;
+      this.isMoving = false;
+      this.transTimer += dt;
+      this.vy = Math.sin(this.transTimer * 9.0) * -12;
+      this.y += this.vy * dt;
+
+      if (this.transTimer >= this.transFrameDuration) {
+        this.transTimer = 0;
+        this.transFrame++;
+        if (this.transFrame >= 6) {
+          // Finished transformation: Manifest Divine Kali!
+          this.isTransforming = false;
+          this.isDivine = true;
+          this.divineTimer = this.divineDuration;
+          this.hoverFrame = 0;
+          this.hoverTimer = 0;
+        }
+      }
+
+      // Fiery cosmic transformation aura particles
+      if (Math.random() < 0.6) {
+        this.particles.push({
+          x: this.x + (Math.random() - 0.5) * 32,
+          y: this.y - 30 + (Math.random() - 0.5) * 32,
+          vx: (Math.random() - 0.5) * 45,
+          vy: -35 - Math.random() * 55,
+          life: 0.45,
+          maxLife: 0.45,
+          size: 2.5 + Math.random() * 2.5,
+          color: Math.random() > 0.4 ? '#ffd700' : '#ff2244'
+        });
+      }
+
+      this.updateParticles(dt);
+      return; // Locked in place during transformation sequence
+    }
+
     // 1. Attack on Left Click
     if (Input.isPressed('attack')) {
       this.triggerAttack();
@@ -459,15 +532,29 @@ export class Player {
       }
     }
 
-    // 2. Divine Transformation (Key X) - only enabled once unlocked via Sacred Lotus interaction
-    if (Input.isPressed('KeyX') || Input.isPressed('x')) {
-      if (!this.isDivine && this.hasDivineUnlocked) {
-        this.triggerDivineTransformation();
+    // 2. Divine Transformation (Key X or Key E) - only enabled once unlocked via Sacred Lotus
+    const wantsTransform = Input.isPressed('KeyX') || Input.isPressed('x') || Input.isPressed('KeyE') || Input.isPressed('e');
+    if (wantsTransform && !dialogueActive) {
+      if (!this.isDivine && !this.isTransforming && this.hasDivineUnlocked) {
+        const isX = Input.isPressed('KeyX') || Input.isPressed('x');
+        const nearby = level?.getNearbyInteractable?.(this.x, this.y);
+        // [X] always transforms; [E] transforms when not standing at an interactable prompt
+        if (isX || !nearby) {
+          this.triggerDivineTransformation();
+        }
       }
     }
 
     if (this.isDivine) {
       this.divineTimer -= dt;
+
+      // Cycle Hovering Idle / Hover Move animation frames
+      this.hoverTimer += dt;
+      if (this.hoverTimer >= this.hoverFrameDuration) {
+        this.hoverTimer = 0;
+        this.hoverFrame = (this.hoverFrame + 1) % 6;
+      }
+
       if (Math.random() < 0.75) {
         this.particles.push({
           x: this.x + (Math.random() - 0.5) * 26,
@@ -765,9 +852,9 @@ export class Player {
       ctx.globalAlpha = 0.35;
     }
 
-    // 1. Divine Aura (When in Maa Kali Divine Form)
-    if (this.isDivine) {
-      this.drawDivineAura(ctx, cx, cy - 30);
+    // 1. Divine Aura (When in Maa Kali Divine Form or Transforming)
+    if (this.isDivine || this.isTransforming) {
+      this.drawDivineAura(ctx, cx, cy - 35);
     }
 
     // 2. Render Sprite
@@ -777,11 +864,28 @@ export class Player {
       ctx.scale(-1, 1);
     }
 
-    if (this.isDivine) {
+    if (this.isTransforming) {
       const rw = this.divineWidth;
       const rh = this.divineHeight;
-      if (this.anims.divine.complete && this.anims.divine.naturalWidth > 0) {
-        ctx.drawImage(this.anims.divine, -rw / 2, -rh, rw, rh);
+      const transImg = (this.anims.kaliTrans && this.anims.kaliTrans[this.transFrame]) || this.anims.idle;
+      if (transImg && transImg.complete && transImg.naturalWidth > 0) {
+        ctx.drawImage(transImg, -rw / 2, -rh, rw, rh);
+      }
+    } else if (this.isDivine) {
+      const rw = this.divineWidth;
+      const rh = this.divineHeight;
+      let divineImg;
+      if (this.isMoving) {
+        // Hover & Move animation (Row 4 - flying horizontally with hair trailing)
+        divineImg = (this.anims.kaliHoverMove && this.anims.kaliHoverMove[this.hoverFrame]) || (this.anims.kaliHoverIdle && this.anims.kaliHoverIdle[0]);
+      } else {
+        // Hovering Idle animation (Row 3 - vertical hovering stance)
+        divineImg = (this.anims.kaliHoverIdle && this.anims.kaliHoverIdle[this.hoverFrame]) || (this.anims.kaliHoverIdle && this.anims.kaliHoverIdle[0]);
+      }
+
+      if (divineImg && divineImg.complete && divineImg.naturalWidth > 0) {
+        const floatBob = this.isMoving ? 0 : Math.sin(this.animTime * 3.5) * 4;
+        ctx.drawImage(divineImg, -rw / 2, -rh + floatBob, rw, rh);
       }
     } else {
       let currentImg = this.anims.idle;

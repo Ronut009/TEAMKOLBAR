@@ -476,8 +476,8 @@ export class Engine {
 
     // Medallion Divine Sands Ring Gauge (Circumference ~154px)
     if (this.divineRingFill) {
-      if (this.player.isDivine) {
-        const pct = Math.max(0, Math.min(1, this.player.divineTimer / this.player.divineDuration));
+      if (this.player.isDivine || this.player.isTransforming) {
+        const pct = this.player.isTransforming ? 1.0 : Math.max(0, Math.min(1, this.player.divineTimer / this.player.divineDuration));
         this.divineRingFill.style.strokeDashoffset = `${(1 - pct) * 154}`;
         this.divineRingFill.style.opacity = '1';
       } else if (this.player.hasDivineUnlocked || this.currentLevelIndex === 2) {
@@ -490,14 +490,14 @@ export class Engine {
     }
 
     // Divine Form HUD State
-    if (this.player.isDivine) {
+    if (this.player.isDivine || this.player.isTransforming) {
       this.hudEl.classList.add('divine-mode');
       if (this.hudName) this.hudName.textContent = 'RAKTI (KALI)';
       if (this.divineLabel) this.divineLabel.textContent = 'SANDS OF KALI';
 
       const pct = Math.max(0, (this.player.divineTimer / this.player.divineDuration) * 100);
       if (this.divineFill) this.divineFill.style.width = pct + '%';
-      if (this.divineTime) this.divineTime.textContent = this.player.divineTimer.toFixed(1) + 's';
+      if (this.divineTime) this.divineTime.textContent = this.player.isTransforming ? 'AWAKENING' : this.player.divineTimer.toFixed(1) + 's';
     } else {
       this.hudEl.classList.remove('divine-mode');
       if (this.hudName) this.hudName.textContent = 'RAKTI';
