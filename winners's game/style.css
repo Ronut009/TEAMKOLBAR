@@ -1,0 +1,287 @@
+/* ==========================================================================
+   UNDERTALE × ANCIENT RUINS AESTHETIC - FULLSCREEN STYLING
+   ========================================================================== */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+html, body {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background-color: #000;
+  font-family: 'Press Start 2P', monospace;
+  color: #fff;
+}
+
+/* 100% Fullscreen Viewport Canvas */
+#gameCanvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  display: block;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: -webkit-crisp-edges;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  z-index: 1;
+}
+
+/* Subtle Retro CRT Scanlines */
+.crt-scanlines {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.16) 0px,
+    rgba(0, 0, 0, 0.16) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Atmospheric Undertale Dark Vignette */
+.crt-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, transparent 58%, rgba(0, 0, 0, 0.78) 100%);
+  pointer-events: none;
+  z-index: 11;
+}
+
+/* Divine Transformation Shockwave Flash */
+.divine-flash {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(255, 230, 100, 0.8) 0%, rgba(200, 0, 50, 0.4) 60%, transparent 100%);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 15;
+  transition: opacity 0.15s ease-out;
+}
+
+.divine-flash.active {
+  opacity: 1;
+}
+
+/* ==========================================================================
+   UNDERTALE MINIMALIST BOTTOM HUD
+   ========================================================================== */
+.undertale-hud {
+  position: absolute;
+  bottom: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  background: rgba(0, 0, 0, 0.92);
+  border: 2px solid #fff;
+  border-radius: 4px;
+  padding: 8px 20px;
+  z-index: 20;
+  font-size: 11px;
+  letter-spacing: 1px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.85);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Divine Form HUD Glow */
+.undertale-hud.divine-mode {
+  border-color: #ffd700;
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.5), inset 0 0 10px rgba(255, 0, 80, 0.3);
+}
+
+.hud-character {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.soul-heart {
+  color: #ff0000;
+  font-size: 14px;
+  line-height: 1;
+  animation: pulseSoul 2s infinite ease-in-out;
+  transition: all 0.3s ease;
+}
+
+.undertale-hud.divine-mode .soul-heart {
+  color: #ff2a55;
+  animation: pulseDivineSoul 0.6s infinite alternate;
+  filter: drop-shadow(0 0 8px #ff0044);
+}
+
+@keyframes pulseSoul {
+  0%, 100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 2px #ff0000);
+  }
+  50% {
+    transform: scale(1.18);
+    filter: drop-shadow(0 0 7px #ff3333);
+  }
+}
+
+@keyframes pulseDivineSoul {
+  0% { transform: scale(1.1); filter: drop-shadow(0 0 4px #ff0055); }
+  100% { transform: scale(1.4); filter: drop-shadow(0 0 12px #ffd700); }
+}
+
+.hud-name {
+  color: #fff;
+  font-weight: bold;
+  transition: color 0.3s ease;
+}
+
+.undertale-hud.divine-mode .hud-name {
+  color: #ffd700;
+  text-shadow: 0 0 8px rgba(255, 215, 0, 0.8);
+}
+
+.hud-lv {
+  color: #fff;
+}
+
+.hud-hp-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hud-hp-label {
+  font-size: 9px;
+  color: #ffff00;
+}
+
+.hud-hp-bar {
+  width: 80px;
+  height: 14px;
+  background: #c00000;
+  border: 1px solid #000;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.hud-hp-fill {
+  height: 100%;
+  background: #ffff00;
+  transition: width 0.2s ease;
+}
+
+.hud-hp-num {
+  font-size: 9px;
+  color: #fff;
+  min-width: 55px;
+}
+
+/* Divine Gauge (6-Second Duration) */
+.divine-status-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 8px;
+  border-left: 1px solid #444;
+}
+
+.divine-label {
+  font-size: 8px;
+  color: #ff88aa;
+  letter-spacing: 0.5px;
+}
+
+.undertale-hud.divine-mode .divine-label {
+  color: #ffd700;
+}
+
+.divine-bar-track {
+  width: 70px;
+  height: 10px;
+  background: #201015;
+  border: 1px solid #552233;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.divine-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #ff0055 0%, #ffd700 100%);
+  width: 0%;
+  transition: width 0.1s linear;
+}
+
+.divine-time {
+  font-size: 8px;
+  color: #ffd700;
+  min-width: 24px;
+}
+
+/* ==========================================================================
+   UNDERTALE CLASSIC DIALOGUE BOX
+   ========================================================================== */
+.dialogue-box {
+  position: absolute;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(820px, 92vw);
+  background: #000;
+  border: 4px solid #fff;
+  border-radius: 6px;
+  padding: 20px 24px;
+  z-index: 30;
+  display: none;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.9);
+}
+
+.dialogue-inner {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.dialogue-icon {
+  color: #ffff00;
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+.dialogue-text {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 12px;
+  line-height: 1.9;
+  color: #fff;
+  letter-spacing: 0.5px;
+}
+
+/* Floating "[Z] CHECK" Interaction Prompt */
+.interact-prompt {
+  position: absolute;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.85);
+  border: 2px solid #ffff00;
+  border-radius: 4px;
+  padding: 6px 14px;
+  font-size: 9px;
+  color: #ffff00;
+  letter-spacing: 1px;
+  z-index: 20;
+  display: none;
+  animation: bouncePrompt 1.2s infinite ease-in-out;
+}
+
+@keyframes bouncePrompt {
+  0%, 100% { transform: translate(-50%, 0); }
+  50% { transform: translate(-50%, -4px); }
+}
