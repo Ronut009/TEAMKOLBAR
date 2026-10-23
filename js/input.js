@@ -1,7 +1,7 @@
 /**
  * ==========================================================================
- * GLITCHVERSE - INPUT MANAGER (js/input.js)
- * Robust keyboard input handler with edge-triggering and Undertale bindings.
+ * UNDERWATER RUINS - INPUT MANAGER (js/input.js)
+ * Handles WASD, Arrows, Space/W/Up for jump, X for divine, Z/Enter for interact.
  * ==========================================================================
  */
 
@@ -11,42 +11,26 @@ export class InputManager {
     this.keysPressed = new Map();
 
     this.aliases = {
-      // 4-Way Movement
-      up: ['KeyW', 'ArrowUp'],
-      down: ['KeyS', 'ArrowDown'],
-      left: ['KeyA', 'ArrowLeft'],
-      right: ['KeyD', 'ArrowRight'],
-
-      // Undertale Core Actions
-      jump: ['Space'],
-      leap: ['Space'],
-      interact: ['KeyZ', 'Enter', 'KeyF'], // Z / Enter / F
-      cancel: ['KeyX', 'ShiftLeft', 'ShiftRight'],
-
-      // Future hooks
-      shift: ['KeyE'],
+      up:       ['KeyW', 'ArrowUp'],
+      down:     ['KeyS', 'ArrowDown'],
+      left:     ['KeyA', 'ArrowLeft'],
+      right:    ['KeyD', 'ArrowRight'],
+      jump:     ['Space', 'KeyW', 'ArrowUp'],
+      interact: ['KeyZ', 'Enter', 'KeyF'],
+      cancel:   ['ShiftLeft', 'ShiftRight'],
+      shift:    ['KeyE'],
       manipulate: ['KeyQ'],
-      reset: ['KeyR'],
-
-      // Raw key shorthands
-      w: ['KeyW'],
-      a: ['KeyA'],
-      s: ['KeyS'],
-      d: ['KeyD'],
-      z: ['KeyZ'],
-      x: ['KeyX'],
-      e: ['KeyE'],
-      q: ['KeyQ'],
-      f: ['KeyF'],
-      r: ['KeyR'],
-      space: ['Space'],
-      enter: ['Enter']
+      reset:    ['KeyR'],
+      // raw
+      w: ['KeyW'], a: ['KeyA'], s: ['KeyS'], d: ['KeyD'],
+      z: ['KeyZ'], x: ['KeyX'], e: ['KeyE'], q: ['KeyQ'],
+      f: ['KeyF'], r: ['KeyR'],
+      space: ['Space'], enter: ['Enter']
     };
 
     this._handleKeyDown = this._handleKeyDown.bind(this);
     this._handleKeyUp = this._handleKeyUp.bind(this);
     this._handleBlur = this._handleBlur.bind(this);
-
     this.init();
   }
 
@@ -64,12 +48,9 @@ export class InputManager {
 
   _handleKeyDown(e) {
     const code = e.code;
-
-    // Prevent default browser scrolling
     if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(code)) {
       e.preventDefault();
     }
-
     if (!this.keysDown.get(code)) {
       this.keysPressed.set(code, true);
     }
@@ -77,9 +58,8 @@ export class InputManager {
   }
 
   _handleKeyUp(e) {
-    const code = e.code;
-    this.keysDown.set(code, false);
-    this.keysPressed.set(code, false);
+    this.keysDown.set(e.code, false);
+    this.keysPressed.set(e.code, false);
   }
 
   _handleBlur() {
@@ -88,36 +68,24 @@ export class InputManager {
   }
 
   isDown(codeOrAlias) {
-    const aliasList = this.aliases[codeOrAlias.toLowerCase()];
-    if (aliasList) {
-      return aliasList.some(code => Boolean(this.keysDown.get(code)));
-    }
+    const list = this.aliases[codeOrAlias.toLowerCase()];
+    if (list) return list.some(c => Boolean(this.keysDown.get(c)));
     return Boolean(this.keysDown.get(codeOrAlias));
   }
 
   isPressed(codeOrAlias) {
-    const aliasList = this.aliases[codeOrAlias.toLowerCase()];
-    if (aliasList) {
-      return aliasList.some(code => Boolean(this.keysPressed.get(code)));
-    }
+    const list = this.aliases[codeOrAlias.toLowerCase()];
+    if (list) return list.some(c => Boolean(this.keysPressed.get(c)));
     return Boolean(this.keysPressed.get(codeOrAlias));
   }
 
   getMovementVector() {
-    let dx = 0;
-    let dy = 0;
-
-    if (this.isDown('left')) dx -= 1;
+    let dx = 0, dy = 0;
+    if (this.isDown('left'))  dx -= 1;
     if (this.isDown('right')) dx += 1;
-    if (this.isDown('up')) dy -= 1;
-    if (this.isDown('down')) dy += 1;
-
-    if (dx !== 0 && dy !== 0) {
-      const invSqrt = Math.SQRT1_2;
-      dx *= invSqrt;
-      dy *= invSqrt;
-    }
-
+    if (this.isDown('up'))    dy -= 1;
+    if (this.isDown('down'))  dy += 1;
+    if (dx !== 0 && dy !== 0) { dx *= Math.SQRT1_2; dy *= Math.SQRT1_2; }
     return { x: dx, y: dy };
   }
 
