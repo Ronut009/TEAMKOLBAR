@@ -1,8 +1,8 @@
 /**
  * ==========================================================================
  * GLITCHVERSE - SUBMERGED RUINS TEMPLE MAP (js/level.js)
- * Recreates the submerged ancient temple with platforms, open pit chasm,
- * golden constellation bridge, glowing lotuses, god-rays, and inspection spots.
+ * Synchronized platforms, strict pit boundaries (x: 462-548),
+ * golden constellation bridge, and Undertale inspection spots.
  * ==========================================================================
  */
 
@@ -11,7 +11,6 @@ export class Level {
     this.width = 1024;
     this.height = 434;
 
-    // Load pixel artwork of the submerged temple ruins
     this.mapImg = new Image();
     this.mapLoaded = false;
     this.mapImg.onload = () => { this.mapLoaded = true; };
@@ -20,21 +19,20 @@ export class Level {
       this.mapLoaded = true;
     }
 
-    // Platforms definitions:
-    // Walking surface Y is where the feet touch the stone.
-    // NOTE: Between x=384 and x=635 is the OPEN CHASM PIT (no ground!).
+    // Platform definitions aligned to the visual temple architecture
+    // Note: Pit chasm is between x=462 and x=548.
     this.platforms = [
-      // 1. Lower Left Ground (Ends strictly at x=384 where ledge drops off)
-      { id: 'floor_left', x1: 0, x2: 384, y: 368, oneWay: false },
+      // 1. Lower Left Ground (Stretches from far left to x=462)
+      { id: 'floor_left', x1: 0, x2: 462, y: 368, oneWay: false },
 
-      // 2. Lower Right Ground (Starts strictly at x=635 where right platform begins)
-      { id: 'floor_right', x1: 635, x2: 1024, y: 368, oneWay: false },
+      // 2. Lower Right Ground (Stretches from x=548 to far right)
+      { id: 'floor_right', x1: 548, x2: 1024, y: 368, oneWay: false },
 
-      // 3. Left Ruined Pillar Base (Stepping stone up to upper balcony)
-      { id: 'pillar_step_left', x1: 175, x2: 245, y: 272, oneWay: true },
+      // 3. Left Ruined Pillar Step (Intermediate step to upper balcony)
+      { id: 'pillar_step_left', x1: 170, x2: 245, y: 270, oneWay: true },
 
-      // 4. Right Ruined Pediment (Stepping stone up to right balcony)
-      { id: 'pillar_step_right', x1: 640, x2: 705, y: 275, oneWay: true },
+      // 4. Right Ruined Pediment Step (Intermediate step to right balcony)
+      { id: 'pillar_step_right', x1: 640, x2: 710, y: 275, oneWay: true },
 
       // 5. Upper Left Balcony (Overgrown roof with glowing lotus)
       { id: 'balcony_left', x1: 220, x2: 388, y: 172, oneWay: true },
@@ -42,9 +40,17 @@ export class Level {
       // 6. Upper Right Temple Balcony (Temple roof with carved statues)
       { id: 'balcony_right', x1: 728, x2: 1024, y: 172, oneWay: true },
 
-      // 7. The Golden Constellation Bridge (Arched star bridge)
+      // 7. The Golden Constellation Bridge (Arched celestial bridge)
       { id: 'golden_bridge', x1: 388, x2: 728, y: 172, oneWay: true }
     ];
+
+    // Pit Side Walls (Prevent phasing into side of platforms below y=368)
+    this.pitWalls = {
+      leftWallX: 462,   // Left stone platform edge
+      rightWallX: 548,  // Right stone platform edge
+      wallTopY: 368,
+      wallBottomY: 434
+    };
 
     // Undertale Inspectable Landmarks
     this.interactables = [
@@ -70,15 +76,12 @@ export class Level {
       }
     ];
 
-    // Dynamic underwater bubbles & glowing lotus spores
     this.spores = [];
     this.initSpores(45);
 
-    // Dynamic golden bridge star sparkles
     this.bridgeStars = [];
     this.initBridgeStars(25);
 
-    // Camera viewport tracking
     this.camera = {
       x: 0,
       y: 0,
@@ -132,7 +135,8 @@ export class Level {
           continue;
         }
 
-        if (prevY <= plat.y + 4 && currY >= plat.y - 1) {
+        // Landing tolerance: crossing surface line downward
+        if (prevY <= plat.y + 6 && currY >= plat.y - 2) {
           return plat;
         }
       }
@@ -145,11 +149,32 @@ export class Level {
    */
   isOnPlatform(x, y) {
     for (const plat of this.platforms) {
-      if (x >= plat.x1 - 4 && x <= plat.x2 + 4 && Math.abs(y - plat.y) <= 4) {
+      if (x >= plat.x1 - 2 && x <= plat.x2 + 2 && Math.abs(y - plat.y) <= 4) {
         return plat;
       }
     }
     return null;
+  }
+
+  /**
+   * Checks horizontal collisions against the pit's stone walls
+   * @param {number} x
+   * @param {number} y - Foot y position
+   * @returns {number} Corrected X position
+   */
+  resolvePitWallCollision(x, y) {
+    // If foot is down in the pit below ground level (y > 368)
+    if (y > this.pitWalls.wallTopY + 2 && y <= this.pitWalls.wallBottomY) {
+      // Trying to enter left stone wall from the pit
+      if (x < this.pitWalls.leftWallX + 8 && x > this.pitWalls.leftWallX - 10) {
+        return this.pitWalls.leftWallX + 8;
+      }
+      // Trying to enter right stone wall from the pit
+      if (x > this.pitWalls.rightWallX - 8 && x < this.pitWalls.rightWallX + 10) {
+        return this.pitWalls.rightWallX - 8;
+      }
+    }
+    return x;
   }
 
   getNearbyInteractable(px, py) {

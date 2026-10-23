@@ -2,7 +2,7 @@
  * ==========================================================================
  * GLITCHVERSE - PLAYER ENTITY (js/player.js)
  * Full Sprite Animation Engine (Run, Jump, 6-Frame Attack Combo on Left Click),
- * Authentic Pit Falling Physics, Divine Form, & Zero Floating.
+ * Authentic Pit Falling Physics, Double Jump, Pit Wall Collisions, & Zero Floating.
  * ==========================================================================
  */
 
@@ -15,23 +15,35 @@ export class Player {
 
     this.vx = 0;
     this.vy = 0;
-    this.baseSpeed = 195;
-    this.divineSpeed = 260;
+    this.baseSpeed = 205;
+    this.divineSpeed = 265;
     this.speed = this.baseSpeed;
-    this.acceleration = 1700;
+    this.acceleration = 1800;
     this.friction = 1400;
 
-    // Platformer Jump Physics
+    // Fluid Jump Physics & Feel
     this.gravity = 920;
-    this.jumpImpulse = -430;
-    this.divineJumpImpulse = -540;
+    this.jumpImpulse = -470;
+    this.divineJumpImpulse = -560;
     this.isGrounded = true;
     this.currentPlatform = null;
     this.dropThroughTimer = 0;
 
-    // Sprite Display Dimensions (Synchronized with temple scale)
-    this.spriteWidth = 50;
-    this.spriteHeight = 54;
+    // Platformer Jump Quality of Life (Coyote Time & Jump Buffer)
+    this.coyoteTimer = 0;
+    this.coyoteMax = 0.12; // 120ms to jump after leaving a ledge
+    this.jumpBufferTimer = 0;
+    this.jumpBufferMax = 0.12; // 120ms pre-landing jump buffer
+    this.canDoubleJump = true;
+
+    // Landing animation trigger
+    this.landingTimer = 0;
+
+    // Sprite Display Dimensions (Normalized to 160x280 canvas with foot at y=274)
+    this.spriteWidth = 46;
+    this.spriteHeight = 80;
+    this.footOffsetY = 274 / 280; // Exact foot ratio
+
     this.divineWidth = 56;
     this.divineHeight = 62;
 
@@ -43,13 +55,13 @@ export class Player {
     this.isAttacking = false;
     this.attackFrame = 0;
     this.attackTimer = 0;
-    this.attackFrameDuration = 0.065; // ~65ms per frame = ~0.39s total slash
-    this.slashes = []; // Sword slash crescent trails
+    this.attackFrameDuration = 0.065;
+    this.slashes = [];
 
-    // Run & Jump Animation State
+    // Run Animation
     this.runFrame = 0;
     this.runTimer = 0;
-    this.runFrameDuration = 0.085; // ~85ms per run frame
+    this.runFrameDuration = 0.085;
 
     // Divine Transformation State (6-Second Duration)
     this.isDivine = false;
@@ -60,10 +72,8 @@ export class Player {
     // Preload Animation Sprite Frames
     this.loadAnimations();
 
-    // Visual particles
     this.particles = [];
 
-    // Vitality stats
     this.hp = 20;
     this.maxHp = 20;
   }
@@ -77,37 +87,31 @@ export class Player {
       divine: new Image()
     };
 
-    // Idle
     this.anims.idle.src = 'assets/anims/idle.png';
 
-    // Run (6 frames)
     for (let i = 0; i < 6; i++) {
       const img = new Image();
       img.src = `assets/anims/run_${i}.png`;
       this.anims.run.push(img);
     }
 
-    // Attack (6 frames)
     for (let i = 0; i < 6; i++) {
       const img = new Image();
       img.src = `assets/anims/attack_${i}.png`;
       this.anims.attack.push(img);
     }
 
-    // Jump (6 frames)
     for (let i = 0; i < 6; i++) {
       const img = new Image();
       img.src = `assets/anims/jump_${i}.png`;
       this.anims.jump.push(img);
     }
 
-    // Divine Form
     this.anims.divine.src = 'assets/mc_divine.png';
   }
 
   triggerAttack() {
     if (this.isAttacking) {
-      // Chain or re-trigger combo
       this.attackFrame = 0;
       this.attackTimer = 0;
     } else {
@@ -116,7 +120,6 @@ export class Player {
       this.attackTimer = 0;
     }
 
-    // Spawn dynamic sword slash wave in front of player
     const slashDir = (this.facing === 'left') ? -1 : 1;
     this.slashes.push({
       x: this.x + slashDir * 24,
@@ -127,7 +130,6 @@ export class Player {
       isDivine: this.isDivine
     });
 
-    // Sword sparks
     for (let i = 0; i < 6; i++) {
       this.particles.push({
         x: this.x + slashDir * 20,
@@ -193,11 +195,11 @@ export class Player {
     this.animTime += dt;
     this.divinePulse += dt * 4.0;
 
-    if (this.dropThroughTimer > 0) {
-      this.dropThroughTimer -= dt;
-    }
+    if (this.dropThroughTimer > 0) this.dropThroughTimer -= dt;
+    if (this.landingTimer > 0) this.landingTimer -= dt;
+    if (this.coyoteTimer > 0) this.coyoteTimer -= dt;
+    if (this.jumpBufferTimer > 0) this.jumpBufferTimer -= dt;
 
-    // Freeze during dialogue
     if (dialogueActive) {
       this.vx = 0;
       this.isMoving = false;
@@ -205,12 +207,11 @@ export class Player {
       return;
     }
 
-    // 1. Attack Trigger on Left Click (or Z / J)
+    // 1. Attack on Left Click
     if (Input.isPressed('attack')) {
       this.triggerAttack();
     }
 
-    // Advance Attack Animation
     if (this.isAttacking) {
       this.attackTimer += dt;
       if (this.attackTimer >= this.attackFrameDuration) {
@@ -232,7 +233,6 @@ export class Player {
 
     if (this.isDivine) {
       this.divineTimer -= dt;
-
       if (Math.random() < 0.75) {
         this.particles.push({
           x: this.x + (Math.random() - 0.5) * 26,
@@ -245,13 +245,12 @@ export class Player {
           color: Math.random() > 0.4 ? '#ffd700' : '#ff0055'
         });
       }
-
       if (this.divineTimer <= 0) {
         this.revertToMortal();
       }
     }
 
-    // 3. Horizontal Movement (A / D, Left / Right)
+    // 3. Horizontal Movement
     let moveDir = 0;
     if (Input.isDown('left') || Input.isDown('KeyA') || Input.isDown('ArrowLeft')) moveDir -= 1;
     if (Input.isDown('right') || Input.isDown('KeyD') || Input.isDown('ArrowRight')) moveDir += 1;
@@ -263,8 +262,6 @@ export class Player {
     const targetVx = moveDir * this.speed;
     if (this.isMoving) {
       this.vx = this.approach(this.vx, targetVx, this.acceleration * dt);
-
-      // Cycle run frames
       this.runTimer += dt;
       if (this.runTimer >= this.runFrameDuration) {
         this.runTimer = 0;
@@ -276,24 +273,49 @@ export class Player {
       this.runTimer = 0;
     }
 
-    // 4. Jump & Drop-Through Physics
+    // 4. Jump & Drop-Through Handling
     const jumpPressed = Input.isPressed('jump') || Input.isPressed('Space') || Input.isPressed('KeyW') || Input.isPressed('ArrowUp');
     const isDownHeld = Input.isDown('down') || Input.isDown('KeyS') || Input.isDown('ArrowDown');
 
-    if (jumpPressed && this.isGrounded) {
-      if (isDownHeld && this.currentPlatform && this.currentPlatform.oneWay) {
-        // Drop down through current one-way platform
-        this.dropThroughTimer = 0.28;
-        this.isGrounded = false;
-        this.currentPlatform = null;
-        this.vy = 80;
-      } else {
-        const impulse = this.isDivine ? this.divineJumpImpulse : this.jumpImpulse;
-        this.vy = impulse;
-        this.isGrounded = false;
-        this.currentPlatform = null;
-        this.spawnPoof(8);
+    if (jumpPressed) {
+      this.jumpBufferTimer = this.jumpBufferMax;
+    }
+
+    // Grounded or Coyote Time Jump
+    const canGroundJump = (this.isGrounded || this.coyoteTimer > 0);
+    if (this.jumpBufferTimer > 0) {
+      if (canGroundJump) {
+        this.jumpBufferTimer = 0;
+        this.coyoteTimer = 0;
+
+        if (isDownHeld && this.currentPlatform && this.currentPlatform.oneWay) {
+          // Drop down through current one-way platform
+          this.dropThroughTimer = 0.28;
+          this.isGrounded = false;
+          this.currentPlatform = null;
+          this.vy = 90;
+        } else {
+          // Normal Jump
+          const impulse = this.isDivine ? this.divineJumpImpulse : this.jumpImpulse;
+          this.vy = impulse;
+          this.isGrounded = false;
+          this.currentPlatform = null;
+          this.canDoubleJump = true;
+          this.spawnPoof(8);
+        }
+      } else if (this.canDoubleJump) {
+        // Celestial Double Jump (Air Leap)
+        this.jumpBufferTimer = 0;
+        this.canDoubleJump = false;
+        this.vy = this.isDivine ? this.divineJumpImpulse : this.jumpImpulse * 0.95;
+        this.spawnDoubleJumpSparks();
       }
+    }
+
+    // Variable jump height: release early to cut jump short
+    const jumpHeld = Input.isDown('jump') || Input.isDown('Space') || Input.isDown('KeyW') || Input.isDown('ArrowUp');
+    if (!jumpHeld && this.vy < -160) {
+      this.vy = -160;
     }
 
     // 5. Apply Gravity
@@ -301,36 +323,43 @@ export class Player {
       this.vy += this.gravity * dt;
     }
 
-    // 6. Platform Collision & Integration
+    // 6. Movement Integration & Collisions
     const prevY = this.y;
     this.x += this.vx * dt;
     this.y += this.vy * dt;
 
-    // Hard map horizontal boundaries
+    // Hard boundary left/right
     this.x = Math.max(16, Math.min(this.x, level.width - 16));
 
-    // Check platform landing when falling
+    // Resolve side collisions against the pit's stone walls
+    this.x = level.resolvePitWallCollision(this.x, this.y);
+
+    // Platform Landing Detection (when falling)
     if (this.vy >= 0) {
       const dropping = (this.dropThroughTimer > 0);
       const landed = level.checkPlatformLanding(prevY, this.y, this.x, dropping);
 
       if (landed) {
-        // Firmly plant feet on platform surface
         this.y = landed.y;
         this.vy = 0;
+        if (!this.isGrounded) {
+          this.landingTimer = 0.12; // Brief landing recovery
+        }
         this.isGrounded = true;
         this.currentPlatform = landed;
+        this.canDoubleJump = true;
+        this.coyoteTimer = 0;
       } else if (this.isGrounded) {
         // Stepped off ledge into empty air / pit!
         if (!level.isOnPlatform(this.x, this.y)) {
           this.isGrounded = false;
           this.currentPlatform = null;
+          this.coyoteTimer = this.coyoteMax; // Activate coyote window
         }
       }
     }
 
     // 7. Open Chasm Pit Fall & Respawn
-    // When falling past the bottom of the sunken ruins (y > 434)
     if (this.y > 434) {
       this.respawnFromPit();
     }
@@ -363,7 +392,6 @@ export class Player {
     this.isGrounded = true;
     this.currentPlatform = null;
 
-    // Ethereal aqua lotus splash
     for (let i = 0; i < 24; i++) {
       const angle = (i / 24) * Math.PI * 2;
       const speed = 40 + Math.random() * 50;
@@ -396,6 +424,22 @@ export class Player {
     }
   }
 
+  spawnDoubleJumpSparks() {
+    for (let i = 0; i < 14; i++) {
+      const angle = (i / 14) * Math.PI * 2;
+      this.particles.push({
+        x: this.x,
+        y: this.y - 10,
+        vx: Math.cos(angle) * 45,
+        vy: Math.sin(angle) * 25,
+        life: 0.35,
+        maxLife: 0.35,
+        size: 2.5,
+        color: '#ffd700'
+      });
+    }
+  }
+
   updateParticles(dt) {
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const p = this.particles[i];
@@ -415,18 +459,16 @@ export class Player {
   }
 
   // ==========================================================================
-  // RENDERING
+  // RENDERING (SYNCHRONIZED FEET, UNCLIPPED JUMP, NO FLOATING)
   // ==========================================================================
 
   renderShadow(ctx) {
-    // Only draw grounded shadow when firmly standing on a solid platform
     if (this.isGrounded) {
       ctx.save();
       ctx.fillStyle = 'rgba(0, 0, 0, 0.48)';
       ctx.beginPath();
       const sw = this.isDivine ? 17 : 13;
       const sh = this.isDivine ? 5 : 3.5;
-      // Draw directly on the platform surface line
       ctx.ellipse(this.x, this.y, sw, sh, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
@@ -450,7 +492,6 @@ export class Player {
       const progress = s.life / s.maxLife;
       ctx.globalAlpha = Math.max(0, Math.min(1, progress * 1.5));
 
-      // Draw stylized scimitar crescent slash arc
       const arcColor = s.isDivine ? '#ffd700' : '#ffffff';
       const innerColor = s.isDivine ? '#ff0055' : '#38e1ff';
 
@@ -473,7 +514,7 @@ export class Player {
 
   render(ctx) {
     const cx = Math.floor(this.x);
-    const cy = Math.floor(this.y); // Exact foot position
+    const cy = Math.floor(this.y); // Exact foot position on stone surface
     const isFacingLeft = (this.facing === 'left');
 
     ctx.save();
@@ -483,18 +524,11 @@ export class Player {
       this.drawDivineAura(ctx, cx, cy - 30);
     }
 
-    // 2. Undertale Red SOUL Heart indicator when leaping
-    if (!this.isGrounded) {
-      ctx.fillStyle = '#ff0000';
-      ctx.font = '11px monospace';
-      ctx.fillText('❤', cx - 5, cy - 58);
-    }
-
-    // 3. Render Sprite
+    // 2. Render Sprite
     ctx.save();
     ctx.translate(cx, cy); // Anchor at exact feet position
     if (isFacingLeft) {
-      ctx.scale(-1, 1); // Flip horizontally for left facing
+      ctx.scale(-1, 1);
     }
 
     if (this.isDivine) {
@@ -509,19 +543,19 @@ export class Player {
       let currentImg = this.anims.idle;
 
       if (this.isAttacking) {
-        // Play 6-Frame Attack Combo
         currentImg = this.anims.attack[this.attackFrame] || this.anims.idle;
       } else if (!this.isGrounded) {
-        // Play Jump Frames based on vertical velocity
-        if (this.vy < -160) {
-          currentImg = this.anims.jump[1] || this.anims.jump[0]; // Ascending leap
-        } else if (Math.abs(this.vy) <= 160) {
-          currentImg = this.anims.jump[2] || this.anims.jump[3]; // Apex
+        // Expressive Jump Frames based on vertical velocity
+        if (this.vy < -120) {
+          currentImg = this.anims.jump[1] || this.anims.jump[0]; // Rising
+        } else if (Math.abs(this.vy) <= 120) {
+          currentImg = this.anims.jump[2] || this.anims.jump[3]; // Apex (Sword held high!)
         } else {
-          currentImg = this.anims.jump[4] || this.anims.jump[5]; // Descending
+          currentImg = this.anims.jump[3] || this.anims.jump[4]; // Descending
         }
+      } else if (this.landingTimer > 0) {
+        currentImg = this.anims.jump[4] || this.anims.idle; // Brief landing crouch
       } else if (this.isMoving) {
-        // Play Run Forward Frames
         currentImg = this.anims.run[this.runFrame] || this.anims.idle;
       }
 
@@ -529,14 +563,16 @@ export class Player {
       const rh = this.spriteHeight;
 
       if (currentImg && currentImg.complete && currentImg.naturalWidth > 0) {
-        // Bottom is anchored at 0 (feet touch platform firmly)
-        ctx.drawImage(currentImg, -rw / 2, -rh, rw, rh);
+        // Foot is anchored with mathematical precision at y=0 (surface of platform)
+        // Draw with zero clipping and zero floating gap
+        const drawOffsetY = -rh * this.footOffsetY;
+        ctx.drawImage(currentImg, -rw / 2, drawOffsetY, rw, rh);
       }
     }
 
     ctx.restore();
 
-    // 4. Render Sword Slash Arc
+    // 3. Render Sword Slash Arc
     this.renderSlashes(ctx);
 
     ctx.restore();
