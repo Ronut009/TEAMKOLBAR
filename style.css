@@ -1,6 +1,8 @@
 /* ==========================================================================
-   UNDERTALE × ANCIENT RUINS AESTHETIC - FULLSCREEN STYLING
+   PRINCE OF PERSIA: THE SANDS OF TIME - MINIMALIST TOP-LEFT HUD & UI
    ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Marcellus&display=swap');
 
 *, *::before, *::after {
   box-sizing: border-box;
@@ -14,9 +16,9 @@ html, body {
   width: 100vw;
   height: 100vh;
   overflow: hidden;
-  background-color: #000;
-  font-family: 'Press Start 2P', monospace;
-  color: #fff;
+  background-color: #050403;
+  font-family: 'Cinzel', 'Marcellus', 'Georgia', serif;
+  color: #f7eed8;
 }
 
 /* 100% Fullscreen Viewport Canvas */
@@ -34,39 +36,24 @@ html, body {
   z-index: 1;
 }
 
-/* Subtle Retro CRT Scanlines */
-.crt-scanlines {
+/* Atmospheric Sands of Time Amber Twilight Vignette */
+.crt-vignette, .sands-vignette {
   position: absolute;
   inset: 0;
-  background: repeating-linear-gradient(
-    0deg,
-    rgba(0, 0, 0, 0.16) 0px,
-    rgba(0, 0, 0, 0.16) 1px,
-    transparent 1px,
-    transparent 3px
-  );
-  pointer-events: none;
-  z-index: 10;
-}
-
-/* Atmospheric Undertale Dark Vignette */
-.crt-vignette {
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(circle at center, transparent 58%, rgba(0, 0, 0, 0.78) 100%);
+  background: radial-gradient(circle at center, transparent 48%, rgba(14, 9, 6, 0.6) 80%, rgba(5, 3, 2, 0.92) 100%);
   pointer-events: none;
   z-index: 11;
 }
 
-/* Divine Transformation Shockwave Flash */
+/* Divine Transformation Fullscreen Amber Flash */
 .divine-flash {
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at center, rgba(255, 230, 100, 0.8) 0%, rgba(200, 0, 50, 0.4) 60%, transparent 100%);
+  background: radial-gradient(circle at center, rgba(255, 220, 110, 0.85) 0%, rgba(212, 140, 24, 0.45) 50%, rgba(120, 10, 25, 0.3) 80%, transparent 100%);
   opacity: 0;
   pointer-events: none;
   z-index: 15;
-  transition: opacity 0.15s ease-out;
+  transition: opacity 0.2s cubic-bezier(0.2, 0.8, 0.4, 1);
 }
 
 .divine-flash.active {
@@ -74,283 +61,500 @@ html, body {
 }
 
 /* ==========================================================================
-   UNDERTALE MINIMALIST BOTTOM HUD
+   MINIMALIST TOP-LEFT HUD (MATCHING USER IMAGES 1 & 2)
    ========================================================================== */
-.undertale-hud {
+.sands-hud {
   position: absolute;
-  bottom: 22px;
-  left: 50%;
-  transform: translateX(-50%);
+  top: 18px;
+  left: 22px;
   display: flex;
-  align-items: center;
-  gap: 24px;
-  background: rgba(0, 0, 0, 0.92);
-  border: 2px solid #fff;
-  border-radius: 4px;
-  padding: 8px 20px;
-  z-index: 20;
-  font-size: 11px;
-  letter-spacing: 1px;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.85);
-  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  z-index: 25;
+  pointer-events: none;
+  font-family: 'Cinzel', serif;
 }
 
-/* Divine Form HUD Glow */
-.undertale-hud.divine-mode {
-  border-color: #ffd700;
-  box-shadow: 0 0 20px rgba(255, 215, 0, 0.5), inset 0 0 10px rgba(255, 0, 80, 0.3);
+.sands-top-group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
 }
 
-.hud-character {
+/* SVG Life Bar & Medallion Dial */
+.sands-svg {
+  display: block;
+  overflow: visible;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.9));
+}
+
+/* Dial Components */
+.dial-bg {
+  fill: #140d09;
+  fill-opacity: 0.94;
+}
+
+.dial-border {
+  stroke: #cda24e;
+  stroke-width: 1.5;
+  fill: none;
+}
+
+.dial-inner-ring {
+  stroke: rgba(205, 162, 78, 0.45);
+  stroke-width: 1;
+  fill: none;
+  stroke-dasharray: 4, 3;
+}
+
+.dial-divine-ring {
+  stroke: #3ce8f5;
+  stroke-width: 2.2;
+  fill: none;
+  stroke-linecap: round;
+  opacity: 0.7;
+  filter: drop-shadow(0 0 5px rgba(60, 232, 245, 0.8));
+  stroke-dasharray: 154;
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset 0.1s linear, stroke 0.35s ease;
+}
+
+.sand-orb {
+  fill: #fff7d1;
+  filter: drop-shadow(0 0 3px #ffd700);
+}
+
+.center-crescent {
+  fill: #ffffff;
+  filter: drop-shadow(0 0 4px rgba(60, 232, 245, 0.9));
+  transition: fill 0.3s ease;
+}
+
+/* Curved Life Bar Track & Fill (Image 1) */
+.life-bar-track {
+  stroke: rgba(14, 20, 24, 0.75);
+  stroke-width: 4;
+  stroke-linecap: round;
+  fill: none;
+}
+
+.life-bar-fill {
+  stroke: url(#cyanLifeGrad);
+  stroke-width: 3.5;
+  stroke-linecap: round;
+  fill: none;
+  filter: url(#glowCyan);
+  stroke-dasharray: 266;
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset 0.25s ease-out, stroke 0.35s ease;
+}
+
+/* Divine Mode Visual Flare (Solar Kali Power) */
+.sands-hud.divine-mode .life-bar-fill {
+  stroke: url(#divineLifeGrad);
+  filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.95)) drop-shadow(0 0 16px rgba(255, 0, 80, 0.7));
+}
+
+.sands-hud.divine-mode .dial-divine-ring {
+  stroke: #ffd700;
+  opacity: 1;
+  filter: drop-shadow(0 0 8px #ffd700);
+}
+
+.sands-hud.divine-mode .center-crescent {
+  fill: #ffd700;
+  filter: drop-shadow(0 0 6px #ff2255);
+}
+
+/* Metadata Tags below Life Bar */
+.sands-meta {
+  margin-left: 48px;
+  margin-top: -12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.meta-row {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-.soul-heart {
-  color: #ff0000;
-  font-size: 14px;
-  line-height: 1;
-  animation: pulseSoul 2s infinite ease-in-out;
-  transition: all 0.3s ease;
-}
-
-.undertale-hud.divine-mode .soul-heart {
-  color: #ff2a55;
-  animation: pulseDivineSoul 0.6s infinite alternate;
-  filter: drop-shadow(0 0 8px #ff0044);
-}
-
-@keyframes pulseSoul {
-  0%, 100% {
-    transform: scale(1);
-    filter: drop-shadow(0 0 2px #ff0000);
-  }
-  50% {
-    transform: scale(1.18);
-    filter: drop-shadow(0 0 7px #ff3333);
-  }
-}
-
-@keyframes pulseDivineSoul {
-  0% { transform: scale(1.1); filter: drop-shadow(0 0 4px #ff0055); }
-  100% { transform: scale(1.4); filter: drop-shadow(0 0 12px #ffd700); }
-}
-
 .hud-name {
-  color: #fff;
-  font-weight: bold;
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  font-weight: 700;
+  color: #f7eed8;
+  letter-spacing: 2px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95);
   transition: color 0.3s ease;
 }
 
-.undertale-hud.divine-mode .hud-name {
+.sands-hud.divine-mode .hud-name {
   color: #ffd700;
-  text-shadow: 0 0 8px rgba(255, 215, 0, 0.8);
-}
-
-.hud-lv {
-  color: #fff;
-}
-
-.hud-hp-group {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.hud-hp-label {
-  font-size: 9px;
-  color: #ffff00;
-}
-
-.hud-hp-bar {
-  width: 80px;
-  height: 14px;
-  background: #c00000;
-  border: 1px solid #000;
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.hud-hp-fill {
-  height: 100%;
-  background: #ffff00;
-  transition: width 0.2s ease;
+  text-shadow: 0 0 10px rgba(255, 215, 0, 0.9);
 }
 
 .hud-hp-num {
-  font-size: 9px;
-  color: #fff;
-  min-width: 55px;
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  font-weight: 700;
+  color: #e5be75;
+  letter-spacing: 1.5px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95);
 }
 
-/* Divine Gauge (6-Second Duration) */
+.hud-lv {
+  font-family: 'Cinzel', serif;
+  font-size: 9px;
+  color: #cda24e;
+  letter-spacing: 1.5px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95);
+}
+
+/* Minimal Badge Pills */
 .divine-status-group {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding-left: 8px;
-  border-left: 1px solid #444;
+  gap: 5px;
+  background: rgba(18, 12, 8, 0.85);
+  border: 1px solid rgba(205, 162, 78, 0.55);
+  border-radius: 3px;
+  padding: 2px 7px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
 }
 
 .divine-label {
-  font-size: 8px;
-  color: #ff88aa;
-  letter-spacing: 0.5px;
+  font-size: 9px;
+  font-weight: 700;
+  color: #3ce8f5;
+  letter-spacing: 1px;
 }
 
-.undertale-hud.divine-mode .divine-label {
+.sands-hud.divine-mode .divine-label {
   color: #ffd700;
-}
-
-.divine-bar-track {
-  width: 70px;
-  height: 10px;
-  background: #201015;
-  border: 1px solid #552233;
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.divine-bar-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #ff0055 0%, #ffd700 100%);
-  width: 0%;
-  transition: width 0.1s linear;
 }
 
 .divine-time {
-  font-size: 8px;
+  font-size: 9px;
+  font-weight: 700;
   color: #ffd700;
-  min-width: 24px;
+  min-width: 22px;
 }
 
-/* Morph Ability Badge [Q] */
 .morph-status-group {
   display: flex;
   align-items: center;
-  padding-left: 8px;
-  border-left: 1px solid #444;
+  background: rgba(12, 18, 22, 0.85);
+  border: 1px solid rgba(92, 225, 230, 0.55);
+  border-radius: 3px;
+  padding: 2px 7px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
 }
 
 .morph-badge {
-  font-size: 8px;
-  color: #4eedff;
-  letter-spacing: 0.5px;
-  text-shadow: 0 0 6px rgba(78, 237, 255, 0.6);
-  animation: pulseMorph 1.8s infinite alternate ease-in-out;
+  font-size: 9px;
+  font-weight: 700;
+  color: #5ce1e6;
+  letter-spacing: 1px;
 }
 
-@keyframes pulseMorph {
-  0% { filter: drop-shadow(0 0 2px #4eedff); }
-  100% { filter: drop-shadow(0 0 8px #ffd700); color: #ffffaa; }
-}
-
-/* Key Inventory Indicator */
 .key-status-group {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding-left: 8px;
-  border-left: 1px solid #444;
+  gap: 4px;
+  background: rgba(22, 16, 8, 0.85);
+  border: 1px solid rgba(255, 215, 0, 0.55);
+  border-radius: 3px;
+  padding: 2px 7px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
 }
 
 .key-icon {
   font-size: 11px;
-  animation: bounceKey 1.4s infinite ease-in-out;
-}
-
-@keyframes bounceKey {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-3px); }
+  color: #ffd700;
 }
 
 .key-label {
-  font-size: 8px;
-  color: #ffff00;
-  letter-spacing: 0.5px;
+  font-size: 9px;
+  font-weight: 700;
+  color: #ffd700;
+  letter-spacing: 1px;
+}
+
+.kills-status-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(24, 10, 10, 0.85);
+  border: 1px solid rgba(229, 115, 115, 0.55);
+  border-radius: 3px;
+  padding: 2px 7px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
+}
+
+.kills-badge {
+  font-size: 9px;
+  font-weight: 700;
+  color: #e57373;
+  letter-spacing: 1px;
 }
 
 /* ==========================================================================
-   UNDERTALE CLASSIC DIALOGUE BOX
+   MINIMALIST GUIDANCE DIALOGUE BOX (IMAGE 3 THEME)
    ========================================================================== */
-.dialogue-box {
+.dialogue-box, .sands-dialogue {
   position: absolute;
-  bottom: 80px;
+  bottom: 36px;
   left: 50%;
   transform: translateX(-50%);
-  width: min(820px, 92vw);
-  background: #000;
-  border: 4px solid #fff;
-  border-radius: 6px;
-  padding: 20px 24px;
+  width: min(860px, 92vw);
+  background: linear-gradient(180deg, rgba(18, 12, 8, 0.96) 0%, rgba(10, 7, 5, 0.98) 100%);
+  border: 1px solid rgba(205, 162, 78, 0.65);
+  border-radius: 4px;
+  padding: 16px 28px 16px 28px;
   z-index: 30;
   display: none;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.9);
+  overflow: visible; /* Allows grand Kali Ma portrait to pop out above box */
+  box-shadow:
+    0 16px 45px rgba(0, 0, 0, 0.95),
+    0 0 20px rgba(205, 162, 78, 0.15),
+    inset 0 1px 0 rgba(255, 235, 160, 0.25);
+  animation: dialogueAppear 0.22s ease-out;
+}
+
+@keyframes dialogueAppear {
+  0% { opacity: 0; transform: translate(-50%, 6px) scale(0.98); }
+  100% { opacity: 1; transform: translate(-50%, 0) scale(1.0); }
+}
+
+/* Corner Diamond Accents (Image 3) */
+.sands-dialogue::before, .sands-dialogue::after {
+  content: '◈';
+  position: absolute;
+  font-size: 9px;
+  color: #ffd700;
+  pointer-events: none;
+}
+.sands-dialogue::before {
+  top: 4px;
+  left: 6px;
+}
+.sands-dialogue::after {
+  bottom: 4px;
+  right: 6px;
+}
+
+.dialogue-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.dialogue-rule {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(205, 162, 78, 0.65), transparent);
+}
+
+.dialogue-title {
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  color: #ffd700;
+  text-shadow: 0 0 10px rgba(255, 215, 0, 0.6);
+  text-transform: uppercase;
+}
+
+.dialogue-content {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .dialogue-inner {
+  flex: 1;
   display: flex;
-  align-items: flex-start;
-  gap: 16px;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 84px;
+  transition: padding-right 0.25s ease;
 }
 
-.dialogue-icon {
-  color: #ffff00;
-  font-size: 16px;
-  line-height: 1.4;
+/* When Kali Ma speaks, reserve space for her towering figure */
+.sands-dialogue.has-portrait .dialogue-inner {
+  padding-right: 290px;
 }
 
 .dialogue-text {
-  font-family: 'Press Start 2P', monospace;
-  font-size: 12px;
-  line-height: 1.9;
-  color: #fff;
+  font-family: 'Marcellus', 'Georgia', serif;
+  font-size: 16px;
+  line-height: 1.7;
+  color: #f7eed8;
   letter-spacing: 0.5px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
 }
 
-/* Floating "[Z] CHECK" Interaction Prompt */
-.interact-prompt {
+.dialogue-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+/* ==========================================================================
+   KALI MA GRAND POP-OUT CHARACTER BUST (POPS OUT OF DIALOGUE BOX)
+   ========================================================================== */
+.dialogue-portrait-container {
+  position: absolute;
+  right: 12px;
+  bottom: -16px;
+  width: 320px;
+  height: 380px;
+  pointer-events: none;
+  z-index: 35;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+/* Divine Celestial Aura Radiating Into Game Scene */
+.portrait-divine-aura {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 310px;
+  height: 340px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 38%, rgba(255, 25, 60, 0.45) 0%, rgba(255, 180, 40, 0.22) 40%, rgba(20, 10, 15, 0) 72%);
+  filter: blur(16px);
+  animation: pulseKaliGrandAura 2.4s infinite alternate ease-in-out;
+  pointer-events: none;
+  z-index: 1;
+}
+
+@keyframes pulseKaliGrandAura {
+  0% { transform: translateX(-50%) scale(0.92); opacity: 0.65; }
+  100% { transform: translateX(-50%) scale(1.14); opacity: 1.0; filter: blur(20px) drop-shadow(0 0 28px rgba(255, 215, 0, 0.65)); }
+}
+
+/* Towering Kali Ma Sprite: Pops out 240px above dialogue box top border! */
+.dialogue-portrait-img {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 310px;
+  height: 360px;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 18px rgba(0, 0, 0, 0.98)) drop-shadow(0 0 24px rgba(255, 20, 50, 0.55));
+  z-index: 2;
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+  /* Entire human body is locked in majestic divine stillness; only her hands/arms animate */
+}
+
+/* Divine Name Plaque at Kali's Base */
+.dialogue-portrait-name {
+  position: relative;
+  z-index: 3;
+  margin-bottom: 2px;
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 2.5px;
+  color: #ffd700;
+  background: linear-gradient(180deg, rgba(32, 18, 14, 0.98) 0%, rgba(16, 9, 6, 0.99) 100%);
+  border: 1.5px solid #cda24e;
+  border-radius: 4px;
+  padding: 4px 18px;
+  white-space: nowrap;
+  text-shadow: 0 0 10px rgba(255, 215, 0, 0.9);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.95), 0 0 10px rgba(205, 162, 78, 0.45);
+}
+
+.dialogue-dismiss {
+  font-family: 'Cinzel', serif;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: #cda24e;
+  border: 1px solid rgba(205, 162, 78, 0.45);
+  padding: 3px 10px;
+  border-radius: 3px;
+  background: rgba(24, 16, 10, 0.6);
+  animation: pulseDismiss 2.0s infinite alternate;
+}
+
+@keyframes pulseDismiss {
+  0% { color: #cda24e; border-color: rgba(205, 162, 78, 0.4); }
+  100% { color: #ffd700; border-color: #ffd700; box-shadow: 0 0 8px rgba(255, 215, 0, 0.4); }
+}
+
+/* ==========================================================================
+   INTERACTION PROMPT PILL
+   ========================================================================== */
+.interact-prompt, .sands-prompt {
   position: absolute;
   top: 24px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.85);
-  border: 2px solid #ffff00;
-  border-radius: 4px;
-  padding: 6px 14px;
-  font-size: 9px;
-  color: #ffff00;
-  letter-spacing: 1px;
-  z-index: 20;
+  background: linear-gradient(180deg, rgba(22, 15, 10, 0.95) 0%, rgba(12, 8, 5, 0.98) 100%);
+  border: 1px solid #cda24e;
+  border-radius: 20px;
+  padding: 5px 16px;
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  font-weight: 700;
+  color: #ffd700;
+  letter-spacing: 2px;
+  z-index: 25;
   display: none;
-  animation: bouncePrompt 1.2s infinite ease-in-out;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.8), 0 0 10px rgba(205, 162, 78, 0.3);
+  animation: bounceSandsPrompt 1.6s infinite ease-in-out;
 }
 
-@keyframes bouncePrompt {
+.prompt-icon {
+  color: #ffd700;
+  font-size: 9px;
+  margin: 0 4px;
+}
+
+@keyframes bounceSandsPrompt {
   0%, 100% { transform: translate(-50%, 0); }
-  50% { transform: translate(-50%, -4px); }
+  50% { transform: translate(-50%, -3px); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.9), 0 0 14px rgba(255, 215, 0, 0.45); }
 }
 
 /* ==========================================================================
-   LEVEL COMPLETE MODAL (UNDERTALE RETRO CELEBRATION)
+   LEVEL COMPLETE MODAL
    ========================================================================== */
-.level-complete-modal {
+.level-complete-modal, .sands-complete {
   position: absolute;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%) scale(0.95);
-  width: min(620px, 90vw);
-  background: rgba(0, 0, 0, 0.94);
-  border: 4px solid #ffd700;
-  border-radius: 8px;
-  box-shadow: 0 0 30px rgba(255, 215, 0, 0.45), 0 10px 40px rgba(0, 0, 0, 0.9);
-  padding: 32px 28px;
+  transform: translate(-50%, -50%) scale(0.96);
+  width: min(620px, 92vw);
+  background: linear-gradient(180deg, rgba(22, 15, 10, 0.98) 0%, rgba(10, 7, 5, 0.99) 100%);
+  border: 1.5px solid #ffd700;
+  border-radius: 6px;
+  box-shadow:
+    0 0 35px rgba(255, 215, 0, 0.45),
+    0 16px 50px rgba(0, 0, 0, 0.95),
+    inset 0 0 20px rgba(205, 162, 78, 0.18);
+  padding: 34px 30px;
   text-align: center;
   z-index: 100;
   display: none;
   opacity: 0;
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  transition: opacity 0.35s ease, transform 0.35s ease;
 }
 
 .level-complete-modal.active {
@@ -362,105 +566,85 @@ html, body {
 .complete-star {
   color: #ffd700;
   font-size: 16px;
-  letter-spacing: 8px;
-  margin-bottom: 14px;
-  animation: pulseStar 1.4s infinite alternate;
-}
-
-@keyframes pulseStar {
-  0% { transform: scale(1); filter: drop-shadow(0 0 4px #ffd700); }
-  100% { transform: scale(1.15); filter: drop-shadow(0 0 12px #ffea70); }
+  letter-spacing: 6px;
+  margin-bottom: 10px;
+  filter: drop-shadow(0 0 8px #ffd700);
 }
 
 .complete-title {
-  font-family: 'Press Start 2P', monospace;
-  font-size: 20px;
-  color: #ffff00;
-  letter-spacing: 2px;
-  text-shadow: 2px 2px 0 #000, 0 0 14px rgba(255, 255, 0, 0.7);
-  margin-bottom: 8px;
+  font-family: 'Cinzel', serif;
+  font-size: 22px;
+  font-weight: 900;
+  color: #ffd700;
+  letter-spacing: 3px;
+  text-shadow: 0 0 14px rgba(255, 215, 0, 0.8), 0 2px 4px #000;
+  margin-bottom: 6px;
 }
 
 .complete-subtitle {
+  font-family: 'Cinzel', serif;
   font-size: 11px;
-  color: #ff99bb;
+  color: #e5be75;
   letter-spacing: 2px;
-  margin-bottom: 18px;
+  margin-bottom: 16px;
 }
 
 .complete-divider {
-  width: 80%;
-  height: 2px;
+  width: 70%;
+  height: 1px;
   background: linear-gradient(90deg, transparent, #ffd700, transparent);
   margin: 0 auto 18px auto;
 }
 
 .complete-flavor {
-  font-size: 10px;
+  font-family: 'Marcellus', 'Georgia', serif;
+  font-size: 14px;
   line-height: 1.8;
-  color: #e0e0e0;
-  margin-bottom: 4px;
+  color: #f0e4cc;
   letter-spacing: 0.5px;
 }
 
 .complete-prompt {
   display: inline-block;
   margin-top: 22px;
-  padding: 8px 20px;
-  border: 2px solid #fff;
+  padding: 8px 22px;
+  border: 1px solid #ffd700;
   border-radius: 4px;
-  background: #111;
-  color: #ffff00;
+  background: rgba(28, 18, 10, 0.85);
+  font-family: 'Cinzel', serif;
+  color: #ffd700;
   font-size: 10px;
-  letter-spacing: 1.5px;
-  animation: blinkPrompt 1.2s infinite ease-in-out;
+  font-weight: 700;
+  letter-spacing: 2px;
+  box-shadow: 0 0 12px rgba(255, 215, 0, 0.35);
+  animation: blinkSandsPrompt 1.4s infinite ease-in-out;
 }
 
-@keyframes blinkPrompt {
-  0%, 100% { opacity: 1; border-color: #fff; }
-  50% { opacity: 0.6; border-color: #ffd700; }
+@keyframes blinkSandsPrompt {
+  0%, 100% { opacity: 1; border-color: #ffd700; box-shadow: 0 0 14px rgba(255, 215, 0, 0.5); }
+  50% { opacity: 0.7; border-color: #cda24e; box-shadow: 0 0 6px rgba(205, 162, 78, 0.25); }
 }
 
 /* ==========================================================================
-   KILL COUNTER, KILL TOAST & 0 HP DEATH SCREEN
+   KILL TOAST & DEATH SCREEN
    ========================================================================== */
-.kills-status-group {
-  display: flex;
-  align-items: center;
-  padding-left: 8px;
-  border-left: 1px solid #444;
-}
-
-.kills-badge {
-  font-size: 8px;
-  color: #ff5555;
-  letter-spacing: 0.5px;
-  text-shadow: 0 0 6px rgba(255, 85, 85, 0.6);
-  animation: pulseKills 2s infinite alternate ease-in-out;
-}
-
-@keyframes pulseKills {
-  0% { color: #ff5555; }
-  100% { color: #ffd700; text-shadow: 0 0 8px #ffd700; }
-}
-
-.kill-toast {
+.kill-toast, .sands-toast {
   position: absolute;
   top: 24px;
   left: 50%;
   transform: translateX(-50%) translateY(-60px);
-  background: #000;
-  border: 3px solid #ffd700;
+  background: linear-gradient(180deg, rgba(22, 15, 10, 0.98) 0%, rgba(12, 8, 5, 0.99) 100%);
+  border: 1px solid #ffd700;
   border-radius: 4px;
-  padding: 10px 22px;
+  padding: 8px 20px;
   display: flex;
   align-items: center;
   gap: 10px;
-  box-shadow: 0 0 16px rgba(255, 215, 0, 0.5);
+  box-shadow: 0 0 18px rgba(255, 215, 0, 0.45), 0 6px 20px rgba(0, 0, 0, 0.9);
   z-index: 45;
   opacity: 0;
   pointer-events: none;
-  transition: transform 0.25s cubic-bezier(0.18, 0.89, 0.32, 1.28), opacity 0.25s ease;
+  transition: transform 0.28s cubic-bezier(0.18, 0.89, 0.32, 1.28), opacity 0.28s ease;
 }
 
 .kill-toast.active {
@@ -470,30 +654,32 @@ html, body {
 
 .kill-toast-icon {
   font-size: 14px;
-  color: #ff3344;
+  color: #ffd700;
+  filter: drop-shadow(0 0 5px #ffd700);
 }
 
 .kill-toast-text {
-  font-family: 'Press Start 2P', monospace;
+  font-family: 'Cinzel', serif;
   font-size: 10px;
+  font-weight: 700;
   color: #ffd700;
-  letter-spacing: 1px;
+  letter-spacing: 1.5px;
 }
 
-.death-screen-modal {
+.death-screen-modal, .sands-death {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.85);
+  background: rgba(10, 6, 4, 0.88);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 60;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.35s ease;
+  transition: opacity 0.4s ease;
 }
 
 .death-screen-modal.active {
@@ -502,50 +688,49 @@ html, body {
 }
 
 .death-inner {
-  background: #000;
-  border: 4px solid #ff2244;
+  background: linear-gradient(180deg, rgba(24, 15, 10, 0.98) 0%, rgba(10, 6, 4, 0.99) 100%);
+  border: 1.5px solid #c92a2a;
   border-radius: 6px;
   padding: 30px 40px;
   text-align: center;
-  box-shadow: 0 0 30px rgba(255, 34, 68, 0.6);
+  box-shadow: 0 0 30px rgba(201, 42, 42, 0.55), 0 14px 35px rgba(0, 0, 0, 0.95);
   animation: deathPop 0.35s cubic-bezier(0.18, 0.89, 0.32, 1.28);
 }
 
-@keyframes deathPop {
-  0% { transform: scale(0.85); }
-  100% { transform: scale(1.0); }
-}
-
-.death-heart {
-  font-size: 36px;
+.death-crest {
+  font-size: 30px;
   margin-bottom: 12px;
-  animation: pulseBrokenHeart 0.8s infinite alternate ease-in-out;
+  filter: drop-shadow(0 0 8px rgba(255, 180, 40, 0.7));
+  animation: pulseHourglass 1.2s infinite alternate ease-in-out;
 }
 
-@keyframes pulseBrokenHeart {
-  0% { transform: scale(1); filter: drop-shadow(0 0 4px #ff0055); }
-  100% { transform: scale(1.15); filter: drop-shadow(0 0 16px #ff0000); }
+@keyframes pulseHourglass {
+  0% { transform: scale(1) rotate(0deg); }
+  50% { transform: scale(1.08) rotate(5deg); }
+  100% { transform: scale(1) rotate(0deg); }
 }
 
 .death-title {
-  font-family: 'Press Start 2P', monospace;
+  font-family: 'Cinzel', serif;
   font-size: 20px;
-  color: #ff2244;
+  font-weight: 900;
+  color: #ff4d4d;
   letter-spacing: 3px;
-  margin-bottom: 14px;
-  text-shadow: 2px 2px 0 #000, 0 0 12px rgba(255, 34, 68, 0.8);
+  margin-bottom: 10px;
+  text-shadow: 0 0 12px rgba(255, 77, 77, 0.8), 0 2px 4px #000;
 }
 
 .death-desc {
-  font-family: 'VT323', monospace;
-  font-size: 18px;
-  color: #e0e0e0;
+  font-family: 'Marcellus', 'Georgia', serif;
+  font-size: 14px;
+  color: #e8d8c0;
   margin-bottom: 6px;
+  letter-spacing: 0.5px;
 }
 
 .death-flavor {
-  font-family: 'VT323', monospace;
-  font-size: 16px;
-  color: #ffff00;
+  font-family: 'Marcellus', 'Georgia', serif;
+  font-size: 13px;
+  color: #ffd700;
   letter-spacing: 0.5px;
 }

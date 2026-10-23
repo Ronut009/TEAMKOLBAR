@@ -17,7 +17,7 @@ export class Level {
     this.baseMapImg = new Image();
     this.baseMapLoaded = false;
     this.baseMapImg.onload = () => { this.baseMapLoaded = true; };
-    this.baseMapImg.src = 'assets/temple_map_base.png';
+    this.baseMapImg.src = 'assets/temple_map_base_generated.png';
     if (this.baseMapImg.complete && this.baseMapImg.naturalWidth > 0) {
       this.baseMapLoaded = true;
     }
@@ -97,27 +97,34 @@ export class Level {
     this.cameraShake = 0;
     this.isCompleted = false;
 
-    // Undertale Inspectable Landmarks
+    // Sands of Time Guidance Landmarks
     this.interactables = [
       {
         x: 100, y: 368, radius: 45,
-        text: "* A celestial blue lotus blooms in the sunken courtyard.\n* Its gentle underwater glow fills you with DETERMINATION."
+        text: "An ancient stele carved in forgotten Sanskrit: 'The path forward lies high above the ruins. Seek the sacred lotus on the western balcony.'"
       },
       {
-        x: 355, y: 172, radius: 40,
-        text: "* Sacred blue lotus atop the ruined left balcony.\n* An invisible celestial bridge spans the sky to the east.\n* Awaken your Divine Form [X] to cross to the upper mechanism!"
+        id: 'sacred_lotus',
+        type: 'lotus_awakening',
+        x: 355, y: 172, radius: 45,
+        prompt: '[E] AWAKEN LOTUS',
+        speaker: 'kali',
+        title: '⚜ DIVINE AWAKENING: MAA KALI ⚜',
+        text: "Awaken, Rakti! I am Kali, sovereign of time and destruction. Channel my divine essence with [X] to manifest the Bridge of Constellations across the abyss. Walk boldly upon the celestial sands!"
       },
       {
         x: 511, y: 172, radius: 50,
-        text: "* The Bridge of Constellations.\n* Dormant in mortal form. Awaken your Divine Avatar [X] to reveal the bridge and cross to the right balcony."
+        speaker: 'kali',
+        title: '⚜ MAA KALI: CELESTIAL SIGHT ⚜',
+        text: "Mortal eyes see only empty void, Rakti. Unleash your Divine Form with [X]! My celestial power will solidify the golden bridge beneath your steps so you may reach the eastern balcony mechanism."
       },
       {
         x: 740, y: 172, radius: 40,
-        text: "* Upper Right Temple Balcony.\n* The ancient lever mechanism awaits ahead!"
+        text: "The Upper Balcony. The ancient lever mechanism awaits ahead. Pull it to raise the pillar from the sunken abyss."
       },
       {
         x: 898, y: 368, radius: 45,
-        text: "* The Dark Temple Sanctum.\n* A passage shrouded in eternal black space."
+        text: "The gateway to the Sunken Catacombs. Raise the central pillar by pulling the upper balcony lever to unseal the passage."
       }
     ];
 
@@ -125,6 +132,11 @@ export class Level {
 
     this.bridgeStars = [];
     this.initBridgeStars(24);
+
+    this.bridgeSentries = [
+      { x: 438, y: 148, minX: 410, maxX: 610, speed: 118, direction: 1, phase: 0 },
+      { x: 602, y: 143, minX: 410, maxX: 610, speed: 154, direction: -1, phase: 2.4 }
+    ];
 
     this.camera = {
       x: 0,
@@ -186,6 +198,12 @@ export class Level {
     this.pillar.isRaised = false;
     this.cameraShake = 0;
     this.isCompleted = false;
+    if (this.bridgeSentries && this.bridgeSentries[0]) {
+      this.bridgeSentries[0].x = 438;
+      this.bridgeSentries[0].direction = 1;
+      this.bridgeSentries[1].x = 602;
+      this.bridgeSentries[1].direction = -1;
+    }
   }
 
   /**
@@ -282,8 +300,8 @@ export class Level {
         activated: this.lever.activated,
         prompt: this.lever.activated ? '[E] LEVER (ENGAGED)' : '[E] PULL LEVER',
         text: this.lever.activated
-          ? "* The ancient lever is fully engaged.\n* Deep in the chasm, the sacred stone pillar stands raised!\n* The black sanctum doorway below is now open. Step into the darkness to complete the level!"
-          : "* An ancient mechanism atop the east temple balcony.\n* Pull the lever to raise the pillar and unlock the dark sanctum doorway!"
+          ? "The ancient mechanism is engaged and the stone pillar has risen from the depths. Descend and step through the sanctum doorway to advance."
+          : "The mechanism of the elders. Pull the lever [E] to summon the submerged stone pillar and unlock the passage below."
       };
     }
 
@@ -295,19 +313,20 @@ export class Level {
         x: 898,
         y: 368,
         prompt: '[E] DOORWAY',
-        text: "* The ancient temple entrance is cloaked in deep black shadow.\n* You must cross the celestial bridge [X] to the right balcony and pull the lever to open it!"
+        text: "The sanctum entrance is barred by deep shadows. Cross the celestial bridge [X] to the right balcony and pull the lever to open it."
       };
     }
 
-    // 3. Check Other Undertale Inspection Landmarks
+    // 3. Check Other Landmarks
     for (const item of this.interactables) {
       const dist = Math.hypot(px - item.x, py - item.y);
       if (dist <= item.radius) {
         return {
-          type: 'inspection',
+          type: item.type || 'inspection',
+          id: item.id || null,
           x: item.x,
           y: item.y,
-          prompt: '[E] CHECK',
+          prompt: item.prompt || '[E] EXAMINE',
           text: item.text
         };
       }
@@ -328,7 +347,7 @@ export class Level {
     return false;
   }
 
-  update(playerX, playerY, dt, isDivine = false) {
+  update(playerX, playerY, dt, isDivine = false, player = null) {
     this.animTime += dt;
 
     // Decay camera shake
@@ -374,6 +393,26 @@ export class Level {
     // Smooth bridge opacity fade in/out
     const targetBridgeOpacity = isDivine ? 1.0 : 0.0;
     this.bridgeOpacity += (targetBridgeOpacity - this.bridgeOpacity) * Math.min(1.0, dt * 6.0);
+
+    if (isDivine && this.bridgeSentries) {
+      for (const sentry of this.bridgeSentries) {
+        sentry.x += sentry.speed * sentry.direction * dt;
+        if (sentry.x >= sentry.maxX || sentry.x <= sentry.minX) {
+          sentry.direction *= -1;
+          sentry.x = Math.max(sentry.minX, Math.min(sentry.x, sentry.maxX));
+        }
+        sentry.phase += dt * 4.5;
+      }
+    }
+
+    if (player && isDivine && this.bridgeOpacity > 0.55 && Math.abs(playerY - 172) < 30 && this.bridgeSentries) {
+      for (const sentry of this.bridgeSentries) {
+        const sentryY = sentry.y + Math.sin(sentry.phase) * 5;
+        if (Math.abs(playerX - sentry.x) < 15 && Math.abs((playerY - 28) - sentryY) < 18) {
+          player.takeDamage(1, Math.sign(playerX - sentry.x || 1) * 125, -165);
+        }
+      }
+    }
   }
 
   spawnPillarSplash() {
@@ -406,8 +445,10 @@ export class Level {
       ctx.drawImage(this.fullMapImg, 0, 0, this.width, this.height);
     }
 
-    // 2. Render Widened Fall Space (Dry subterranean chasm abyss from x=430 to 690)
-    this.renderFallSpace(ctx);
+    // 2. Render Widened Fall Space if using legacy base map
+    if (!this.baseMapLoaded || !this.baseMapImg.src.includes('generated')) {
+      this.renderFallSpace(ctx);
+    }
 
     // 3. Render Rising Ancient Pillar (Inside the fall space)
     this.renderRisingPillar(ctx);
@@ -423,6 +464,9 @@ export class Level {
 
     // 7. Render Golden Constellation Bridge (ONLY visible when Divine Form [X] is active)
     this.renderGoldenBridge(ctx, isDivine);
+
+    // Bridge guardians add motion and a readable danger cue to the crossing
+    this.renderBridgeSentries(ctx, isDivine);
 
     // 8. Render Sanctum Black Space Doorway Glow & Embers
     this.renderSanctumExit(ctx);
@@ -1593,6 +1637,38 @@ export class Level {
     ctx.restore();
   }
 
+  renderBridgeSentries(ctx, isDivine) {
+    if (!isDivine || this.bridgeOpacity <= 0.35 || !this.bridgeSentries) return;
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (const sentry of this.bridgeSentries) {
+      const y = sentry.y + Math.sin(sentry.phase) * 5;
+      const pulse = 0.72 + Math.sin(sentry.phase * 1.7) * 0.18;
+
+      const glow = ctx.createRadialGradient(sentry.x, y, 2, sentry.x, y, 20);
+      glow.addColorStop(0, `rgba(255, 247, 202, ${0.9 * pulse})`);
+      glow.addColorStop(0.32, `rgba(255, 190, 61, ${0.65 * pulse})`);
+      glow.addColorStop(1, 'rgba(255, 122, 34, 0)');
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(sentry.x, y, 20, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = `rgba(255, 230, 145, ${0.72 * pulse})`;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(sentry.x, y, 9, sentry.phase, sentry.phase + Math.PI * 1.55);
+      ctx.stroke();
+
+      ctx.fillStyle = '#fff5d1';
+      ctx.beginPath();
+      ctx.arc(sentry.x, y, 4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
   renderGodRays(ctx) {
     ctx.save();
     ctx.globalCompositeOperation = 'screen';
@@ -1651,6 +1727,37 @@ export class Level {
       ctx.arc(pos.x, pos.y - 12, rad, 0, Math.PI * 2);
       ctx.fill();
     }
+
+    // Sacred Lotus Blossom of Awakening on Western Balcony (x: 355, y: 172)
+    const lx = 355;
+    const ly = 172 - 12 + Math.sin(time * 1.8) * 3;
+
+    ctx.fillStyle = 'rgba(60, 232, 245, 0.92)';
+    ctx.shadowColor = '#3ce8f5';
+    ctx.shadowBlur = 10;
+
+    // Center petal
+    ctx.beginPath();
+    ctx.ellipse(lx, ly - 4, 3, 7, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Left petal
+    ctx.beginPath();
+    ctx.ellipse(lx - 4, ly - 2, 3, 6, -0.4, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Right petal
+    ctx.beginPath();
+    ctx.ellipse(lx + 4, ly - 2, 3, 6, 0.4, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Golden Stamen
+    ctx.fillStyle = '#ffd700';
+    ctx.shadowColor = '#ffd700';
+    ctx.shadowBlur = 6;
+    ctx.beginPath();
+    ctx.arc(lx, ly, 2.5, 0, Math.PI * 2);
+    ctx.fill();
 
     ctx.restore();
   }

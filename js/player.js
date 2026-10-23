@@ -75,9 +75,12 @@ export class Player {
 
     this.particles = [];
 
+    this.name = 'RAKTI';
+    this.swordDamage = 4; // Her sword deals 4 damage per strike
     this.hp = 20;
     this.maxHp = 20;
     this.hasKey = false;
+    this.hasDivineUnlocked = false; // Unlocked after interacting with Sacred Lotus in Level 1
     this.invulnerableTimer = 0.0;
     this.isDead = false;
 
@@ -456,9 +459,9 @@ export class Player {
       }
     }
 
-    // 2. Divine Transformation (Key X)
+    // 2. Divine Transformation (Key X) - only enabled once unlocked via Sacred Lotus interaction
     if (Input.isPressed('KeyX') || Input.isPressed('x')) {
-      if (!this.isDivine) {
+      if (!this.isDivine && this.hasDivineUnlocked) {
         this.triggerDivineTransformation();
       }
     }

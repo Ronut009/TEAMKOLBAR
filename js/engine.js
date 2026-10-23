@@ -41,8 +41,11 @@ export class Engine {
     this.hudName = document.getElementById('hudName');
     this.hudLv = document.getElementById('hudLv');
     this.hpFill = document.getElementById('hpFill');
+    this.hpSvgFill = document.getElementById('hpSvgFill');
+    this.divineRingFill = document.getElementById('divineRingFill');
     this.hpNum = document.getElementById('hpNum');
 
+    this.divineGroup = document.getElementById('divineGroup');
     this.divineFill = document.getElementById('divineFill');
     this.divineTime = document.getElementById('divineTime');
     this.divineLabel = document.getElementById('divineLabel');
@@ -50,8 +53,32 @@ export class Engine {
     this.morphGroup = document.getElementById('morphGroup');
     this.keyGroup = document.getElementById('keyGroup');
 
+    // Round 1 initial UI: Morph is hidden, Divine is locked until Lotus interaction
+    if (this.morphGroup) this.morphGroup.style.display = 'none';
+    if (this.divineGroup) this.divineGroup.style.display = 'none';
+    if (this.keyGroup) this.keyGroup.style.display = 'none';
+    if (this.killsGroup) this.killsGroup.style.display = 'none';
+    this.player.hasDivineUnlocked = false;
+
     this.dialogueBox = document.getElementById('dialogueBox');
     this.dialogueText = document.getElementById('dialogueText');
+    this.dialogueTitle = document.getElementById('dialogueTitle');
+    this.dialoguePortraitContainer = document.getElementById('dialoguePortraitContainer');
+    this.dialoguePortraitImg = document.getElementById('dialoguePortraitImg');
+    this.dialoguePortraitName = document.getElementById('dialoguePortraitName');
+
+    // Kali Ma Animated Dialogue Portrait Sprites (9 frames from new sprite sheet)
+    this.kaliPortraitFrames = [];
+    for (let i = 0; i < 9; i++) {
+      const img = new Image();
+      img.src = `assets/portraits/kali_${i}.png`;
+      this.kaliPortraitFrames.push(img);
+    }
+    this.kaliPortraitSeq = [0, 1, 2, 4, 3, 5, 7, 1];
+    this.kaliPortraitIndex = 0;
+    this.kaliAnimTimer = 0;
+    this.dialogueSpeaker = null;
+
     this.interactPrompt = document.getElementById('interactPrompt');
     this.interactPromptText = document.getElementById('interactPromptText');
 
@@ -125,19 +152,27 @@ export class Engine {
     }
 
     if (this.hudLv) {
-      this.hudLv.textContent = 'LV ' + index;
+      this.hudLv.textContent = 'CH. ' + index;
     }
 
     if (index === 2) {
       // Start in Level 2: Left sand dune / stone ledge
       this.player.x = 100;
       this.player.y = 325;
+      this.player.hasDivineUnlocked = true; // Divine power persists into Level 2
+      if (this.divineGroup) this.divineGroup.style.display = 'flex';
       if (this.morphGroup) this.morphGroup.style.display = 'flex';
+      if (this.killsGroup) this.killsGroup.style.display = 'flex';
     } else {
       // Start in Level 1: Sunken courtyard
       this.player.x = 160;
       this.player.y = 368;
+      this.player.hasDivineUnlocked = false; // Strictly requires lotus interaction in Round 1
+      // In round 1, morph is strictly hidden, and divine shows only once unlocked
       if (this.morphGroup) this.morphGroup.style.display = 'none';
+      if (this.killsGroup) this.killsGroup.style.display = 'none';
+      if (this.keyGroup) this.keyGroup.style.display = 'none';
+      if (this.divineGroup) this.divineGroup.style.display = 'none';
     }
 
     this.player.vx = 0;
@@ -157,6 +192,20 @@ export class Engine {
   }
 
   update(dt) {
+    // Animate Kali Ma hands/arms when active (measuring divine stillness of body)
+    if (this.dialogueActive && this.dialogueSpeaker === 'kali') {
+      this.kaliAnimTimer += dt;
+      if (this.kaliAnimTimer >= 0.22) {
+        this.kaliAnimTimer = 0;
+        const seq = this.kaliPortraitSeq || [0, 1, 2, 4, 3, 5];
+        this.kaliPortraitIndex = (this.kaliPortraitIndex + 1) % seq.length;
+        const frameIdx = seq[this.kaliPortraitIndex];
+        if (this.dialoguePortraitImg && this.kaliPortraitFrames[frameIdx]) {
+          this.dialoguePortraitImg.src = this.kaliPortraitFrames[frameIdx].src;
+        }
+      }
+    }
+
     // 0. Check Player 0 HP Defeat
     if (this.player.hp <= 0 && !this.playerDying) {
       this.handlePlayerDeath();
@@ -185,12 +234,12 @@ export class Engine {
       return;
     }
 
-    // Morph Object Ability [Q]
+    // Morph Object Ability [Q] (Level 2 only - completely disabled in round 1)
     if (Input.isPressed('morph') || Input.isPressed('q')) {
-      if (this.level.triggerMorph) {
+      if (this.currentLevelIndex === 2 && this.level.triggerMorph) {
         const morphed = this.level.triggerMorph(this.player.x, this.player.y);
         if (morphed) {
-          this.openDialogue("* Transmutation Magic activated!\n* The square crate morphs into a heavy stone boulder!\n* It rolls off the edge and plunges down toward the archer!");
+          this.openDialogue(this.level.lastMorphMessage || "Transmutation unleashed! The sacred stone transforms into an unstoppable rolling sphere!", 'kali', '⚜ MAA KALI: TRANSMUTATION ⚜');
         }
       }
     }
@@ -226,30 +275,47 @@ export class Engine {
       if (this.dialogueActive) {
         this.closeDialogue();
       } else if (nearby) {
+        // LEVEL 1: Sacred Lotus Awakening (Unlocks X ability - Taught by Maa Kali)
+        if (nearby.type === 'lotus_awakening' || nearby.id === 'sacred_lotus') {
+          this.player.hasDivineUnlocked = true;
+          if (this.divineGroup) this.divineGroup.style.display = 'flex';
+          this.openDialogue(nearby.text, 'kali', nearby.title || '⚜ DIVINE AWAKENING: MAA KALI ⚜');
+          const flash = document.getElementById('divineFlash');
+          if (flash) {
+            flash.classList.add('active');
+            setTimeout(() => flash.classList.remove('active'), 250);
+          }
+        }
         // LEVEL 1: Lever Interaction
-        if (nearby.type === 'lever' && !this.level.lever.activated) {
+        else if (nearby.type === 'lever' && !this.level.lever.activated) {
           this.level.pullLever();
-          this.openDialogue("* You pull the ancient stone lever.\n* Deep rumbling echoes through the submerged temple!\n* A massive carved stone pillar emerges from the watery abyss!");
+          this.openDialogue("You pull the ancient mechanism. Deep tremors reverberate through the temple as the sacred stone pillar rises from the depths!");
         }
         // LEVEL 2: Chest Interaction (Obtain Sanctum Key)
         else if (nearby.type === 'chest' && !this.level.chest.opened) {
-          this.level.chest.opened = true;
-          this.player.hasKey = true;
-          this.openDialogue("* You open the ancient sunken chest.\n* Inside, you find the [SANCTUM KEY]!\n* The locked door on the lower right can now be opened.");
+          if (!this.level.chest.unlocked) {
+            this.openDialogue("The cache seal is still active. The sentinel archer above must be defeated first.", 'stele', '⚜ LIVING SEAL ⚜');
+          } else {
+            this.level.chest.opened = true;
+            this.player.hasKey = true;
+            this.openDialogue("The sentinel's destruction has broken the cache seal! You claim the [SANCTUM KEY]! A second stone waits over the lower chasm.", 'kali', '⚜ SANCTUM KEY ACQUIRED ⚜');
+          }
         }
         // LEVEL 2: Locked Door Interaction
         else if (nearby.type === 'locked_door') {
-          if (this.player.hasKey && !this.level.lockedDoor.unlocked) {
+          if (this.player.hasKey && !this.level.lockedDoor.unlocked && this.level.canUnlockDoor?.() !== false) {
             this.level.lockedDoor.unlocked = true;
             this.level.cameraShake = 0.8;
-            this.openDialogue("* You insert the Sanctum Key into the glowing cyan padlock...\n* CLICK! The padlock shatters and the heavy stone doors slide open!");
+            this.openDialogue("The Sanctum Key turns with a resounding click! The padlock shatters and the colossal stone doors slide open.", 'kali', '⚜ SANCTUM UNSEALED ⚜');
           } else if (!this.player.hasKey) {
-            this.openDialogue("* The heavy stone door is sealed by a glowing cyan padlock.\n* A key is required to open it!");
+            this.openDialogue("The heavy stone doors remain barred by the glowing padlock. Seek the Sanctum Key in the sunken cavern to the west.", 'stele', '⚜ LOCKED GATE ⚜');
+          } else if (this.level.canUnlockDoor?.() === false) {
+            this.openDialogue("The key fits, but the sanctum ward holds fast. Defeat both lower guards to shatter the seal.", 'kali', '⚜ SANCTUM WARD ACTIVE ⚜');
           }
         }
         // General text landmark
         else {
-          this.openDialogue(nearby.text);
+          this.openDialogue(nearby.text, nearby.speaker || 'stele', nearby.title);
         }
       }
     } else if (Input.isPressed('cancel')) {
@@ -353,10 +419,21 @@ export class Engine {
   updateHUD() {
     if (!this.hudEl) return;
 
-    // HP Bar Update (Reflects damage: e.g. 20 -> 15 HP)
-    if (this.hpFill && this.player) {
-      const hpPct = Math.max(0, (this.player.hp / this.player.maxHp) * 100);
-      this.hpFill.style.width = hpPct + '%';
+    // HP Bar Update (Reflects damage: curved SVG line drains smoothly from right to left)
+    const hpRatio = Math.max(0, Math.min(1, this.player.hp / this.player.maxHp));
+    if (this.hpSvgFill) {
+      let totalLen = 266;
+      try {
+        if (typeof this.hpSvgFill.getTotalLength === 'function') {
+          const l = this.hpSvgFill.getTotalLength();
+          if (l > 0) totalLen = l;
+        }
+      } catch (e) {}
+      this.hpSvgFill.style.strokeDasharray = `${totalLen}`;
+      this.hpSvgFill.style.strokeDashoffset = `${(1 - hpRatio) * totalLen}`;
+    }
+    if (this.hpFill) {
+      this.hpFill.style.width = (hpRatio * 100) + '%';
     }
     if (this.hpNum && this.player) {
       this.hpNum.textContent = this.player.hp + ' / ' + this.player.maxHp;
@@ -389,35 +466,86 @@ export class Engine {
       }
     }
 
+    // Visibility: Morph only in Level 2; Divine Sands only once unlocked
+    if (this.morphGroup) {
+      this.morphGroup.style.display = (this.currentLevelIndex === 2) ? 'flex' : 'none';
+    }
+    if (this.divineGroup) {
+      this.divineGroup.style.display = (this.player.hasDivineUnlocked || this.currentLevelIndex === 2) ? 'flex' : 'none';
+    }
+
+    // Medallion Divine Sands Ring Gauge (Circumference ~154px)
+    if (this.divineRingFill) {
+      if (this.player.isDivine) {
+        const pct = Math.max(0, Math.min(1, this.player.divineTimer / this.player.divineDuration));
+        this.divineRingFill.style.strokeDashoffset = `${(1 - pct) * 154}`;
+        this.divineRingFill.style.opacity = '1';
+      } else if (this.player.hasDivineUnlocked || this.currentLevelIndex === 2) {
+        this.divineRingFill.style.strokeDashoffset = '0';
+        this.divineRingFill.style.opacity = '0.7';
+      } else {
+        this.divineRingFill.style.strokeDashoffset = '154';
+        this.divineRingFill.style.opacity = '0.2';
+      }
+    }
+
     // Divine Form HUD State
     if (this.player.isDivine) {
       this.hudEl.classList.add('divine-mode');
-      if (this.hudName) this.hudName.textContent = 'KALI';
-      if (this.divineLabel) this.divineLabel.textContent = 'DIVINE FORM';
+      if (this.hudName) this.hudName.textContent = 'RAKTI (KALI)';
+      if (this.divineLabel) this.divineLabel.textContent = 'SANDS OF KALI';
 
       const pct = Math.max(0, (this.player.divineTimer / this.player.divineDuration) * 100);
       if (this.divineFill) this.divineFill.style.width = pct + '%';
       if (this.divineTime) this.divineTime.textContent = this.player.divineTimer.toFixed(1) + 's';
     } else {
       this.hudEl.classList.remove('divine-mode');
-      if (this.hudName) this.hudName.textContent = 'CHARA';
-      if (this.divineLabel) this.divineLabel.textContent = '[X] DIVINE';
+      if (this.hudName) this.hudName.textContent = 'RAKTI';
+      if (this.divineLabel) this.divineLabel.textContent = '[X] DIVINE SANDS';
       if (this.divineFill) this.divineFill.style.width = '0%';
       if (this.divineTime) this.divineTime.textContent = '';
     }
   }
 
-  openDialogue(text) {
+  openDialogue(text, speaker = 'stele', title = null) {
     this.dialogueActive = true;
+    this.dialogueSpeaker = speaker;
+
     if (this.dialogueBox && this.dialogueText) {
       this.dialogueText.textContent = text;
+
+      if (this.dialogueTitle) {
+        this.dialogueTitle.textContent = title || (speaker === 'kali' ? '⚜ MAA KALI ⚜' : '⚜ WHISPER OF SURYA ⚜');
+      }
+
+      if (this.dialoguePortraitContainer) {
+        if (speaker === 'kali') {
+          this.dialogueBox.classList.add('has-portrait');
+          this.dialoguePortraitContainer.style.display = 'flex';
+          this.kaliPortraitIndex = 0;
+          this.kaliAnimTimer = 0;
+          const initialFrame = (this.kaliPortraitSeq && this.kaliPortraitSeq[0]) || 0;
+          if (this.dialoguePortraitImg && this.kaliPortraitFrames[initialFrame]) {
+            this.dialoguePortraitImg.src = this.kaliPortraitFrames[initialFrame].src;
+          }
+          if (this.dialoguePortraitName) {
+            this.dialoguePortraitName.textContent = '⚜ MAA KALI ⚜';
+          }
+        } else {
+          this.dialogueBox.classList.remove('has-portrait');
+          this.dialoguePortraitContainer.style.display = 'none';
+        }
+      }
+
       this.dialogueBox.style.display = 'block';
     }
   }
 
   closeDialogue() {
     this.dialogueActive = false;
+    this.dialogueSpeaker = null;
     if (this.dialogueBox) {
+      this.dialogueBox.classList.remove('has-portrait');
       this.dialogueBox.style.display = 'none';
     }
   }
