@@ -7,6 +7,8 @@
  * ==========================================================================
  */
 
+import { EnemySpriteSheet } from './enemySprites.js';
+
 export class Level {
   constructor() {
     this.width = 1024;
@@ -138,6 +140,9 @@ export class Level {
       { x: 602, y: 143, minX: 410, maxX: 610, speed: 154, direction: -1, phase: 2.4 }
     ];
 
+    this.enemySprites = new EnemySpriteSheet();
+    this.endSentinel = this.createEndSentinel();
+
     this.camera = {
       x: 0,
       y: 0,
@@ -174,6 +179,31 @@ export class Level {
     }
   }
 
+  createEndSentinel() {
+    return {
+      x: 824,
+      y: 368,
+      hp: 10,
+      maxHp: 10,
+      noticeRange: 132,
+      attackRange: 46,
+      moveSpeed: 42,
+      facing: 'left',
+      isMoving: false,
+      attacking: false,
+      attackCooldown: 0.45,
+      attackAnimTimer: 0,
+      attackAnimDuration: 0.72,
+      attackHitApplied: false,
+      attackHitAt: 0.32,
+      playerAttackWasActive: false,
+      hitFlash: 0,
+      hurtTimer: 0,
+      animTime: 0,
+      dead: false
+    };
+  }
+
   /**
    * Pulls the ancient lever on the RIGHT TOP balcony, triggering screen rumble
    * and raising the stone pillar from the watery abyss.
@@ -198,6 +228,7 @@ export class Level {
     this.pillar.isRaised = false;
     this.cameraShake = 0;
     this.isCompleted = false;
+    this.endSentinel = this.createEndSentinel();
     if (this.bridgeSentries && this.bridgeSentries[0]) {
       this.bridgeSentries[0].x = 438;
       this.bridgeSentries[0].direction = 1;
@@ -413,6 +444,100 @@ export class Level {
         }
       }
     }
+
+    this.updateEndSentinel(playerX, playerY, dt, player);
+  }
+
+  updateEndSentinel(playerX, playerY, dt, player) {
+    const enemy = this.endSentinel;
+    if (!enemy) return;
+
+    enemy.animTime += dt;
+    enemy.attackCooldown = Math.max(0, enemy.attackCooldown - dt);
+    enemy.hitFlash = Math.max(0, enemy.hitFlash - dt);
+    enemy.hurtTimer = Math.max(0, enemy.hurtTimer - dt);
+    if (enemy.dead) return;
+
+    const dx = playerX - enemy.x;
+    const closeVertically = Math.abs(playerY - enemy.y) < 48;
+    const canPlayerHit = player?.isAttacking
+      && !enemy.playerAttackWasActive
+      && Math.abs(dx) < 58
+      && closeVertically
+      && (dx === 0 || (dx < 0 && player.facing === 'left') || (dx > 0 && player.facing !== 'left'));
+
+    if (canPlayerHit) {
+      enemy.hp = Math.max(0, enemy.hp - (player.swordDamage || 4));
+      enemy.hitFlash = 0.22;
+      enemy.hurtTimer = 0.3;
+      if (enemy.hp === 0) {
+        enemy.dead = true;
+        enemy.attacking = false;
+        enemy.isMoving = false;
+        return;
+      }
+    }
+    enemy.playerAttackWasActive = Boolean(player?.isAttacking);
+
+    if (enemy.attacking) {
+      enemy.attackAnimTimer += dt;
+      if (!enemy.attackHitApplied && enemy.attackAnimTimer >= enemy.attackHitAt) {
+        enemy.attackHitApplied = true;
+        if (player && Math.abs(dx) <= enemy.attackRange + 12 && closeVertically && player.invulnerableTimer <= 0) {
+          player.takeDamage(3, playerX < enemy.x ? -160 : 160, -110);
+          this.cameraShake = Math.max(this.cameraShake, 0.22);
+        }
+      }
+      if (enemy.attackAnimTimer >= enemy.attackAnimDuration) {
+        enemy.attacking = false;
+        enemy.attackAnimTimer = 0;
+      }
+      return;
+    }
+
+    enemy.isMoving = false;
+    if (!player || !closeVertically || Math.abs(dx) > enemy.noticeRange) return;
+
+    enemy.facing = dx < 0 ? 'left' : 'right';
+    if (Math.abs(dx) > enemy.attackRange) {
+      const travel = Math.min(Math.abs(dx) - enemy.attackRange, enemy.moveSpeed * dt);
+      enemy.x += Math.sign(dx) * travel;
+      enemy.isMoving = travel > 0;
+      return;
+    }
+
+    if (enemy.attackCooldown <= 0) {
+      enemy.attacking = true;
+      enemy.attackAnimTimer = 0;
+      enemy.attackHitApplied = false;
+      enemy.attackCooldown = 1.5;
+    }
+  }
+
+  renderEndSentinel(ctx) {
+    const enemy = this.endSentinel;
+    if (!enemy) return;
+
+    const spriteDrawn = this.enemySprites.render(ctx, enemy, { width: 66, height: 82 });
+    if (!spriteDrawn) {
+      ctx.save();
+      ctx.fillStyle = enemy.hitFlash > 0 ? '#fff1bd' : '#514957';
+      ctx.fillRect(enemy.x - 12, enemy.y - 48, 24, 45);
+      ctx.fillStyle = '#b9afb9';
+      ctx.fillRect(enemy.x - 9, enemy.y - 63, 18, 17);
+      ctx.restore();
+    }
+
+    if (!enemy.dead) {
+      const barX = Math.round(enemy.x - 23);
+      const barY = Math.round(enemy.y - 91);
+      ctx.fillStyle = 'rgba(13, 10, 16, 0.86)';
+      ctx.fillRect(barX, barY, 46, 6);
+      ctx.fillStyle = '#472833';
+      ctx.fillRect(barX + 1, barY + 1, 44, 4);
+      ctx.fillStyle = enemy.hitFlash > 0 ? '#fff1bd' : '#b54b55';
+      ctx.fillRect(barX + 1, barY + 1, 44 * (enemy.hp / enemy.maxHp), 4);
+    }
   }
 
   spawnPillarSplash() {
@@ -473,6 +598,9 @@ export class Level {
 
     // 9. Render Blue Lotus Auras
     this.renderLotusAuras(ctx);
+
+    // End-of-level melee sentinel, using the supplied walk / strike / hurt sheet.
+    this.renderEndSentinel(ctx);
 
     ctx.restore();
   }

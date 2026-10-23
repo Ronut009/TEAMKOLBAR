@@ -303,14 +303,14 @@ export class Engine {
         }
         // LEVEL 2: Locked Door Interaction
         else if (nearby.type === 'locked_door') {
-          if (this.player.hasKey && !this.level.lockedDoor.unlocked && this.level.canUnlockDoor?.() !== false) {
+          if (this.level.lockedDoor?.unlocked) {
+            this.openDialogue("The sanctum gate stands unsealed. Step boldly into the dark passage to conquer the catacombs.", 'kali', '⚜ SANCTUM OPEN ⚜');
+          } else if (this.level.canUnlockDoor?.()) {
             this.level.lockedDoor.unlocked = true;
             this.level.cameraShake = 0.8;
-            this.openDialogue("The Sanctum Key turns with a resounding click! The padlock shatters and the colossal stone doors slide open.", 'kali', '⚜ SANCTUM UNSEALED ⚜');
-          } else if (!this.player.hasKey) {
-            this.openDialogue("The heavy stone doors remain barred by the glowing padlock. Seek the Sanctum Key in the sunken cavern to the west.", 'stele', '⚜ LOCKED GATE ⚜');
-          } else if (this.level.canUnlockDoor?.() === false) {
-            this.openDialogue("The key fits, but the sanctum ward holds fast. Defeat both lower guards to shatter the seal.", 'kali', '⚜ SANCTUM WARD ACTIVE ⚜');
+            this.openDialogue("With the sentinel archer eliminated, the sanctum padlock shatters and the ancient gates slide open!", 'kali', '⚜ SANCTUM UNSEALED ⚜');
+          } else {
+            this.openDialogue("The colossal sanctum gate is barred by an enchanted ward. Eliminate the sentinel archer above to shatter the seal.", 'kali', '⚜ SANCTUM WARD ACTIVE ⚜');
           }
         }
         // General text landmark

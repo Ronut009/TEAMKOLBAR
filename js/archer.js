@@ -22,7 +22,7 @@ export class Arrow {
     this.angle = Math.PI; // In radians, initially facing left
     this.life = 6.2;
     this.maxLife = 6.2;
-    this.damage = 4;
+    this.damage = 2; // Reduced arrow damage
     this.width = 44;
     this.height = 8;
     this.isAttached = true;
@@ -81,8 +81,9 @@ export class Arrow {
       while (diff < -Math.PI) diff += Math.PI * 2;
       while (diff > Math.PI) diff -= Math.PI * 2;
 
-      // Smooth turning rate: ~2.8 rad/sec creates an authentic curved tracking flight
-      const turnSpeed = 2.8;
+      // Softened turn rate: curves moderately at a distance (1.35 rad/s), eases off close to player (< 110px -> 0.65 rad/s)
+      const distToPlayer = Math.hypot(dx, dy);
+      const turnSpeed = distToPlayer < 110 ? 0.65 : 1.35;
       const maxTurn = turnSpeed * dt;
       this.angle += Math.max(-maxTurn, Math.min(maxTurn, diff));
 

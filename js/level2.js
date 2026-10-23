@@ -18,12 +18,14 @@
  */
 
 import { Archer, Arrow } from './archer.js';
+import { EnemySpriteSheet } from './enemySprites.js';
 
 export class Level2 {
   constructor() {
     this.width = 1024;
     this.height = 571;
     this.levelIndex = 2;
+    this.enemySprites = new EnemySpriteSheet();
 
     // Base Map without bridge (mortal view)
     this.baseMapImg = new Image();
@@ -288,9 +290,11 @@ export class Level2 {
 
   registerKill(archer) {
     this.kills++;
+    this.archerKilled = true;
+    this.lockedDoor.unlocked = true;
     this.cameraShake = 1.0;
-    this.killToastTimer = 2.8;
-    this.killToastText = `⚔ SENTINEL ARCHER ELIMINATED!`;
+    this.killToastTimer = 3.2;
+    this.killToastText = '⚜ SENTINEL ARCHER ELIMINATED — SANCTUM UNSEALED! ⚜';
   }
 
   reset() {
@@ -376,8 +380,8 @@ export class Level2 {
     if (this.enemyWaveStarted) return;
     this.enemyWaveStarted = true;
     this.meleeEnemies = [
-      { x: 735, y: 515, hp: 4, attackTimer: 0.8, hitFlash: 0, dead: false, phase: 0 },
-      { x: 970, y: 515, hp: 4, attackTimer: 1.5, hitFlash: 0, dead: false, phase: 1 }
+      { x: 735, y: 515, hp: 4, attackTimer: 0.8, hitFlash: 0, dead: false, phase: 0, facing: 'left', isMoving: false, isAttacking: false, attackAnimTimer: 0, attackAnimDuration: 0.72, hurtTimer: 0, animTime: 0 },
+      { x: 970, y: 515, hp: 4, attackTimer: 1.5, hitFlash: 0, dead: false, phase: 1, facing: 'left', isMoving: false, isAttacking: false, attackAnimTimer: 0, attackAnimDuration: 0.72, hurtTimer: 0, animTime: 0 }
     ];
     this.killToastText = '⚔ THE LOWER GUARD WAKES';
     this.killToastTimer = 2.4;
@@ -477,8 +481,8 @@ export class Level2 {
         text: this.lockedDoor.unlocked
           ? "The sanctum gate stands unsealed. Step boldly into the dark passage to conquer the catacombs."
           : (this.canUnlockDoor()
-              ? "The Sanctum Key fits into the glowing cyan padlock! Press [E] to break the lock and enter."
-              : "The colossal sanctum gate is barred by an enchanted cyan padlock. Seek the Sanctum Key and defeat all guardians to open it.")
+              ? "The sentinel archer has fallen! Press [E] to shatter the padlock and unseal the sanctum."
+              : "The colossal sanctum gate is barred by an enchanted ward. Eliminate the sentinel archer above to shatter the seal.")
       };
     }
 
@@ -503,7 +507,7 @@ export class Level2 {
   checkLevelComplete(px, py) {
     if (this.isCompleted) return false;
     // When the door is unlocked and player steps into the black doorway (x=885..918, y=500..530)
-    if (this.lockedDoor.unlocked && px >= 885 && px <= 918 && py >= 500 && py <= 530) {
+    if (this.lockedDoor.unlocked && px >= 870 && px <= 928 && py >= 490 && py <= 535) {
       this.isCompleted = true;
       return true;
     }
@@ -511,7 +515,7 @@ export class Level2 {
   }
 
   canUnlockDoor() {
-    return this.lowerCausewayActive && this.meleeEnemies.length === 2 && this.meleeEnemies.every(enemy => enemy.dead);
+    return Boolean(this.archerKilled || !this.archers.some(archer => archer.alive));
   }
 
   update(playerX, playerY, dt, isDivine = false, player = null) {
@@ -554,6 +558,7 @@ export class Level2 {
           if (archer.alive && Math.abs(this.morphBox.x - archer.x) < 58) {
             if (archer.die('crushed')) {
               this.archerKilled = true;
+              this.lockedDoor.unlocked = true;
               this.registerKill(archer);
               this.chest.unlocked = true;
             }
@@ -574,8 +579,9 @@ export class Level2 {
         this.morphBox.vx = 0;
         this.morphBox.vy = 0;
         if (this.archerKilled) {
+          this.lockedDoor.unlocked = true;
           this.chest.unlocked = true;
-          this.killToastText = '⚜ CACHE SEAL BROKEN — CLAIM THE KEY BELOW ⚜';
+          this.killToastText = '⚜ SENTINEL CRUSHED — SANCTUM DOOR UNSEALED! ⚜';
           this.killToastTimer = 3.2;
         }
       }
@@ -585,7 +591,17 @@ export class Level2 {
     for (const enemy of this.meleeEnemies) {
       if (enemy.dead) continue;
       enemy.phase += dt * 7;
+      enemy.animTime += dt;
+      if (enemy.isAttacking) {
+        enemy.attackAnimTimer += dt;
+        if (enemy.attackAnimTimer >= enemy.attackAnimDuration) {
+          enemy.attackAnimTimer = 0;
+          enemy.isAttacking = false;
+        }
+      }
+      enemy.isMoving = false;
       enemy.hitFlash = Math.max(0, enemy.hitFlash - dt);
+      enemy.hurtTimer = Math.max(0, enemy.hurtTimer - dt);
       enemy.attackTimer -= dt;
       const dx = playerX - enemy.x;
 
@@ -594,6 +610,7 @@ export class Level2 {
         const damage = player.swordDamage || 4;
         enemy.hp -= damage;
         enemy.hitFlash = 0.3;
+        enemy.hurtTimer = 0.3;
         if (enemy.hp <= 0) {
           enemy.dead = true;
           this.kills++;
@@ -601,10 +618,17 @@ export class Level2 {
           this.killToastTimer = 1.4;
         }
       } else if (Math.abs(dx) > 34) {
+        enemy.facing = dx < 0 ? 'left' : 'right';
         enemy.x += Math.sign(dx) * Math.min(Math.abs(dx) - 34, 42 * dt);
+        enemy.isMoving = true;
+        enemy.isAttacking = false;
+        enemy.attackAnimTimer = 0;
       } else if (enemy.attackTimer <= 0 && player && player.invulnerableTimer <= 0) {
+        enemy.facing = dx < 0 ? 'left' : 'right';
         player.takeDamage(3, (playerX < enemy.x ? -180 : 180), -120);
         enemy.attackTimer = 1.25;
+        enemy.attackAnimTimer = 0;
+        enemy.isAttacking = true;
         this.cameraShake = 0.25;
       }
     }
@@ -809,39 +833,16 @@ export class Level2 {
 
   renderMeleeEnemies(ctx) {
     for (const enemy of this.meleeEnemies) {
-      if (enemy.dead) continue;
-      const x = Math.round(enemy.x), y = Math.round(enemy.y), bob = Math.sin(enemy.phase) * 1.5;
-      ctx.save();
-      ctx.translate(x, y + bob);
-
-      // Body / Armour
-      ctx.fillStyle = enemy.hitFlash > 0 ? '#fff1bd' : '#322d3a';
-      ctx.fillRect(-10, -39, 20, 23);
-
-      // Head / Mask
-      ctx.fillStyle = enemy.hitFlash > 0 ? '#fff1bd' : '#9b765b';
-      ctx.fillRect(-8, -53, 16, 15);
-
-      // Glowing eyes
-      ctx.fillStyle = '#f3b24f';
-      ctx.fillRect(-5, -48, 3, 3); ctx.fillRect(3, -48, 3, 3);
-
-      // Legs
-      ctx.fillStyle = '#514532';
-      ctx.fillRect(-12, -17, 9, 15); ctx.fillRect(3, -17, 9, 15);
-
-      // Curved scimitar weapon
-      ctx.strokeStyle = '#b7a17c';
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(8, -32); ctx.lineTo(19, -18);
-      ctx.stroke();
-
-      ctx.strokeStyle = '#d7d4c8';
-      ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(16, -22); ctx.lineTo(27, -34); ctx.stroke();
-
-      ctx.restore();
+      if (!this.enemySprites.render(ctx, enemy, { width: 66, height: 82 })) {
+        const x = Math.round(enemy.x), y = Math.round(enemy.y);
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.fillStyle = enemy.hitFlash > 0 ? '#fff1bd' : '#322d3a';
+        ctx.fillRect(-10, -39, 20, 23);
+        ctx.fillStyle = '#9b765b';
+        ctx.fillRect(-8, -53, 16, 15);
+        ctx.restore();
+      }
     }
   }
 
