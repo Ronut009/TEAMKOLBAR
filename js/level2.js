@@ -48,8 +48,11 @@ export class Level2 {
 
     // Platforms
     this.platforms = [
-      // 1. Upper Left Balcony (x=40..170, y=145)
-      { id: 'top_left', x1: 40, x2: 170, y: 145, oneWay: true },
+      // 1. Upper Left Balcony (x=40..245, y=145)
+      { id: 'top_left', x1: 40, x2: 245, y: 145, oneWay: true },
+
+      // 1b. Sand Dune Ledge below Upper Left Ladder (x=150..245, y=255)
+      { id: 'sand_dune', x1: 150, x2: 245, y: 255, oneWay: true },
 
       // 2. Sand Dune & Middle Left Platform (x=40..460, y=325)
       { id: 'middle_left', x1: 40, x2: 460, y: 325, oneWay: false },
@@ -63,8 +66,8 @@ export class Level2 {
       // 5. Upper Right Stone Balcony (x=700..950, y=175)
       { id: 'top_right', x1: 700, x2: 950, y: 175, oneWay: true },
 
-      // 6. Bottom Left Cave Floor (x=40..280, y=535)
-      { id: 'cave_floor', x1: 40, x2: 280, y: 535, oneWay: false },
+      // 6. Bottom Left Cave Floor (x=40..440, y=535)
+      { id: 'cave_floor', x1: 40, x2: 440, y: 535, oneWay: false },
 
       // 7. Bottom Right Floor (x=630..1024, y=515)
       { id: 'floor_lower_right', x1: 630, x2: 1024, y: 515, oneWay: false },
@@ -79,9 +82,9 @@ export class Level2 {
     // Ladders (x position, top y, bottom y)
     this.ladders = [
       // Ladder 1: Top Left down towards Sand Dune
-      { id: 'ladder_left', x: 205, y1: 145, y2: 250, width: 26 },
+      { id: 'ladder_left', x: 205, y1: 145, y2: 255, width: 26 },
       // Ladder 2: Middle platform down into Cave
-      { id: 'ladder_cave', x: 360, y1: 325, y2: 495, width: 26 },
+      { id: 'ladder_cave', x: 360, y1: 325, y2: 535, width: 26 },
       // Ladder 3: Middle platform up to Upper Right Balcony
       { id: 'ladder_right', x: 765, y1: 175, y2: 325, width: 26 }
     ];

@@ -87,6 +87,7 @@ export class Player {
     this.climbTimer = 0;
     this.climbFrameDuration = 0.11;
     this.climbDir = 'up';
+    this.ladderCooldown = 0; // Cooldown timer after dismounting or jumping off a ladder
   }
 
   loadAnimations() {
@@ -256,84 +257,148 @@ export class Player {
     if (this.coyoteTimer > 0) this.coyoteTimer -= dt;
     if (this.jumpBufferTimer > 0) this.jumpBufferTimer -= dt;
     if (this.invulnerableTimer > 0) this.invulnerableTimer -= dt;
+    if (this.ladderCooldown > 0) this.ladderCooldown -= dt;
+
+    // Movement Inputs
+    let moveDir = 0;
+    if (Input.isDown('left') || Input.isDown('KeyA') || Input.isDown('ArrowLeft')) moveDir -= 1;
+    if (Input.isDown('right') || Input.isDown('KeyD') || Input.isDown('ArrowRight')) moveDir += 1;
 
     // Check Ladder Climbing (Level 2 Ladders)
     if (level && level.ladders) {
       const isUp = Input.isDown('up') || Input.isDown('KeyW') || Input.isDown('ArrowUp');
       const isDown = Input.isDown('down') || Input.isDown('KeyS') || Input.isDown('ArrowDown');
-      const jumpPressed = Input.isPressed('jump') || Input.isPressed('Space');
+      const spacePressed = Input.isPressed('jump') || Input.isPressed('Space');
 
       let overlappingLadder = null;
       for (const lad of level.ladders) {
-        if (Math.abs(this.x - lad.x) <= 22 && this.y >= lad.y1 - 10 && this.y <= lad.y2 + 20) {
+        if (Math.abs(this.x - lad.x) <= 22 && this.y >= lad.y1 - 6 && this.y <= lad.y2 + 10) {
           overlappingLadder = lad;
           break;
         }
       }
 
-      if (overlappingLadder) {
-        if (!this.isClimbing && (isUp || (isDown && !this.isGrounded))) {
-          this.isClimbing = true;
-          this.currentLadder = overlappingLadder;
-          this.x = overlappingLadder.x;
-          this.vx = 0;
-          this.vy = 0;
-          this.isGrounded = false;
+      // 1. Ladder Mount / Attachment
+      if (!this.isClimbing && overlappingLadder && this.ladderCooldown <= 0) {
+        const atTopLedge = (this.y <= overlappingLadder.y1 + 8);
+        const atBottomLedge = (this.y >= overlappingLadder.y2 - 6);
+
+        if (atTopLedge) {
+          // Standing on top platform: only mount ladder if pressing Down (S)
+          if (isDown) {
+            this.isClimbing = true;
+            this.currentLadder = overlappingLadder;
+            this.x = overlappingLadder.x;
+            this.y = overlappingLadder.y1 + 10;
+            this.vx = 0;
+            this.vy = 0;
+            this.isGrounded = false;
+            this.currentPlatform = null;
+          }
+        } else if (atBottomLedge) {
+          // Standing at bottom: mount ladder if pressing Up (W)
+          if (isUp) {
+            this.isClimbing = true;
+            this.currentLadder = overlappingLadder;
+            this.x = overlappingLadder.x;
+            this.vx = 0;
+            this.vy = 0;
+            this.isGrounded = false;
+            this.currentPlatform = null;
+          }
+        } else {
+          // Airborne or mid-ladder: mount on Up, Down, or midair touch
+          if (isUp || isDown || !this.isGrounded) {
+            this.isClimbing = true;
+            this.currentLadder = overlappingLadder;
+            this.x = overlappingLadder.x;
+            this.vx = 0;
+            this.vy = 0;
+            this.isGrounded = false;
+            this.currentPlatform = null;
+          }
         }
-      } else if (this.isClimbing) {
+      } else if (this.isClimbing && !overlappingLadder) {
         this.isClimbing = false;
         this.currentLadder = null;
       }
 
+      // 2. Ladder Active State
       if (this.isClimbing && this.currentLadder) {
-        if (jumpPressed) {
+        // A. Jump-off Dismount (Space bar)
+        if (spacePressed) {
           this.isClimbing = false;
           this.currentLadder = null;
+          this.ladderCooldown = 0.32;
           this.vy = this.jumpImpulse * 0.85;
-          this.vx = (this.facing === 'left' ? -130 : 130);
-        } else {
+          this.vx = (moveDir !== 0 ? moveDir * 170 : (this.facing === 'left' ? -140 : 140));
+          this.isGrounded = false;
+          this.spawnPoof(6);
+        }
+        // B. Horizontal Sideways Dismount (Pushing A or D without vertical input)
+        else if (moveDir !== 0 && !isUp && !isDown) {
+          this.isClimbing = false;
+          this.currentLadder = null;
+          this.ladderCooldown = 0.28;
+          this.vx = moveDir * 160;
+          this.facing = (moveDir < 0) ? 'left' : 'right';
+          this.isGrounded = false;
+          // Continues down to standard platform movement and collision this frame!
+        }
+        // C. Vertical Ladder Movement
+        else {
           let climbMove = 0;
           if (isUp) climbMove -= 1;
           if (isDown) climbMove += 1;
 
           if (climbMove < 0) {
             this.climbDir = 'up';
-            this.vy = -130;
+            this.vy = -140;
             this.climbTimer += dt;
             if (this.climbTimer >= this.climbFrameDuration) {
               this.climbTimer = 0;
               this.climbFrame = (this.climbFrame + 1) % 6;
             }
+
+            // Top of ladder reached: step cleanly onto top platform
             if (this.y <= this.currentLadder.y1 + 4) {
               this.y = this.currentLadder.y1;
               this.isClimbing = false;
               this.currentLadder = null;
               this.isGrounded = true;
+              this.vy = 0;
+              this.ladderCooldown = 0.35; // Prevents infinite re-grab loop
             }
           } else if (climbMove > 0) {
             this.climbDir = 'down';
-            this.vy = 130;
+            this.vy = 140;
             this.climbTimer += dt;
             if (this.climbTimer >= this.climbFrameDuration) {
               this.climbTimer = 0;
               this.climbFrame = (this.climbFrame + 1) % 6;
             }
+
+            // Bottom of ladder reached: step cleanly onto bottom platform
             if (this.y >= this.currentLadder.y2 - 2) {
               this.y = this.currentLadder.y2;
               this.isClimbing = false;
               this.currentLadder = null;
               this.isGrounded = true;
+              this.vy = 0;
+              this.ladderCooldown = 0.3;
             }
           } else {
             this.vy = 0;
           }
 
-          this.vx = 0;
-          this.y += this.vy * dt;
-          this.x = this.currentLadder.x;
+          if (this.isClimbing) {
+            this.vx = 0;
+            this.y += this.vy * dt;
+            this.x = this.currentLadder.x;
 
-          this.updateParticles(dt);
-          return;
+            this.updateParticles(dt);
+            return;
+          }
         }
       }
     }
@@ -396,7 +461,7 @@ export class Player {
     }
 
     // 3. Horizontal Movement
-    let moveDir = 0;
+    moveDir = 0;
     if (Input.isDown('left') || Input.isDown('KeyA') || Input.isDown('ArrowLeft')) moveDir -= 1;
     if (Input.isDown('right') || Input.isDown('KeyD') || Input.isDown('ArrowRight')) moveDir += 1;
 
@@ -494,15 +559,21 @@ export class Player {
       }
     }
 
-    // 7. Open Chasm Pit Fall & Respawn
-    if (this.y > 434) {
-      this.respawnFromPit();
+    // 7. Pit Fall & Respawn (Level 1: y > 434; Level 2: y > 585)
+    const deathY = (level && level.levelIndex === 2) ? 585 : 434;
+    if (this.y > deathY) {
+      this.respawnFromPit(level);
     }
 
     // 8. Reset Key (R)
     if (Input.isPressed('KeyR') || Input.isPressed('reset')) {
-      this.x = 180;
-      this.y = 368;
+      if (level && level.levelIndex === 2) {
+        this.x = 100;
+        this.y = 325;
+      } else {
+        this.x = 180;
+        this.y = 368;
+      }
       this.vx = 0;
       this.vy = 0;
       this.isGrounded = true;
@@ -519,9 +590,14 @@ export class Player {
     return target;
   }
 
-  respawnFromPit() {
-    this.x = 180;
-    this.y = 368;
+  respawnFromPit(level = null) {
+    if (level && level.levelIndex === 2) {
+      this.x = 100;
+      this.y = 325;
+    } else {
+      this.x = 180;
+      this.y = 368;
+    }
     this.vx = 0;
     this.vy = 0;
     this.isGrounded = true;
