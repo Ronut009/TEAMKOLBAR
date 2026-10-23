@@ -11,6 +11,7 @@ export class Level {
   constructor() {
     this.width = 1024;
     this.height = 434;
+    this.levelIndex = 1;
 
     // Base map without bridge (mortal view)
     this.baseMapImg = new Image();
@@ -51,11 +52,11 @@ export class Level {
       // 4. Upper Left Balcony (Overgrown roof platform)
       { id: 'balcony_left', x1: 220, x2: 388, y: 172, oneWay: true },
 
-      // 5. Upper Right Temple Balcony (Temple roof where the ancient lever is located!)
-      { id: 'balcony_right', x1: 728, x2: 1024, y: 172, oneWay: true },
+      // 5. Upper Right Temple Balcony (Temple roof extended leftward to x=635, lever located here!)
+      { id: 'balcony_right', x1: 635, x2: 1024, y: 172, oneWay: true },
 
-      // 6. The Golden Constellation Bridge (Only active in Divine Form [X])
-      { id: 'golden_bridge', x1: 388, x2: 728, y: 172, oneWay: true, divineOnly: true }
+      // 6. The Golden Constellation Bridge (Reduced span from x=388 to 635, active in Divine Form [X])
+      { id: 'golden_bridge', x1: 388, x2: 635, y: 172, oneWay: true, divineOnly: true }
     ];
 
     // Pit Side Walls (Widened from x=430 to 690)
@@ -107,7 +108,7 @@ export class Level {
         text: "* Sacred blue lotus atop the ruined left balcony.\n* An invisible celestial bridge spans the sky to the east.\n* Awaken your Divine Form [X] to cross to the upper mechanism!"
       },
       {
-        x: 558, y: 172, radius: 55,
+        x: 511, y: 172, radius: 50,
         text: "* The Bridge of Constellations.\n* Dormant in mortal form. Awaken your Divine Avatar [X] to reveal the bridge and cross to the right balcony."
       },
       {
@@ -124,7 +125,7 @@ export class Level {
     this.initSpores(45);
 
     this.bridgeStars = [];
-    this.initBridgeStars(30);
+    this.initBridgeStars(24);
 
     this.camera = {
       x: 0,
@@ -159,7 +160,7 @@ export class Level {
   initBridgeStars(count) {
     this.bridgeStars = [];
     const xMin = 390;
-    const xMax = 726;
+    const xMax = 633;
     const yCenter = 172;
 
     for (let i = 0; i < count; i++) {
@@ -415,14 +416,14 @@ export class Level {
     for (let i = 0; i < 4; i++) {
       const side = Math.random() > 0.5 ? this.pillar.x1 : this.pillar.x2;
       this.pillarWaterSplashes.push({
-        x: side + (Math.random() - 0.5) * 8,
-        y: 368 + (Math.random() - 0.5) * 4,
-        vx: (Math.random() - 0.5) * 80,
-        vy: -60 - Math.random() * 80,
-        life: 0.35 + Math.random() * 0.25,
-        maxLife: 0.6,
+        x: side + (Math.random() - 0.5) * 12,
+        y: Math.min(368, Math.round(this.pillar.y) + 16) + (Math.random() - 0.5) * 8,
+        vx: (Math.random() - 0.5) * 50,
+        vy: -30 - Math.random() * 60,
+        life: 0.4 + Math.random() * 0.3,
+        maxLife: 0.7,
         size: 1.5 + Math.random() * 2,
-        color: Math.random() > 0.4 ? '#4eedff' : '#e0f8ff'
+        color: Math.random() > 0.5 ? '#caa375' : (Math.random() > 0.3 ? '#8f643e' : '#f0d3ae')
       });
     }
   }
@@ -441,7 +442,7 @@ export class Level {
       ctx.drawImage(this.fullMapImg, 0, 0, this.width, this.height);
     }
 
-    // 2. Render Widened Fall Space (Deep sunken water abyss from x=430 to 690)
+    // 2. Render Widened Fall Space (Dry subterranean chasm abyss from x=430 to 690)
     this.renderFallSpace(ctx);
 
     // 3. Render Rising Ancient Pillar (Inside the fall space)
@@ -469,8 +470,8 @@ export class Level {
   }
 
   /**
-   * Renders the widened fall space (x=430 to 690, y=368 to 434) with
-   * deep twilight water, submerged ruins, water ripples, and foam edges.
+   * Renders the widened fall space (x=430 to 690, y=368 to 434) as a
+   * dry subterranean stone chasm pit with weathered cliff drop-offs and deep shadowy void.
    */
   renderFallSpace(ctx) {
     ctx.save();
@@ -481,54 +482,52 @@ export class Level {
     const fy = 368;
     const fh = 434 - fy;
 
-    // 1. Deep sunken water gradient
-    const waterGrad = ctx.createLinearGradient(fx1, fy, fx1, fy + fh);
-    waterGrad.addColorStop(0, '#0e2038');
-    waterGrad.addColorStop(0.35, '#091526');
-    waterGrad.addColorStop(0.8, '#040b15');
-    waterGrad.addColorStop(1, '#02050b');
-    ctx.fillStyle = waterGrad;
+    // 1. Deep subterranean chasm abyss gradient (pitch black / dark void depth)
+    const chasmGrad = ctx.createLinearGradient(fx1, fy, fx1, fy + fh);
+    chasmGrad.addColorStop(0, '#100b17');
+    chasmGrad.addColorStop(0.35, '#09060d');
+    chasmGrad.addColorStop(0.75, '#040206');
+    chasmGrad.addColorStop(1, '#000000');
+    ctx.fillStyle = chasmGrad;
     ctx.fillRect(fx1, fy, fw, fh);
 
-    // 2. Submerged temple blocks beneath the water
-    ctx.fillStyle = 'rgba(25, 42, 60, 0.45)';
-    ctx.fillRect(fx1 + 20, fy + 24, 70, fh - 24);
-    ctx.fillRect(fx2 - 80, fy + 18, 65, fh - 18);
+    // 2. Subterranean ancient collapsed ruin blocks in the dark depth
+    ctx.fillStyle = '#1c140e';
+    ctx.fillRect(fx1 + 18, fy + 26, 68, fh - 26);
+    ctx.fillStyle = '#261b13';
+    ctx.fillRect(fx1 + 22, fy + 28, 60, 4);
 
-    // 3. Left & Right cliff walls descending into the water
-    const leftWallGrad = ctx.createLinearGradient(fx1 - 4, fy, fx1 + 10, fy);
-    leftWallGrad.addColorStop(0, '#3a3028');
-    leftWallGrad.addColorStop(1, 'rgba(10, 20, 35, 0.85)');
+    ctx.fillStyle = '#18100a';
+    ctx.fillRect(fx2 - 82, fy + 20, 65, fh - 20);
+    ctx.fillStyle = '#241810';
+    ctx.fillRect(fx2 - 78, fy + 22, 58, 4);
+
+    // 3. Left & Right cliff walls descending into the chasm abyss
+    const leftWallGrad = ctx.createLinearGradient(fx1 - 4, fy, fx1 + 12, fy);
+    leftWallGrad.addColorStop(0, '#4a3725');
+    leftWallGrad.addColorStop(0.4, '#302216');
+    leftWallGrad.addColorStop(1, 'rgba(8, 5, 12, 0.95)');
     ctx.fillStyle = leftWallGrad;
-    ctx.fillRect(fx1 - 2, fy, 12, fh);
+    ctx.fillRect(fx1 - 2, fy, 14, fh);
 
-    const rightWallGrad = ctx.createLinearGradient(fx2 - 10, fy, fx2 + 4, fy);
-    rightWallGrad.addColorStop(0, 'rgba(10, 20, 35, 0.85)');
-    rightWallGrad.addColorStop(1, '#3a3028');
+    // Left cliff edge stone highlight & weathered shelf
+    ctx.fillStyle = '#caa375';
+    ctx.fillRect(fx1 - 3, fy, 4, 2);
+    ctx.fillStyle = '#22140a';
+    ctx.fillRect(fx1 + 1, fy, 1, fh);
+
+    const rightWallGrad = ctx.createLinearGradient(fx2 - 12, fy, fx2 + 4, fy);
+    rightWallGrad.addColorStop(0, 'rgba(8, 5, 12, 0.95)');
+    rightWallGrad.addColorStop(0.6, '#302216');
+    rightWallGrad.addColorStop(1, '#4a3725');
     ctx.fillStyle = rightWallGrad;
-    ctx.fillRect(fx2 - 10, fy, 12, fh);
+    ctx.fillRect(fx2 - 12, fy, 14, fh);
 
-    // 4. Water surface ripples and foam line at y=368
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    const waveTime = this.animTime * 3.0;
-
-    ctx.strokeStyle = 'rgba(78, 237, 255, 0.55)';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    for (let x = fx1; x <= fx2; x += 6) {
-      const dy = Math.sin((x * 0.08) + waveTime) * 1.5;
-      if (x === fx1) ctx.moveTo(x, fy + dy);
-      else ctx.lineTo(x, fy + dy);
-    }
-    ctx.stroke();
-
-    const surfaceGlow = ctx.createLinearGradient(fx1, fy - 4, fx1, fy + 12);
-    surfaceGlow.addColorStop(0, 'rgba(78, 237, 255, 0.25)');
-    surfaceGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
-    ctx.fillStyle = surfaceGlow;
-    ctx.fillRect(fx1, fy - 2, fw, 14);
-    ctx.restore();
+    // Right cliff edge stone highlight & weathered shelf
+    ctx.fillStyle = '#caa375';
+    ctx.fillRect(fx2 - 1, fy, 4, 2);
+    ctx.fillStyle = '#22140a';
+    ctx.fillRect(fx2 - 2, fy, 1, fh);
 
     ctx.restore();
   }
@@ -536,6 +535,10 @@ export class Level {
   /**
    * Renders the Ancient Stone Pillar in the center of the fall space.
    * Starts submerged below water (y=445) and rises to y=360 when the lever is pulled.
+   * Styled after classical Indian temple pillar architecture (Image 2 reference):
+   * flared bracket capital with sculpted relief frieze, stepped cornices with dentil mouldings,
+   * multi-faceted shaft with carved guardian/dancer figurine niches, intricate jali lattice work,
+   * central floral chakra medallion, bulbous blooming lotus cushion (kalasha), and stepped plinth base.
    */
   renderRisingPillar(ctx) {
     if (this.pillar.y > 440) return; // Completely submerged
@@ -546,72 +549,395 @@ export class Level {
     const pw = this.pillar.width;
     const bottomY = 434;
 
-    // 1. Fluted Pillar Shaft (from py+14 down to bottomY)
-    const shaftX = px + 6;
-    const shaftW = pw - 12;
-    const shaftH = Math.max(0, bottomY - (py + 14));
+    // ------------------------------------------------------------------------
+    // 0. Ambient Drop Shadow Behind Pillar Structure
+    // ------------------------------------------------------------------------
+    ctx.fillStyle = 'rgba(8, 6, 14, 0.75)';
+    ctx.fillRect(px - 3, py + 4, pw + 6, Math.max(0, bottomY - py));
 
-    if (shaftH > 0) {
-      const shaftGrad = ctx.createLinearGradient(shaftX, 0, shaftX + shaftW, 0);
-      shaftGrad.addColorStop(0, '#3e3225');
-      shaftGrad.addColorStop(0.2, '#66533f');
-      shaftGrad.addColorStop(0.5, '#7f6b53');
-      shaftGrad.addColorStop(0.8, '#5b4a37');
-      shaftGrad.addColorStop(1, '#2c2217');
-      ctx.fillStyle = shaftGrad;
-      ctx.fillRect(shaftX, py + 14, shaftW, shaftH);
+    // ------------------------------------------------------------------------
+    // 1. Plinth Base & Submerged Footing (py + 64 to bottomY)
+    // ------------------------------------------------------------------------
+    if (py + 64 < bottomY) {
+      const baseTopY = py + 64;
+      const baseH = bottomY - baseTopY;
 
-      // Fluted stone grooves
-      ctx.fillStyle = 'rgba(20, 15, 10, 0.45)';
-      for (let gx = shaftX + 6; gx < shaftX + shaftW - 4; gx += 8) {
-        ctx.fillRect(gx, py + 14, 2, shaftH);
+      // Heavy foundational sandstone plinth block (adhisthana)
+      const plinthGrad = ctx.createLinearGradient(px - 4, baseTopY, px + pw + 4, baseTopY);
+      plinthGrad.addColorStop(0, '#2d1c10');
+      plinthGrad.addColorStop(0.2, '#5a3d24');
+      plinthGrad.addColorStop(0.5, '#7a5433');
+      plinthGrad.addColorStop(0.8, '#523720');
+      plinthGrad.addColorStop(1, '#22140a');
+      ctx.fillStyle = plinthGrad;
+      ctx.fillRect(px - 4, baseTopY, pw + 8, baseH);
+
+      // Stepped plinth moulding bands
+      ctx.fillStyle = '#22140b';
+      ctx.fillRect(px - 4, baseTopY, pw + 8, 2);
+      ctx.fillStyle = '#9e7349';
+      ctx.fillRect(px - 3, baseTopY + 2, pw + 6, 1.5);
+      ctx.fillStyle = '#22140b';
+      ctx.fillRect(px - 2, baseTopY + 5, pw + 4, 1.5);
+
+      // Horizontal relief cross-frieze along the base
+      for (let bx = px; bx <= px + pw - 6; bx += 8) {
+        ctx.fillStyle = '#1c1007';
+        ctx.fillRect(bx, baseTopY + 7, 5, 4);
+        ctx.fillStyle = '#b38656';
+        ctx.fillRect(bx + 1, baseTopY + 8, 3, 2);
+        ctx.fillStyle = '#edd1aa';
+        ctx.fillRect(bx + 1, baseTopY + 8, 1, 1);
       }
-
-      // Ancient horizontal stone bands with Vedic relief pattern
-      ctx.fillStyle = '#9e8564';
-      ctx.fillRect(shaftX, py + 26, shaftW, 2);
-      ctx.fillRect(shaftX, py + 42, shaftW, 2);
     }
 
-    // 2. Carved Stone Pillar Capital (Platform Top)
-    const capGrad = ctx.createLinearGradient(px, py, px, py + 14);
-    capGrad.addColorStop(0, '#857057');
-    capGrad.addColorStop(0.3, '#9d866a');
-    capGrad.addColorStop(0.7, '#63513e');
-    capGrad.addColorStop(1, '#3b2f22');
-    ctx.fillStyle = capGrad;
-    ctx.fillRect(px, py, pw, 14);
+    // ------------------------------------------------------------------------
+    // 2. Bulbous Inverted Lotus Cushion (Kalasha / Kumbha, py + 52 to py + 64)
+    // ------------------------------------------------------------------------
+    if (py + 52 < bottomY) {
+      const lotusY = py + 52;
+      const lotusH = Math.min(12, bottomY - lotusY);
 
-    // Mossy walking surface
-    ctx.fillStyle = '#7a8c54';
-    ctx.fillRect(px, py, pw, 2);
-    ctx.fillStyle = '#bda884';
-    ctx.fillRect(px + 2, py + 2, pw - 4, 1);
+      // Flared rounded lotus bulb body
+      const lotusGrad = ctx.createLinearGradient(px - 2, lotusY, px + pw + 2, lotusY);
+      lotusGrad.addColorStop(0, '#362113');
+      lotusGrad.addColorStop(0.25, '#7e5635');
+      lotusGrad.addColorStop(0.5, '#aa7e52');
+      lotusGrad.addColorStop(0.75, '#7e5635');
+      lotusGrad.addColorStop(1, '#28170c');
+      ctx.fillStyle = lotusGrad;
+      ctx.fillRect(px - 2, lotusY, pw + 4, lotusH);
 
-    // Carved Surya Sun Rune on the capital face
+      // Upper & lower constriction rings
+      ctx.fillStyle = '#1c1007';
+      ctx.fillRect(px, lotusY, pw, 1.5);
+      ctx.fillStyle = '#1c1007';
+      ctx.fillRect(px - 2, lotusY + lotusH - 1.5, pw + 4, 1.5);
+
+      // Distinct carved outward-flaring lotus petals (7 sculpted petals across)
+      const numPetals = 7;
+      const petalW = (pw + 2) / numPetals;
+      for (let i = 0; i < numPetals; i++) {
+        const ptx = px - 1 + i * petalW;
+        // Deep carved shadow channel between petals
+        ctx.fillStyle = '#1a0e06';
+        ctx.fillRect(ptx, lotusY + 1.5, 1.2, lotusH - 3);
+
+        // Petal contour
+        ctx.fillStyle = '#8f643e';
+        ctx.fillRect(ptx + 1.2, lotusY + 1.5, petalW - 1.2, lotusH - 3);
+
+        // Sunlit convex central petal ridge
+        ctx.fillStyle = '#dfba8e';
+        ctx.fillRect(ptx + petalW * 0.4, lotusY + 2, 1.5, lotusH - 4);
+        ctx.fillStyle = '#f8e4cb';
+        ctx.fillRect(ptx + petalW * 0.4, lotusY + 2, 0.8, 1.5);
+      }
+
+      // Central hanging floral garland / tassel relief
+      ctx.fillStyle = '#1e1107';
+      ctx.fillRect(px + pw / 2 - 2, lotusY + 2, 4, lotusH - 3);
+      ctx.fillStyle = '#edd1aa';
+      ctx.fillRect(px + pw / 2 - 1, lotusY + 3, 2, 2);
+      ctx.fillRect(px + pw / 2 - 0.5, lotusY + 6, 1, 3);
+    }
+
+    // ------------------------------------------------------------------------
+    // 3. Main Pillar Shaft (py + 18 to py + 52)
+    // ------------------------------------------------------------------------
+    if (py + 18 < bottomY) {
+      const shaftY = py + 18;
+      const shaftH = Math.min(34, bottomY - shaftY);
+      const shaftX = px + 2;
+      const shaftW = pw - 4;
+
+      // Base sandstone shaft background
+      const shaftGrad = ctx.createLinearGradient(shaftX, shaftY, shaftX + shaftW, shaftY);
+      shaftGrad.addColorStop(0, '#2c190d');
+      shaftGrad.addColorStop(0.15, '#6a4729');
+      shaftGrad.addColorStop(0.5, '#996f45');
+      shaftGrad.addColorStop(0.85, '#6a4729');
+      shaftGrad.addColorStop(1, '#22140a');
+      ctx.fillStyle = shaftGrad;
+      ctx.fillRect(shaftX, shaftY, shaftW, shaftH);
+
+      // --- Left & Right Side Pilasters with Carved Niche Figures (Mithuna / Dancers) ---
+      // Left Pilaster Niche (shaftX to shaftX + 8)
+      ctx.fillStyle = '#1e1007';
+      ctx.fillRect(shaftX, shaftY, 8, shaftH);
+      ctx.fillStyle = '#7a5332';
+      ctx.fillRect(shaftX + 1, shaftY, 6, shaftH);
+      // Outer vertical stone border
+      ctx.fillStyle = '#c59a68';
+      ctx.fillRect(shaftX, shaftY, 1, shaftH);
+
+      // Left sculpted figurine relief silhouette
+      if (shaftH > 10) {
+        ctx.fillStyle = '#deb789';
+        ctx.fillRect(shaftX + 3, shaftY + 4, 2.5, 2.5);  // Head
+        ctx.fillRect(shaftX + 2.5, shaftY + 7, 3.5, 5);  // Torso / S-curve posture
+        ctx.fillRect(shaftX + 2, shaftY + 12, 2, 7);     // Legs
+        ctx.fillRect(shaftX + 4.5, shaftY + 12, 1.5, 6);
+        ctx.fillStyle = '#f5dfbd';
+        ctx.fillRect(shaftX + 3.5, shaftY + 4, 1, 1);    // Crown highlight
+      }
+
+      // Right Pilaster Niche (shaftX + shaftW - 8 to shaftX + shaftW)
+      ctx.fillStyle = '#1e1007';
+      ctx.fillRect(shaftX + shaftW - 8, shaftY, 8, shaftH);
+      ctx.fillStyle = '#7a5332';
+      ctx.fillRect(shaftX + shaftW - 7, shaftY, 6, shaftH);
+      // Right vertical stone border
+      ctx.fillStyle = '#c59a68';
+      ctx.fillRect(shaftX + shaftW - 1, shaftY, 1, shaftH);
+
+      // Right sculpted figurine relief silhouette
+      if (shaftH > 10) {
+        ctx.fillStyle = '#deb789';
+        ctx.fillRect(shaftX + shaftW - 6, shaftY + 4, 2.5, 2.5); // Head
+        ctx.fillRect(shaftX + shaftW - 6.5, shaftY + 7, 3.5, 5); // Torso
+        ctx.fillRect(shaftX + shaftW - 6.5, shaftY + 12, 2, 7);  // Legs
+        ctx.fillRect(shaftX + shaftW - 4, shaftY + 12, 1.5, 6);
+        ctx.fillStyle = '#f5dfbd';
+        ctx.fillRect(shaftX + shaftW - 5.5, shaftY + 4, 1, 1);   // Crown highlight
+      }
+
+      // --- Central Shaft Panel (intricate carved stone relief) ---
+      const midX = shaftX + 8;
+      const midW = shaftW - 16; // width 36
+
+      // Deep recessed fluted borders flanking the center
+      ctx.fillStyle = '#1b0e06';
+      ctx.fillRect(midX, shaftY, 1.5, shaftH);
+      ctx.fillRect(midX + midW - 1.5, shaftY, 1.5, shaftH);
+
+      // Section A: Carved Stone Lattice (Jali / Reticulated Diamond Relief, shaftY to shaftY + 14)
+      if (shaftH > 2) {
+        const jaliH = Math.min(14, shaftH - 2);
+        ctx.fillStyle = '#26150b';
+        ctx.fillRect(midX + 2, shaftY + 1, midW - 4, jaliH);
+
+        // Diamond lattice pattern
+        for (let jx = midX + 4; jx < midX + midW - 4; jx += 5) {
+          for (let jy = shaftY + 2; jy < shaftY + jaliH; jy += 4) {
+            // Dark perforated holes
+            ctx.fillStyle = '#140b04';
+            ctx.fillRect(jx, jy, 2, 2);
+            // Raised chiseled stone borders
+            ctx.fillStyle = '#b88957';
+            ctx.fillRect(jx - 1, jy + 1, 1, 1);
+            ctx.fillRect(jx + 2, jy + 1, 1, 1);
+            // Top highlight fleck
+            ctx.fillStyle = '#edd1aa';
+            ctx.fillRect(jx, jy - 0.5, 1.5, 0.8);
+          }
+        }
+      }
+
+      // Section B: Central Horizontal Frieze & Carved Chakra Medallion (shaftY + 14 to shaftY + 22)
+      if (shaftH > 16) {
+        const friezeY = shaftY + 14;
+        // Horizontal shadow grooves
+        ctx.fillStyle = '#1b0e06';
+        ctx.fillRect(midX + 1, friezeY, midW - 2, 1.5);
+        ctx.fillStyle = '#1b0e06';
+        ctx.fillRect(midX + 1, friezeY + 7, midW - 2, 1.5);
+
+        // Frieze stone body
+        ctx.fillStyle = '#8f643d';
+        ctx.fillRect(midX + 1, friezeY + 1.5, midW - 2, 5.5);
+
+        // Central Carved Floral Chakra Rosette
+        const chakraX = midX + midW / 2;
+        const chakraY = friezeY + 4.2;
+
+        // Outer circular carved groove
+        ctx.fillStyle = '#1a0d06';
+        ctx.beginPath();
+        ctx.arc(chakraX, chakraY, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Chiseled stone ring
+        ctx.fillStyle = '#b98c5c';
+        ctx.beginPath();
+        ctx.arc(chakraX, chakraY, 2.8, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Dark center pit
+        ctx.fillStyle = '#221309';
+        ctx.beginPath();
+        ctx.arc(chakraX, chakraY, 1.8, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Raised sunlit stone stud
+        ctx.fillStyle = '#f5dfbd';
+        ctx.fillRect(chakraX - 0.8, chakraY - 0.8, 1.6, 1.6);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(chakraX - 0.5, chakraY - 0.5, 0.8, 0.8);
+
+        // Flanking floral scroll curls (patralata)
+        ctx.strokeStyle = '#dfba8e';
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.moveTo(chakraX - 4, chakraY);
+        ctx.quadraticCurveTo(chakraX - 8, chakraY - 2, chakraX - 12, chakraY);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(chakraX + 4, chakraY);
+        ctx.quadraticCurveTo(chakraX + 8, chakraY - 2, chakraX + 12, chakraY);
+        ctx.stroke();
+      }
+
+      // Section C: Lower Fluted Vertical Relief Pilasters (shaftY + 23 to shaftY + 34)
+      if (shaftH > 23) {
+        const lowY = shaftY + 23;
+        const lowH = shaftH - 23;
+        for (let fx = midX + 3; fx <= midX + midW - 5; fx += 5) {
+          // Flute channel shadow
+          ctx.fillStyle = '#1d0f06';
+          ctx.fillRect(fx, lowY, 1.5, lowH);
+          // Flute ridge highlight
+          ctx.fillStyle = '#aa7e50';
+          ctx.fillRect(fx + 1.5, lowY, 2.5, lowH);
+          ctx.fillStyle = '#e4be93';
+          ctx.fillRect(fx + 1.5, lowY, 1, lowH);
+        }
+      }
+    }
+
+    // ------------------------------------------------------------------------
+    // 4. Stepped Neck & Downward Lotus Petal Moulding (py + 10 to py + 18)
+    // ------------------------------------------------------------------------
+    const neckY = py + 10;
+    // Stepped tier 1
+    ctx.fillStyle = '#201207';
+    ctx.fillRect(px, neckY, pw, 1.5);
+    ctx.fillStyle = '#9e7247';
+    ctx.fillRect(px, neckY + 1.5, pw, 2.5);
+
+    // Carved downward-pointing lotus petals (padma)
+    for (let lx = px + 2; lx < px + pw - 2; lx += 6) {
+      ctx.fillStyle = '#1c0f06';
+      ctx.fillRect(lx, neckY + 4, 1, 4);
+      ctx.fillStyle = '#b78959';
+      ctx.fillRect(lx + 1, neckY + 4, 4, 3);
+      // Petal tip
+      ctx.fillStyle = '#f0d2ab';
+      ctx.fillRect(lx + 2.5, neckY + 7, 1.5, 1);
+    }
+    // Neck lower rim
+    ctx.fillStyle = '#1a0e06';
+    ctx.fillRect(px + 1, neckY + 7.5, pw - 2, 1);
+
+    // ------------------------------------------------------------------------
+    // 5. Flared Bracket Capital with Sculpted Relief Frieze (py to py + 10)
+    // ------------------------------------------------------------------------
+    // Under-capital corbel brackets spreading outward (px - 3 to px + pw + 3)
+    ctx.fillStyle = '#22140b';
+    ctx.fillRect(px - 3, py + 5, pw + 6, 5);
+    const bracketGrad = ctx.createLinearGradient(px - 3, py + 5, px + pw + 3, py + 5);
+    bracketGrad.addColorStop(0, '#754f2f');
+    bracketGrad.addColorStop(0.25, '#a67b50');
+    bracketGrad.addColorStop(0.5, '#c79c6d');
+    bracketGrad.addColorStop(0.75, '#a67b50');
+    bracketGrad.addColorStop(1, '#654225');
+    ctx.fillStyle = bracketGrad;
+    ctx.fillRect(px - 2, py + 5, pw + 4, 4.5);
+
+    // Sculpted narrative frieze along the capital face (warriors, procession, figures)
+    for (let fx = px; fx <= px + pw - 6; fx += 7) {
+      // Carved recess
+      ctx.fillStyle = '#1d1007';
+      ctx.fillRect(fx, py + 5.5, 5.5, 4);
+      // Carved figurine silhouette
+      ctx.fillStyle = '#e5be92';
+      ctx.fillRect(fx + 1.5, py + 5.5, 2, 2);   // Head / Helmet
+      ctx.fillRect(fx + 1, py + 7.5, 3.5, 2);   // Torso / Steed
+      ctx.fillStyle = '#fff0d6';
+      ctx.fillRect(fx + 2, py + 5.5, 1, 1);     // Sunlit highlight
+    }
+
+    // Carved dentil / bead chain underneath the top cornice lip (py + 3.5)
+    ctx.fillStyle = '#1b0e06';
+    ctx.fillRect(px - 2, py + 3.5, pw + 4, 1.5);
+    for (let dx = px - 1; dx <= px + pw; dx += 3.5) {
+      ctx.fillStyle = '#deb789';
+      ctx.fillRect(dx, py + 3.8, 1.8, 1.2);
+      ctx.fillStyle = '#1a0e06';
+      ctx.fillRect(dx + 1.8, py + 3.8, 0.8, 1.2);
+    }
+
+    // ------------------------------------------------------------------------
+    // 6. Top Walking Surface & Weathered Cornice (py to py + 3.5)
+    // ------------------------------------------------------------------------
+    // Platform top slab
+    const topGrad = ctx.createLinearGradient(px - 2, py, px - 2, py + 3.5);
+    topGrad.addColorStop(0, '#caa274');
+    topGrad.addColorStop(0.4, '#e0b889');
+    topGrad.addColorStop(1, '#8f643e');
+    ctx.fillStyle = topGrad;
+    ctx.fillRect(px - 2, py, pw + 4, 3.5);
+
+    // Weathered sunlit stone highlights along top edge
+    ctx.fillStyle = '#f5dfbd';
+    ctx.fillRect(px - 1, py, pw + 2, 1);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(px + 6, py, 16, 1);
+    ctx.fillRect(px + 28, py, 14, 1);
+    ctx.fillRect(px + 46, py, 12, 1);
+
+    // Chiseled weathering chips on the top edge
+    ctx.fillStyle = '#5c3a21';
+    ctx.fillRect(px + 14, py, 2, 1);
+    ctx.fillRect(px + 38, py, 1.5, 1);
+
+    // Subtle ancient temple lichen in micro-crevices (replaces plain green!)
+    ctx.fillStyle = 'rgba(100, 112, 65, 0.55)';
+    ctx.fillRect(px + 2, py + 1, 6, 1);
+    ctx.fillRect(px + 22, py + 1, 5, 1);
+    ctx.fillRect(px + 44, py + 1, 7, 1);
+
+    // ------------------------------------------------------------------------
+    // 7. Ancient Surya Sun Rune Carving (Capital Face Center)
+    // ------------------------------------------------------------------------
     const runeX = px + pw / 2;
     const runeY = py + 7;
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    const runePulse = this.pillar.isRaised ? (0.6 + 0.4 * Math.sin(this.animTime * 3.5)) : 0.3;
-    ctx.fillStyle = `rgba(255, 215, 0, ${runePulse})`;
+    const runePulse = this.pillar.isRaised ? (0.65 + 0.35 * Math.sin(this.animTime * 3.5)) : 0.3;
+
+    // Outer divine golden sun aura
+    const sunGlow = ctx.createRadialGradient(runeX, runeY, 1, runeX, runeY, 9);
+    sunGlow.addColorStop(0, `rgba(255, 220, 110, ${runePulse * 0.7})`);
+    sunGlow.addColorStop(0.5, `rgba(255, 180, 40, ${runePulse * 0.3})`);
+    sunGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = sunGlow;
     ctx.beginPath();
-    ctx.arc(runeX, runeY, 3, 0, Math.PI * 2);
+    ctx.arc(runeX, runeY, 9, 0, Math.PI * 2);
     ctx.fill();
 
-    // Small radial rune rays
-    ctx.strokeStyle = `rgba(255, 215, 0, ${runePulse * 0.8})`;
+    // Central Surya Sun Disc
+    ctx.fillStyle = `rgba(255, 235, 150, ${runePulse})`;
+    ctx.beginPath();
+    ctx.arc(runeX, runeY, 2.6, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Radiating chiseled sun rays
+    ctx.strokeStyle = `rgba(255, 225, 120, ${runePulse * 0.85})`;
     ctx.lineWidth = 1;
-    for (let i = 0; i < 4; i++) {
-      const a = (i / 4) * Math.PI + (this.animTime * 0.5);
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2 + (this.animTime * 0.4);
       ctx.beginPath();
-      ctx.moveTo(runeX + Math.cos(a) * 4, runeY + Math.sin(a) * 4);
-      ctx.lineTo(runeX + Math.cos(a) * 6, runeY + Math.sin(a) * 6);
+      ctx.moveTo(runeX + Math.cos(a) * 3.2, runeY + Math.sin(a) * 3.2);
+      ctx.lineTo(runeX + Math.cos(a) * 5.8, runeY + Math.sin(a) * 5.8);
       ctx.stroke();
     }
     ctx.restore();
 
-    // 3. Water dripping and splash particles at water line
+    // ------------------------------------------------------------------------
+    // 8. Crumbling Stone Dust & Sandstone Debris When Rising
+    // ------------------------------------------------------------------------
     if (this.pillar.isRaising || this.pillar.waterFoamTimer > 0) {
       for (const sp of this.pillarWaterSplashes) {
         ctx.fillStyle = sp.color;
@@ -622,65 +948,301 @@ export class Level {
       }
     }
 
-    // Waterline foam ring
-    if (py < 368) {
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      ctx.fillStyle = 'rgba(180, 240, 255, 0.45)';
-      ctx.fillRect(shaftX - 3, 366, shaftW + 6, 3);
-      ctx.restore();
-    }
-
     ctx.restore();
   }
 
   /**
    * Renders the visual carved sandstone stepping platform at y=270 on the LEFT ONLY.
-   * (The right stepping platform tile has been removed as requested in Image 3!)
+   * Styled after ancient Indian temple stone relief carvings (Image 2 reference):
+   * weathered multi-tiered cornices, supporting stone corbels, deep chiseled grooves,
+   * carved floral rosettes (patralata/chakras), central ornamental relief bracket,
+   * guardian niche pilasters, and authentic warm sandstone patina.
    */
   renderSteppingPlatforms(ctx) {
     ctx.save();
 
-    // Left Stepping Platform (x1=172, x2=248, y=270, w=76, h=14)
+    // Stepping Platform Bounds: x1=172, x2=248, y=270 (w=76, h=16)
     const lx = 172;
     const ly = 270;
     const lw = 76;
-    const lh = 14;
+    const lh = 16;
 
-    // Platform shadow
-    ctx.fillStyle = 'rgba(10, 8, 20, 0.55)';
-    ctx.fillRect(lx - 2, ly + lh - 2, lw + 4, 6);
+    // ------------------------------------------------------------------------
+    // 1. Ambient Drop Shadow underneath the entire ledge structure
+    // ------------------------------------------------------------------------
+    ctx.fillStyle = 'rgba(10, 7, 16, 0.72)';
+    ctx.fillRect(lx - 2, ly + lh + 1, lw + 4, 8);
+    ctx.fillStyle = 'rgba(6, 4, 10, 0.45)';
+    ctx.fillRect(lx + 4, ly + lh + 9, lw - 8, 4);
 
-    // Carved ancient sandstone slab
-    const slabGrad = ctx.createLinearGradient(lx, ly, lx, ly + lh);
-    slabGrad.addColorStop(0, '#584a3c');
-    slabGrad.addColorStop(0.3, '#706050');
-    slabGrad.addColorStop(0.7, '#44382c');
-    slabGrad.addColorStop(1, '#2c221a');
-    ctx.fillStyle = slabGrad;
+    // ------------------------------------------------------------------------
+    // 2. Supporting Carved Stone Corbels (Left & Right brackets anchoring into ruined pillars)
+    // ------------------------------------------------------------------------
+    // Left Corbel (x=172 to 183)
+    ctx.fillStyle = '#3a2416';
+    ctx.fillRect(lx, ly + lh, 11, 4);
+    ctx.fillRect(lx, ly + lh + 4, 7, 4);
+    ctx.fillRect(lx, ly + lh + 8, 4, 3);
+
+    // Left Corbel Highlights & Chisel Relief
+    ctx.fillStyle = '#7a5435';
+    ctx.fillRect(lx + 1, ly + lh, 9, 1);
+    ctx.fillStyle = '#9e7149';
+    ctx.fillRect(lx + 10, ly + lh, 1, 3);
+    ctx.fillRect(lx + 6, ly + lh + 4, 1, 3);
+    ctx.fillRect(lx + 3, ly + lh + 8, 1, 2);
+    ctx.fillStyle = '#22140a';
+    ctx.fillRect(lx + 4, ly + lh + 1, 1, 6);
+
+    // Right Corbel (x=237 to 248)
+    ctx.fillStyle = '#3a2416';
+    ctx.fillRect(lx + lw - 11, ly + lh, 11, 4);
+    ctx.fillRect(lx + lw - 7, ly + lh + 4, 7, 4);
+    ctx.fillRect(lx + lw - 4, ly + lh + 8, 4, 3);
+
+    // Right Corbel Highlights & Chisel Relief
+    ctx.fillStyle = '#7a5435';
+    ctx.fillRect(lx + lw - 10, ly + lh, 9, 1);
+    ctx.fillStyle = '#9e7149';
+    ctx.fillRect(lx + lw - 11, ly + lh, 1, 3);
+    ctx.fillRect(lx + lw - 7, ly + lh + 4, 1, 3);
+    ctx.fillRect(lx + lw - 4, ly + lh + 8, 1, 2);
+    ctx.fillStyle = '#22140a';
+    ctx.fillRect(lx + lw - 5, ly + lh + 1, 1, 6);
+
+    // ------------------------------------------------------------------------
+    // 3. Sandstone Main Body Base Gradient (Rich warm weathered stone)
+    // ------------------------------------------------------------------------
+    const stoneGrad = ctx.createLinearGradient(lx, ly, lx, ly + lh);
+    stoneGrad.addColorStop(0, '#caa375');    // Weathered warm sandstone top
+    stoneGrad.addColorStop(0.18, '#ab8054'); // Upper shelf midtone
+    stoneGrad.addColorStop(0.35, '#4a2f1b'); // Deep carved shadow groove
+    stoneGrad.addColorStop(0.45, '#996f45'); // Carved frieze face
+    stoneGrad.addColorStop(0.72, '#7a5434'); // Lower relief band
+    stoneGrad.addColorStop(0.88, '#442a17'); // Lower shadow groove
+    stoneGrad.addColorStop(1, '#2c190d');    // Under-ledge base shadow
+    ctx.fillStyle = stoneGrad;
     ctx.fillRect(lx, ly, lw, lh);
 
-    // Top surface moss & stone highlight
-    ctx.fillStyle = '#8f9a65';
-    ctx.fillRect(lx, ly, lw, 2);
-    ctx.fillStyle = '#bfa882';
-    ctx.fillRect(lx + 2, ly + 2, lw - 4, 1);
+    // Subtle stone block variation (slight vertical tonal variance)
+    ctx.fillStyle = 'rgba(235, 195, 150, 0.08)';
+    ctx.fillRect(lx + 18, ly + 2, 22, lh - 3);
+    ctx.fillStyle = 'rgba(30, 16, 8, 0.12)';
+    ctx.fillRect(lx + 48, ly + 2, 18, lh - 3);
 
-    // Ancient Sanskrit/Solar filigree border inlay
-    ctx.strokeStyle = '#c89e3a';
+    // ------------------------------------------------------------------------
+    // 4. Lower Carved Moulding (Padmapitha / Lotus Bead Frieze, y=281..285)
+    // ------------------------------------------------------------------------
+    // Deep horizontal shadow line above lower moulding
+    ctx.fillStyle = '#22140a';
+    ctx.fillRect(lx, ly + 11, lw, 1.5);
+
+    // Lower shelf highlight rim
+    ctx.fillStyle = '#b5895b';
+    ctx.fillRect(lx, ly + 12.5, lw, 1);
+
+    // Carved bead / rosette chain (manimala) along lower moulding
+    for (let bx = lx + 5; bx <= lx + lw - 6; bx += 6) {
+      // Carved dark recess hollow
+      ctx.fillStyle = '#1c1007';
+      ctx.fillRect(bx - 1.5, ly + 13, 3, 2.5);
+      // Raised carved stone bead
+      ctx.fillStyle = '#a67b4e';
+      ctx.fillRect(bx - 1, ly + 13.5, 2, 1.5);
+      // Sunlit stone highlight dot
+      ctx.fillStyle = '#edd1aa';
+      ctx.fillRect(bx - 1, ly + 13.5, 1, 1);
+    }
+
+    // ------------------------------------------------------------------------
+    // 5. Deep Horizontal Chisel Flute Groove (separating tiers, y=277..278)
+    // ------------------------------------------------------------------------
+    ctx.fillStyle = '#1b0e06';
+    ctx.fillRect(lx, ly + 7, lw, 2);
+    ctx.fillStyle = '#c79968';
+    ctx.fillRect(lx, ly + 9, lw, 0.8);
+
+    // ------------------------------------------------------------------------
+    // 6. Central Frieze: Floral Rosettes & Scrollwork (Image 2 Motifs, y=272..277)
+    // ------------------------------------------------------------------------
+    // Helper to draw an ancient carved temple rosette / medallion
+    const drawTempleRosette = (cx, cy) => {
+      // Outer circular carved stone groove
+      ctx.fillStyle = '#201208';
+      ctx.beginPath();
+      ctx.arc(cx, cy, 3.2, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Outer stone rim highlight
+      ctx.fillStyle = '#8f653d';
+      ctx.beginPath();
+      ctx.arc(cx, cy, 2.6, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Inner hollow
+      ctx.fillStyle = '#2c190d';
+      ctx.beginPath();
+      ctx.arc(cx, cy, 1.8, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Center raised stone floral stud
+      ctx.fillStyle = '#dfb88a';
+      ctx.fillRect(cx - 0.7, cy - 0.7, 1.4, 1.4);
+
+      // Micro sunlit highlight dot
+      ctx.fillStyle = '#fff0d6';
+      ctx.fillRect(cx - 0.7, cy - 0.7, 0.8, 0.8);
+    };
+
+    // Flowing carved scrollwork vine (patralata) connecting rosettes
+    ctx.strokeStyle = '#6d482b';
     ctx.lineWidth = 1;
-    ctx.strokeRect(lx + 4, ly + 4, lw - 8, lh - 7);
+    ctx.beginPath();
+    ctx.moveTo(lx + 8, ly + 5);
+    ctx.bezierCurveTo(lx + 18, ly + 3.5, lx + 22, ly + 6.5, lx + 32, ly + 5);
+    ctx.stroke();
 
-    // Lotus corner brackets
-    ctx.fillStyle = '#ffea79';
-    ctx.fillRect(lx + 2, ly + 4, 2, 4);
-    ctx.fillRect(lx + lw - 4, ly + 4, 2, 4);
+    ctx.beginPath();
+    ctx.moveTo(lx + 44, ly + 5);
+    ctx.bezierCurveTo(lx + 54, ly + 3.5, lx + 58, ly + 6.5, lx + 68, ly + 5);
+    ctx.stroke();
+
+    // Carved rosettes across the frieze
+    drawTempleRosette(lx + 14, ly + 5);
+    drawTempleRosette(lx + 25, ly + 5);
+    drawTempleRosette(lx + 51, ly + 5);
+    drawTempleRosette(lx + 62, ly + 5);
+
+    // ------------------------------------------------------------------------
+    // 7. Left & Right Architectural Guardian/Figurine Niches (End pilasters)
+    // ------------------------------------------------------------------------
+    // Left Niche (lx + 2 to lx + 7)
+    ctx.fillStyle = '#24140b';
+    ctx.fillRect(lx + 2, ly + 3, 5, 8);
+    ctx.fillStyle = '#8b613a';
+    ctx.fillRect(lx + 3, ly + 3.5, 3, 7);
+    // Weathered figurine silhouette relief
+    ctx.fillStyle = '#d2a878';
+    ctx.fillRect(lx + 4, ly + 4.5, 1.5, 1.5); // Head
+    ctx.fillRect(lx + 3.5, ly + 6.5, 2, 3);    // Torso/Drape
+    ctx.fillStyle = '#edd2ae';
+    ctx.fillRect(lx + 2, ly + 3, 1, 8);      // Left stone frame rim
+
+    // Right Niche (lx + lw - 7 to lx + lw - 2)
+    ctx.fillStyle = '#24140b';
+    ctx.fillRect(lx + lw - 7, ly + 3, 5, 8);
+    ctx.fillStyle = '#8b613a';
+    ctx.fillRect(lx + lw - 6, ly + 3.5, 3, 7);
+    // Weathered figurine silhouette relief
+    ctx.fillStyle = '#d2a878';
+    ctx.fillRect(lx + lw - 5.5, ly + 4.5, 1.5, 1.5); // Head
+    ctx.fillRect(lx + lw - 5.5, ly + 6.5, 2, 3);      // Torso
+    ctx.fillStyle = '#edd2ae';
+    ctx.fillRect(lx + lw - 3, ly + 3, 1, 8);        // Right stone frame rim
+
+    // ------------------------------------------------------------------------
+    // 8. Central Ornate Carved Relief Bracket (The prominent T-bracket from Image 2)
+    // ------------------------------------------------------------------------
+    const cx = lx + lw / 2; // Center at x=210
+    const bw = 9;
+    const bx = cx - bw / 2;
+
+    // Projecting stone relief bracket base
+    ctx.fillStyle = '#201208';
+    ctx.fillRect(bx - 1, ly + 2, bw + 2, 10);
+    const bracketGrad = ctx.createLinearGradient(bx, ly + 2, bx, ly + 12);
+    bracketGrad.addColorStop(0, '#d8b082');
+    bracketGrad.addColorStop(0.5, '#9e7146');
+    bracketGrad.addColorStop(1, '#4e331e');
+    ctx.fillStyle = bracketGrad;
+    ctx.fillRect(bx, ly + 2, bw, 10);
+
+    // Stepped side mouldings on bracket
+    ctx.fillStyle = '#b78959';
+    ctx.fillRect(bx, ly + 2, 1.5, 10);
+    ctx.fillRect(bx + bw - 1.5, ly + 2, 1.5, 10);
+
+    // Intricate vertical floral vine relief inside the bracket
+    ctx.fillStyle = '#28170c';
+    ctx.fillRect(cx - 0.7, ly + 3, 1.4, 8);
+    // Alternating chiseled stone leaf curls
+    ctx.fillStyle = '#f0d1aa';
+    ctx.fillRect(cx - 2, ly + 3.5, 1.5, 1);
+    ctx.fillRect(cx + 0.8, ly + 5, 1.5, 1);
+    ctx.fillRect(cx - 2, ly + 6.5, 1.5, 1);
+    ctx.fillRect(cx + 0.8, ly + 8, 1.5, 1);
+    ctx.fillRect(cx - 1, ly + 9.5, 2, 1.2);
+
+    // ------------------------------------------------------------------------
+    // 9. Top Cornice & Weathered Cap (Walking surface at ly=270)
+    // ------------------------------------------------------------------------
+    // Weathered sandstone cap surface with aged natural variation
+    ctx.fillStyle = '#9e7349';
+    ctx.fillRect(lx, ly, lw, 2);
+
+    // Sunlit chiseled stone highlights along top edge
+    ctx.fillStyle = '#edd1aa';
+    ctx.fillRect(lx + 1, ly, lw - 2, 1);
+    ctx.fillStyle = '#fbf0dc';
+    ctx.fillRect(lx + 8, ly, 18, 1);
+    ctx.fillRect(lx + 32, ly, 14, 1);
+    ctx.fillRect(lx + 52, ly, 16, 1);
+
+    // Authentic stone weathering chips & fissures along edge
+    ctx.fillStyle = '#5c3a21';
+    ctx.fillRect(lx + 17, ly, 1.5, 1);
+    ctx.fillRect(lx + 36, ly, 2, 1);
+    ctx.fillRect(lx + 59, ly, 1.5, 1);
+
+    // Micro-dentils underneath the top cornice lip (y=272)
+    ctx.fillStyle = '#24140b';
+    ctx.fillRect(lx, ly + 2, lw, 1);
+    for (let dx = lx + 3; dx < lx + lw - 3; dx += 3) {
+      ctx.fillStyle = '#c59a6b';
+      ctx.fillRect(dx, ly + 2, 1.2, 1);
+      ctx.fillStyle = '#1c1007';
+      ctx.fillRect(dx + 1.2, ly + 2, 0.8, 1);
+    }
+
+    // Subtle ancient temple lichen/moss in microscopic crevices (NOT modern flat green!)
+    ctx.fillStyle = 'rgba(105, 115, 68, 0.55)';
+    ctx.fillRect(lx + 4, ly + 1, 6, 1);
+    ctx.fillRect(lx + 27, ly + 1, 4, 1);
+    ctx.fillRect(lx + 46, ly + 1, 5, 1);
+    ctx.fillRect(lx + 67, ly + 1, 4, 1);
+
+    // Hairline ancient stone cracks cutting diagonally across the slab
+    ctx.strokeStyle = '#23140a';
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.moveTo(lx + 22, ly + 1);
+    ctx.lineTo(lx + 24, ly + 6);
+    ctx.lineTo(lx + 23, ly + 11);
+    ctx.stroke();
+
+    ctx.strokeStyle = 'rgba(238, 210, 174, 0.4)';
+    ctx.beginPath();
+    ctx.moveTo(lx + 23, ly + 1);
+    ctx.lineTo(lx + 25, ly + 6);
+    ctx.stroke();
+
+    ctx.strokeStyle = '#23140a';
+    ctx.beginPath();
+    ctx.moveTo(lx + 56, ly + 2);
+    ctx.lineTo(lx + 58, ly + 8);
+    ctx.stroke();
 
     ctx.restore();
   }
 
   /**
    * Renders the Ancient Lever on the RIGHT TOP balcony (x=785, y=172).
+   * Styled after the ancient Indian ceremonial implement / stylus (Image 3 reference):
+   * stepped carved sandstone and bronze gear pedestal with lotus mouldings,
+   * tapering faceted bronze shank, raised collar ring, stamped floral rosette cluster,
+   * broad curved blade finial with embossed bead dots along the outer spine,
+   * engraved ancient Brahmi/Grantha inscriptions that glow upon activation,
+   * and a polished beaked curved tip.
    */
   renderLever(ctx) {
     ctx.save();
@@ -688,61 +1250,294 @@ export class Level {
     const lx = this.lever.x;
     const ly = this.lever.y;
 
-    // 1. Pedestal Base (carved stone block)
-    const baseW = 18;
-    const baseH = 12;
-    const baseGrad = ctx.createLinearGradient(lx - baseW / 2, ly - baseH, lx + baseW / 2, ly);
-    baseGrad.addColorStop(0, '#604f3d');
-    baseGrad.addColorStop(1, '#34291e');
-    ctx.fillStyle = baseGrad;
-    ctx.fillRect(lx - baseW / 2, ly - baseH, baseW, baseH);
+    // ------------------------------------------------------------------------
+    // 1. Ancient Temple Pedestal Base (Stepped Sandstone & Bronze Housing)
+    // ------------------------------------------------------------------------
+    const baseW = 22;
+    const baseH = 14;
+    const pivotY = ly - baseH + 1; // Pivot at y=159
 
-    // Golden mechanical bracket
-    ctx.fillStyle = '#b8903c';
-    ctx.fillRect(lx - 4, ly - baseH - 4, 8, 6);
+    // Ambient drop shadow beneath pedestal
+    ctx.fillStyle = 'rgba(8, 6, 14, 0.7)';
+    ctx.fillRect(lx - baseW / 2 - 2, ly - 2, baseW + 4, 5);
 
-    // Central circular pivot rune
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    const runeColor = this.lever.activated ? '#ffd700' : '#4eedff';
-    ctx.fillStyle = runeColor;
+    // Stepped Sandstone Plinth (Adhisthana)
+    // Tier 1 (Lower step)
+    const plinthGrad = ctx.createLinearGradient(lx - baseW / 2, ly - 4, lx + baseW / 2, ly);
+    plinthGrad.addColorStop(0, '#563d26');
+    plinthGrad.addColorStop(0.5, '#8c6440');
+    plinthGrad.addColorStop(1, '#442d1a');
+    ctx.fillStyle = plinthGrad;
+    ctx.fillRect(lx - baseW / 2, ly - 4, baseW, 4);
+    ctx.fillStyle = '#caa375';
+    ctx.fillRect(lx - baseW / 2 + 1, ly - 4, baseW - 2, 1); // Sunlit rim
+
+    // Tier 2 (Carved Lotus Moulding / Padmapitha, ly - 8 to ly - 4)
+    ctx.fillStyle = '#22140a';
+    ctx.fillRect(lx - baseW / 2 + 2, ly - 8, baseW - 4, 4);
+    for (let px = lx - baseW / 2 + 3; px <= lx + baseW / 2 - 5; px += 4) {
+      // Carved upward lotus petal
+      ctx.fillStyle = '#aa7e52';
+      ctx.fillRect(px, ly - 7.5, 3, 3.5);
+      ctx.fillStyle = '#edd1aa';
+      ctx.fillRect(px + 1, ly - 7.5, 1, 1); // Petal tip highlight
+      ctx.fillStyle = '#1c1007';
+      ctx.fillRect(px + 3, ly - 8, 1, 4);   // Shadow slit
+    }
+
+    // Heavy Antique Cast-Bronze Gear Housing (ly - 14 to ly - 8)
+    const housingW = 14;
+    const housingGrad = ctx.createLinearGradient(lx - housingW / 2, ly - 14, lx + housingW / 2, ly - 8);
+    housingGrad.addColorStop(0, '#42371e');
+    housingGrad.addColorStop(0.3, '#7d6a3b');
+    housingGrad.addColorStop(0.7, '#a89358');
+    housingGrad.addColorStop(1, '#3b311a');
+    ctx.fillStyle = housingGrad;
+    ctx.fillRect(lx - housingW / 2, ly - 14, housingW, 6);
+
+    // Weathered bronze rivets & border moulding
+    ctx.fillStyle = '#dfcb91';
+    ctx.fillRect(lx - housingW / 2 + 1, ly - 14, housingW - 2, 1);
+    ctx.fillStyle = '#1f1a0e';
+    ctx.fillRect(lx - housingW / 2, ly - 9, housingW, 1);
+    ctx.fillStyle = '#e8d9a4';
+    ctx.fillRect(lx - housingW / 2 + 1, ly - 12.5, 1.2, 1.2); // Left rivet
+    ctx.fillRect(lx + housingW / 2 - 2.2, ly - 12.5, 1.2, 1.2); // Right rivet
+
+    // Verdigris patina touches on bronze base
+    ctx.fillStyle = 'rgba(74, 115, 95, 0.45)';
+    ctx.fillRect(lx - 5, ly - 11, 2, 2);
+    ctx.fillRect(lx + 3, ly - 10, 2, 1.5);
+
+    // Central Circular Pivot Gear Hub (Radius 4.5px around pivotY)
+    ctx.fillStyle = '#1c160b';
     ctx.beginPath();
-    ctx.arc(lx, ly - baseH - 1, 3, 0, Math.PI * 2);
+    ctx.arc(lx, pivotY, 4.6, 0, Math.PI * 2);
     ctx.fill();
+
+    const gearGrad = ctx.createRadialGradient(lx, pivotY, 1, lx, pivotY, 4.5);
+    gearGrad.addColorStop(0, '#d1bf82');
+    gearGrad.addColorStop(0.7, '#8f7e4a');
+    gearGrad.addColorStop(1, '#3d341b');
+    ctx.fillStyle = gearGrad;
+    ctx.beginPath();
+    ctx.arc(lx, pivotY, 4.0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Radiating chiseled gear notches
+    ctx.strokeStyle = '#221b0e';
+    ctx.lineWidth = 0.8;
+    for (let a = 0; a < Math.PI * 2; a += Math.PI / 4) {
+      ctx.beginPath();
+      ctx.moveTo(lx + Math.cos(a) * 2.5, pivotY + Math.sin(a) * 2.5);
+      ctx.lineTo(lx + Math.cos(a) * 4.2, pivotY + Math.sin(a) * 4.2);
+      ctx.stroke();
+    }
+
+    // Central Gemstone / Sacred Pivot Core
+    ctx.save();
+    if (this.lever.activated) {
+      ctx.globalCompositeOperation = 'lighter';
+      const gemPulse = 0.7 + 0.3 * Math.sin(this.animTime * 4.0);
+      ctx.fillStyle = `rgba(255, 215, 0, ${gemPulse})`;
+      ctx.beginPath();
+      ctx.arc(lx, pivotY, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(lx - 0.7, pivotY - 0.7, 1.4, 1.4);
+    } else {
+      // Deep sacred ruby / amber core when inactive
+      ctx.fillStyle = '#8f2334';
+      ctx.beginPath();
+      ctx.arc(lx, pivotY, 2.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#ff7b92';
+      ctx.fillRect(lx - 0.6, pivotY - 0.6, 1.2, 1.2);
+    }
     ctx.restore();
 
-    // 2. Lever Arm Handle
+    // ------------------------------------------------------------------------
+    // 2. Ancient Indian Curved Stylus / Blade Lever Arm (Image 3)
+    // ------------------------------------------------------------------------
     ctx.save();
-    ctx.translate(lx, ly - baseH - 1);
+    ctx.translate(lx, pivotY);
     ctx.rotate(this.lever.handleAngle);
 
-    // Lever rod (bronze)
-    ctx.strokeStyle = '#d4aa48';
-    ctx.lineWidth = 3;
+    // --- A. Tapering Faceted Bronze Shank (y = 0 to y = -17) ---
+    // Shaft shadow facet (right side)
+    ctx.fillStyle = '#4a3f23';
     ctx.beginPath();
     ctx.moveTo(0, 0);
-    ctx.lineTo(0, -22);
+    ctx.lineTo(1.3, 0);
+    ctx.lineTo(2.0, -17);
+    ctx.lineTo(0, -17);
+    ctx.closePath();
+    ctx.fill();
+
+    // Shaft sunlit facet (left side)
+    const shankGrad = ctx.createLinearGradient(-1.8, 0, 0, 0);
+    shankGrad.addColorStop(0, '#a5925a');
+    shankGrad.addColorStop(0.5, '#d8c48a');
+    shankGrad.addColorStop(1, '#f5e9bd');
+    ctx.fillStyle = shankGrad;
+    ctx.beginPath();
+    ctx.moveTo(-1.3, 0);
+    ctx.lineTo(0, 0);
+    ctx.lineTo(0, -17);
+    ctx.lineTo(-2.0, -17);
+    ctx.closePath();
+    ctx.fill();
+
+    // Sharp central ridge highlight along shank
+    ctx.strokeStyle = '#fff5cf';
+    ctx.lineWidth = 0.7;
+    ctx.beginPath();
+    ctx.moveTo(0, -1);
+    ctx.lineTo(0, -16.5);
     ctx.stroke();
 
-    // Lotus handle knob
-    ctx.fillStyle = this.lever.activated ? '#ffd700' : '#ff4a75';
+    // --- B. Raised Collar Moulding Ring (y = -17 to y = -18.5) ---
+    ctx.fillStyle = '#2b2311';
+    ctx.fillRect(-2.5, -18.5, 5.0, 1.5);
+    ctx.fillStyle = '#ecdba2';
+    ctx.fillRect(-2.3, -18.5, 4.6, 0.8);
+    ctx.fillStyle = '#8f7e4a';
+    ctx.fillRect(-2.3, -17.7, 4.6, 0.7);
+
+    // --- C. Stamped Floral Rosette / Star Cluster (y = -19.5) ---
+    // Cluster of 6 embossed dots seen at the base of the blade in Image 3
+    ctx.fillStyle = '#2b2311';
+    ctx.fillRect(-1.5, -20.5, 3.0, 2.0); // Recessed background
+    ctx.fillStyle = '#f7ebc2';
+    // Center dot
+    ctx.fillRect(-0.4, -19.6, 0.8, 0.8);
+    // Surrounding petal dots
+    ctx.fillRect(-1.2, -19.6, 0.6, 0.6);
+    ctx.fillRect(0.6, -19.6, 0.6, 0.6);
+    ctx.fillRect(-0.4, -20.4, 0.6, 0.6);
+    ctx.fillRect(-0.4, -18.8, 0.6, 0.6);
+
+    // --- D. Broad Curved Blade Finial (y = -18.5 to y = -31) ---
+    // The iconic forward-curving broad blade with pointed beak tip from Image 3
+    ctx.save();
     ctx.beginPath();
-    ctx.arc(0, -23, 4, 0, Math.PI * 2);
+    ctx.moveTo(-2.4, -18.5);                          // Base left
+    ctx.bezierCurveTo(-4.2, -22, -4.8, -26, -3.2, -29); // Outer curved spine sweep
+    ctx.quadraticCurveTo(-1.5, -31.5, 2.5, -31.0);    // Curved top crest rounding to beak tip
+    ctx.lineTo(2.8, -30.2);                           // Sharp beaked hook point
+    ctx.quadraticCurveTo(0.6, -26, 1.2, -21.5);       // Inner concave sweep
+    ctx.lineTo(2.2, -18.5);                           // Base right
+    ctx.closePath();
+
+    // Blade metallic gradient
+    const bladeGrad = ctx.createLinearGradient(-4.5, -25, 2.5, -25);
+    bladeGrad.addColorStop(0, '#594a28');  // Outer spine shadow
+    bladeGrad.addColorStop(0.2, '#9a8752');
+    bladeGrad.addColorStop(0.5, '#cebc83'); // Mid-blade body
+    bladeGrad.addColorStop(0.85, '#faedc3'); // Inner cutting edge highlight
+    bladeGrad.addColorStop(1, '#ffffff');
+    ctx.fillStyle = bladeGrad;
     ctx.fill();
+
+    // Blade border stroke
+    ctx.strokeStyle = '#2b2311';
+    ctx.lineWidth = 0.6;
+    ctx.stroke();
+
+    // --- E. Embossed Bead Dots along the Outer Curved Spine ---
+    // Tiny decorative beads following the outer curve from Image 3
+    const spineDots = [
+      { x: -2.3, y: -19.2 },
+      { x: -2.9, y: -20.8 },
+      { x: -3.5, y: -22.5 },
+      { x: -4.0, y: -24.4 },
+      { x: -4.1, y: -26.3 },
+      { x: -3.7, y: -28.0 },
+      { x: -2.6, y: -29.6 },
+      { x: -1.0, y: -30.7 },
+      { x: 0.8,  y: -31.1 }
+    ];
+    for (const d of spineDots) {
+      // Dark bead socket
+      ctx.fillStyle = '#221b0b';
+      ctx.fillRect(d.x - 0.6, d.y - 0.6, 1.2, 1.2);
+      // Sunlit raised metallic bead
+      ctx.fillStyle = '#fff4ce';
+      ctx.fillRect(d.x - 0.4, d.y - 0.4, 0.8, 0.8);
+    }
+
+    // --- F. Ancient Sacred Glyphs / Inscriptions (Image 3) ---
+    // 3 Brahmi / Grantha characters engraved down the blade face
+    const glyphGlow = this.lever.activated;
+    ctx.save();
+    if (glyphGlow) {
+      ctx.globalCompositeOperation = 'lighter';
+      const gPulse = 0.6 + 0.4 * Math.sin(this.animTime * 4.5);
+      ctx.strokeStyle = `rgba(255, 225, 100, ${gPulse})`;
+      ctx.fillStyle = `rgba(255, 240, 160, ${gPulse})`;
+      ctx.lineWidth = 0.9;
+    } else {
+      ctx.strokeStyle = '#29210e'; // Dark etched engraving
+      ctx.lineWidth = 0.8;
+    }
+
+    // Glyph 1 (Top hook/bow glyph, y ≈ -27.5)
+    ctx.beginPath();
+    ctx.arc(-0.8, -27.2, 1.1, Math.PI * 0.2, Math.PI * 1.8);
+    ctx.stroke();
+
+    // Glyph 2 (Middle stepped glyph / swastika-key variant, y ≈ -24.5)
+    ctx.beginPath();
+    ctx.moveTo(-1.6, -25.2);
+    ctx.lineTo(-0.2, -25.2);
+    ctx.lineTo(-0.2, -23.6);
+    ctx.lineTo(-1.4, -23.6);
+    ctx.stroke();
+
+    // Glyph 3 (Lower spiral/omega Grantha glyph, y ≈ -21.8)
+    ctx.beginPath();
+    ctx.arc(-0.8, -21.8, 1.0, 0, Math.PI * 1.6);
+    ctx.stroke();
 
     ctx.restore();
 
-    // 3. Gentle golden aura when activated
+    // Polished beaked tip glint
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(2.0, -30.6, 0.8, 0.8);
+
+    ctx.restore(); // End blade clipping / rotation
+
+    ctx.restore(); // End lever arm translation
+
+    // ------------------------------------------------------------------------
+    // 3. Divine Celestial Aura & Sparks When Activated
+    // ------------------------------------------------------------------------
     if (this.lever.activated) {
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
-      const glowGrad = ctx.createRadialGradient(lx, ly - baseH - 10, 2, lx, ly - baseH - 10, 24);
-      glowGrad.addColorStop(0, 'rgba(255, 215, 0, 0.45)');
+      const auraPulse = 0.5 + 0.5 * Math.sin(this.animTime * 3.2);
+
+      // Warm radial golden light illuminating the balcony stones
+      const glowGrad = ctx.createRadialGradient(lx, pivotY - 10, 2, lx, pivotY - 10, 26);
+      glowGrad.addColorStop(0, `rgba(255, 215, 80, ${0.45 * auraPulse})`);
+      glowGrad.addColorStop(0.5, `rgba(255, 170, 30, ${0.2 * auraPulse})`);
       glowGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
       ctx.fillStyle = glowGrad;
       ctx.beginPath();
-      ctx.arc(lx, ly - baseH - 10, 24, 0, Math.PI * 2);
+      ctx.arc(lx, pivotY - 10, 26, 0, Math.PI * 2);
       ctx.fill();
+
+      // Delicate floating mystic sparks around the lever head
+      for (let i = 0; i < 3; i++) {
+        const sa = this.animTime * 2.0 + (i * Math.PI * 2 / 3);
+        const sx = lx + Math.cos(sa) * (8 + i * 4);
+        const sy = (pivotY - 20) + Math.sin(sa * 1.5) * 6;
+        ctx.fillStyle = i % 2 === 0 ? '#ffd700' : '#4eedff';
+        ctx.beginPath();
+        ctx.arc(sx, sy, 1.2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
       ctx.restore();
     }
 
@@ -797,7 +1592,7 @@ export class Level {
       ctx.setLineDash([4, 6]);
       ctx.beginPath();
       ctx.moveTo(388, 172);
-      ctx.lineTo(728, 172);
+      ctx.lineTo(635, 172);
       ctx.stroke();
       ctx.restore();
       return;
@@ -814,13 +1609,13 @@ export class Level {
     // 2. Add dynamic celestial glow and animated stars
     ctx.globalCompositeOperation = 'lighter';
 
-    const bridgeGrad = ctx.createLinearGradient(388, 172, 728, 172);
+    const bridgeGrad = ctx.createLinearGradient(388, 172, 635, 172);
     bridgeGrad.addColorStop(0, 'rgba(255, 215, 0, 0.3)');
     bridgeGrad.addColorStop(0.5, 'rgba(255, 245, 180, 0.8)');
     bridgeGrad.addColorStop(1, 'rgba(255, 215, 0, 0.3)');
 
     ctx.fillStyle = bridgeGrad;
-    ctx.fillRect(388, 169, 340, 5);
+    ctx.fillRect(388, 169, 247, 5);
 
     // Animated shimmering constellation stars
     for (const star of this.bridgeStars) {
