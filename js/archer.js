@@ -1,11 +1,12 @@
 /**
  * ==========================================================================
  * GLITCHVERSE - ARCHER & ARROW ENTITY SYSTEM (js/archer.js)
- * Modular OOP Archer and Attached Arrow Objects:
- * - Arrow Object attached to Archer's bow while aiming/drawing
- * - Arrow release physics and player collision (damage & knockback)
- * - Death handling via crushing boulder move or player combat (+1 Kill)
- * - Removal lifecycle allowing archers to be removed and replaced by other archers
+ * Modular Skeleton Archer & Attached Arrow Objects:
+ * - Fluid 8-Frame Bow Draw & Arrow Release Animation
+ * - Arrow Object attached to Skeleton Archer's bow while aiming/drawing
+ * - Arrow flight physics and player collision (damage & knockback)
+ * - 4-Frame Skeleton Shattering / Crumbling Death Sequence (+1 Kill)
+ * - Dynamic removal and replacement with reinforcement archers
  * ==========================================================================
  */
 
@@ -19,16 +20,16 @@ export class Arrow {
     this.life = 2.8;
     this.maxLife = 2.8;
     this.damage = 4;
-    this.width = 38;
-    this.height = 9;
+    this.width = 44;
+    this.height = 7;
     this.isAttached = true;
     this.owner = owner;
-    this.offsetX = -20;
-    this.offsetY = -28;
+    this.offsetX = -24;
+    this.offsetY = -48;
     this.hasHit = false;
   }
 
-  attachTo(archer, offsetX = -20, offsetY = -28) {
+  attachTo(archer, offsetX = -24, offsetY = -48) {
     this.owner = archer;
     this.isAttached = true;
     this.offsetX = offsetX;
@@ -62,7 +63,7 @@ export class Arrow {
 
     // Hit Player Check (Deals 4 damage, knockback & camera shake)
     if (!this.hasHit && player) {
-      const dist = Math.hypot(player.x - this.x, player.y - (this.y + 12));
+      const dist = Math.hypot(player.x - this.x, player.y - (this.y + 10));
       if (dist < 26) {
         if (player.invulnerableTimer <= 0) {
           player.takeDamage(this.damage, (this.vx < 0 ? -240 : 240), -160);
@@ -84,10 +85,10 @@ export class Arrow {
     ctx.save();
 
     if (arrowImg && arrowImg.complete && arrowImg.naturalWidth > 0) {
-      // The sprite points to the left by default
+      // The skeleton arrow points left by default
       ctx.drawImage(arrowImg, this.x - this.width / 2, this.y - this.height / 2, this.width, this.height);
     } else {
-      // Fallback procedural sandstone arrow
+      // Fallback procedural bone arrow
       ctx.fillStyle = '#ffeedd';
       ctx.fillRect(this.x - 16, this.y - 2, 32, 4);
       ctx.fillStyle = '#cda24e';
@@ -102,8 +103,8 @@ export class Arrow {
     if (!this.isAttached) {
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
-      ctx.fillStyle = 'rgba(255, 180, 50, 0.45)';
-      ctx.fillRect(this.x + (this.vx < 0 ? 4 : -12), this.y - 3, 12, 6);
+      ctx.fillStyle = 'rgba(255, 200, 80, 0.5)';
+      ctx.fillRect(this.x + 8, this.y - 2, 10, 4);
       ctx.restore();
     }
 
@@ -118,33 +119,33 @@ export class Archer {
     this.y = y;
     this.startX = x;
     this.startY = y;
-    this.width = 90;
-    this.height = 80;
+    this.width = 84;
+    this.height = 100;
 
     this.alive = true;
     this.crushed = false;
-    this.state = 'idle'; // 'idle', 'pull', 'hold', 'shoot', 'defeated'
+    this.state = 'idle'; // 'idle', 'pull', 'shoot', 'defeated'
     this.frame = 0;
     this.animTimer = 0;
-    this.frameDuration = 0.14;
+    this.frameDuration = 0.12;
 
     this.shootCooldown = 2.4;
     this.cooldownTimer = 1.0;
 
-    // 1. Attached Arrow Object (created and attached to archer's bow!)
-    this.attachedArrow = new Arrow(this.x - 20, this.y - 28, this);
-    // 2. Active released flying arrows
+    // Attached Arrow Object (attached to skeleton's bow hand while drawing)
+    this.attachedArrow = new Arrow(this.x - 24, this.y - 48, this);
+    // Active released flying arrows
     this.arrows = [];
 
     // Removal & replacement lifecycle
     this.canBeRemoved = false;
     this.deathTimer = 0;
-    this.removalDelay = 1.8; // Time to display crushed state before removal
+    this.removalDelay = 1.8;
     this.fadeAlpha = 1.0;
   }
 
   attachNewArrow() {
-    this.attachedArrow = new Arrow(this.x - 20, this.y - 28, this);
+    this.attachedArrow = new Arrow(this.x - 24, this.y - 48, this);
     return this.attachedArrow;
   }
 
@@ -176,7 +177,7 @@ export class Archer {
       if (this.deathTimer >= this.removalDelay) {
         this.canBeRemoved = true;
       }
-      this.fadeAlpha = Math.max(0, 1.0 - (this.deathTimer / this.removalDelay) * 0.45);
+      this.fadeAlpha = Math.max(0, 1.0 - (this.deathTimer / this.removalDelay) * 0.4);
 
       // Continue updating arrows already in flight
       for (let i = this.arrows.length - 1; i >= 0; i--) {
@@ -199,8 +200,9 @@ export class Archer {
       }
     }
 
-    // 2. Alive Archer State Machine: Draw bow with attached arrow, release, cooldown
+    // 2. Alive Skeleton Archer State Machine
     this.cooldownTimer -= dt;
+    this.animTimer += dt;
 
     if (this.state === 'idle') {
       if (this.cooldownTimer <= 0.8) {
@@ -212,7 +214,6 @@ export class Archer {
         }
       }
     } else if (this.state === 'pull') {
-      this.animTimer += dt;
       if (this.animTimer >= this.frameDuration) {
         this.animTimer = 0;
         this.frame++;
@@ -224,7 +225,6 @@ export class Archer {
         }
       }
     } else if (this.state === 'shoot') {
-      this.animTimer += dt;
       if (this.animTimer >= this.frameDuration) {
         this.animTimer = 0;
         this.frame++;
@@ -236,10 +236,10 @@ export class Archer {
       }
     }
 
-    // Keep attached arrow synced with archer's bow hand
+    // Keep attached arrow synced with skeleton's bow hand
     if (this.attachedArrow) {
-      const pullOffset = this.frame * 2.5;
-      this.attachedArrow.attachTo(this, -20 + pullOffset, -28);
+      const pullOffset = this.frame * 2.0;
+      this.attachedArrow.attachTo(this, -24 + pullOffset, -48);
     }
 
     // Update active flying arrows
@@ -256,10 +256,12 @@ export class Archer {
     const ay = this.y;
 
     if (!this.alive) {
-      // 1. Defeated / Crushed Archer
+      // 1. Defeated / Shattering Bones Death Sequence
       ctx.globalAlpha = this.fadeAlpha;
-      if (sprites.defeated && sprites.defeated.complete) {
-        ctx.drawImage(sprites.defeated, ax - 45, ay - 35, 90, 40);
+      const dieIdx = Math.min(3, Math.floor((this.deathTimer / this.removalDelay) * 4));
+      const dieImg = (sprites.dieFrames && sprites.dieFrames[dieIdx]) || sprites.defeated;
+      if (dieImg && dieImg.complete) {
+        ctx.drawImage(dieImg, ax - 42, ay - 96, 84, 100);
       }
 
       // Crumbling dust indicator
@@ -280,9 +282,12 @@ export class Archer {
       return;
     }
 
-    // 2. Alive Archer Rendering
+    // 2. Alive Skeleton Archer Rendering (natively facing left towards player)
     let frameImg = sprites.idle;
-    if (this.state === 'pull' && sprites.pullFrames[this.frame]) {
+    if (this.state === 'idle') {
+      const idleFrame = Math.floor(this.animTimer * 5) % 6;
+      frameImg = (sprites.idleFrames && sprites.idleFrames[idleFrame]) || sprites.idle;
+    } else if (this.state === 'pull' && sprites.pullFrames[this.frame]) {
       frameImg = sprites.pullFrames[this.frame];
     } else if (this.state === 'shoot' && sprites.shootFrames[this.frame]) {
       frameImg = sprites.shootFrames[this.frame];
@@ -290,10 +295,7 @@ export class Archer {
 
     if (frameImg && frameImg.complete) {
       ctx.save();
-      // Facing left towards player
-      ctx.translate(ax, ay);
-      ctx.scale(-1, 1);
-      ctx.drawImage(frameImg, -45, -78, 90, 80);
+      ctx.drawImage(frameImg, ax - 42, ay - 96, 84, 100);
       ctx.restore();
     }
 
@@ -320,7 +322,7 @@ export class Archer {
     this.animTimer = 0;
     this.cooldownTimer = 1.0;
     this.arrows = [];
-    this.attachedArrow = new Arrow(this.x - 20, this.y - 28, this);
+    this.attachedArrow = new Arrow(this.x - 24, this.y - 48, this);
     this.canBeRemoved = false;
     this.deathTimer = 0;
     this.fadeAlpha = 1.0;

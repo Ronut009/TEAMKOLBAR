@@ -2,12 +2,13 @@
  * ==========================================================================
  * GLITCHVERSE - LEVEL 2: SUNKEN DESERT CATACOMBS (js/level2.js)
  * Features:
- * 1. Climbing Ladders (Top-left, Cave, and Gears)
- * 2. Purple Scorpions with Threat Detection Radius, Knockback & 5 Damage (20 HP -> 15 HP)
+ * 1. Climbing Ladders (Top-left, Cave, and Right Balcony)
+ * 2. Celestial Golden Bridge: Dormant in mortal form, manifested with golden
+ *    celestial glow & solid platform ONLY during Divine Form [X]!
  * 3. Bottom-Left Cave Chest containing the Sanctum Key
  * 4. Locked Cyan Padlock Door at Lower Right
- * 5. Modular Archer & Attached Arrow Objects (Shoots, Dies to Boulder/Attacks, +1 Kill)
- * 6. Dynamic Archer removal and replacement by other archers
+ * 5. Modular Skeleton Archer & Attached Arrow Objects (Shoots, Dies to Boulder/Attacks, +1 Kill)
+ * 6. Dynamic Archer removal and replacement by reinforcement archers
  * 7. Morph Ability [Q]: Transforms overhead square box into round rolling boulder
  *    that plunges down to crush and eliminate the archer!
  * ==========================================================================
@@ -21,7 +22,25 @@ export class Level2 {
     this.height = 571;
     this.levelIndex = 2;
 
-    // Background Map Artwork
+    // Base Map without bridge (mortal view)
+    this.baseMapImg = new Image();
+    this.baseMapLoaded = false;
+    this.baseMapImg.onload = () => { this.baseMapLoaded = true; };
+    this.baseMapImg.src = 'assets/temple_map_lvl2_base.png';
+    if (this.baseMapImg.complete && this.baseMapImg.naturalWidth > 0) {
+      this.baseMapLoaded = true;
+    }
+
+    // Isolated Golden Constellation Bridge overlay (manifested in Divine Form [X])
+    this.bridgeImg = new Image();
+    this.bridgeLoaded = false;
+    this.bridgeImg.onload = () => { this.bridgeLoaded = true; };
+    this.bridgeImg.src = 'assets/golden_bridge_lvl2.png';
+    if (this.bridgeImg.complete && this.bridgeImg.naturalWidth > 0) {
+      this.bridgeLoaded = true;
+    }
+
+    // Fallback Background Map Artwork
     this.bgImg = new Image();
     this.bgLoaded = false;
     this.bgImg.onload = () => { this.bgLoaded = true; };
@@ -30,7 +49,14 @@ export class Level2 {
       this.bgLoaded = true;
     }
 
-    // Archer Sprites
+    // Skeleton Archer Animation Sprites
+    this.archerIdleFrames = [];
+    for (let i = 0; i < 6; i++) {
+      const img = new Image();
+      img.src = `assets/anims/archer_idle_${i}.png`;
+      this.archerIdleFrames.push(img);
+    }
+
     this.archerPullFrames = [];
     this.archerShootFrames = [];
     for (let i = 0; i < 4; i++) {
@@ -42,6 +68,14 @@ export class Level2 {
       s.src = `assets/anims/archer_shoot_${i}.png`;
       this.archerShootFrames.push(s);
     }
+
+    this.archerDieFrames = [];
+    for (let i = 0; i < 4; i++) {
+      const d = new Image();
+      d.src = `assets/anims/archer_die_${i}.png`;
+      this.archerDieFrames.push(d);
+    }
+
     this.archerIdleImg = new Image();
     this.archerIdleImg.src = 'assets/anims/archer_idle.png';
     this.archerDefeatedImg = new Image();
@@ -54,8 +88,10 @@ export class Level2 {
       idle: this.archerIdleImg,
       defeated: this.archerDefeatedImg,
       arrow: this.archerArrowImg,
+      idleFrames: this.archerIdleFrames,
       pullFrames: this.archerPullFrames,
-      shootFrames: this.archerShootFrames
+      shootFrames: this.archerShootFrames,
+      dieFrames: this.archerDieFrames
     };
 
     // Platforms
@@ -69,8 +105,8 @@ export class Level2 {
       // 2. Sand Dune & Middle Left Platform (x=40..460, y=325)
       { id: 'middle_left', x1: 40, x2: 460, y: 325, oneWay: false },
 
-      // 3. Golden Bridge (x=460..675, y=325)
-      { id: 'bridge_lvl2', x1: 460, x2: 675, y: 325, oneWay: true },
+      // 3. Golden Celestial Bridge (x=460..675, y=325, only active in Divine Form [X])
+      { id: 'bridge_lvl2', x1: 460, x2: 675, y: 325, oneWay: true, divineOnly: true },
 
       // 4. Middle Right Platform (x=675..1024, y=325)
       { id: 'middle_right', x1: 675, x2: 1024, y: 325, oneWay: false },
@@ -101,59 +137,10 @@ export class Level2 {
       { id: 'ladder_right', x: 765, y1: 175, y2: 325, width: 26 }
     ];
 
-    // Scorpions (Threat radius, knockback, 5 damage = 20 HP -> 15 HP)
-    this.scorpions = [
-      {
-        id: 'scorp_pit',
-        x: 515,
-        y: 435,
-        startX: 515,
-        patrolX1: 495,
-        patrolX2: 545,
-        dir: 1,
-        speed: 25,
-        detectionRadius: 85,
-        strikeRadius: 32,
-        damage: 5,
-        alive: true,
-        stingerAngle: 0,
-        pulseTimer: 0
-      },
-      {
-        id: 'scorp_elephant',
-        x: 775,
-        y: 410,
-        startX: 775,
-        patrolX1: 740,
-        patrolX2: 805,
-        dir: 1,
-        speed: 30,
-        detectionRadius: 85,
-        strikeRadius: 32,
-        damage: 5,
-        alive: true,
-        stingerAngle: 0,
-        pulseTimer: 0
-      },
-      {
-        id: 'scorp_door',
-        x: 820,
-        y: 515,
-        startX: 820,
-        patrolX1: 760,
-        patrolX2: 860,
-        dir: -1,
-        speed: 35,
-        detectionRadius: 90,
-        strikeRadius: 34,
-        damage: 5,
-        alive: true,
-        stingerAngle: 0,
-        pulseTimer: 0
-      }
-    ];
+    // Scorpions removed per user request
+    this.scorpions = [];
 
-    // Modular Archer & Attached Arrow Objects (Level 2)
+    // Modular Skeleton Archer & Attached Arrow Objects (Level 2)
     this.archers = [
       new Archer(855, 325, 'archer_primary')
     ];
@@ -209,16 +196,20 @@ export class Level2 {
       },
       {
         x: 550, y: 325, radius: 55,
-        text: "* A bridge suspended over the twilight abyss.\n* Golden celestial engravings shimmer faintly beneath the sand."
+        text: "* The Bridge of Constellations over the catacomb chasm.\n* Invisible and dormant in mortal form. Awaken your Divine Avatar [X] to reveal the golden bridge and cross to the east!"
       }
     ];
 
     this.spores = [];
     this.initSpores(40);
+
+    this.bridgeStars = [];
+    this.initBridgeStars(24);
+    this.bridgeOpacity = 0.0;
+
     this.cameraShake = 0;
     this.isCompleted = false;
     this.animTime = 0;
-    this.bridgeOpacity = 1.0;
   }
 
   initSpores(count) {
@@ -232,6 +223,22 @@ export class Level2 {
         vy: -10 - Math.random() * 15,
         alpha: 0.2 + Math.random() * 0.5,
         color: Math.random() > 0.4 ? '#ffea79' : '#ff9955'
+      });
+    }
+  }
+
+  initBridgeStars(count) {
+    this.bridgeStars = [];
+    const xMin = 462;
+    const xMax = 673;
+    const yCenter = 325;
+    for (let i = 0; i < count; i++) {
+      this.bridgeStars.push({
+        x: xMin + Math.random() * (xMax - xMin),
+        y: yCenter - 8 + Math.random() * 16,
+        size: 1 + Math.random() * 2,
+        twinkleSpeed: 2 + Math.random() * 4,
+        phase: Math.random() * Math.PI * 2
       });
     }
   }
@@ -297,10 +304,7 @@ export class Level2 {
   }
 
   reset() {
-    this.scorpions.forEach(s => {
-      s.x = s.startX;
-      s.alive = true;
-    });
+    this.scorpions = [];
 
     // Reset archers to initial setup (Archer 1) with fresh attached arrow object
     this.archers = [ new Archer(855, 325, 'archer_primary') ];
@@ -323,6 +327,7 @@ export class Level2 {
     this.lockedDoor.openAnimProgress = 0;
     this.cameraShake = 0;
     this.isCompleted = false;
+    this.bridgeOpacity = 0.0;
   }
 
   /**
@@ -359,6 +364,9 @@ export class Level2 {
 
   checkPlatformLanding(prevY, currY, x, droppingThrough = false, isDivine = false) {
     for (const plat of this.platforms) {
+      if (plat.divineOnly && !isDivine) {
+        continue; // Golden bridge only exists in Divine Form [X]!
+      }
       if (x >= plat.x1 && x <= plat.x2) {
         if (plat.oneWay && droppingThrough) continue;
         if (prevY <= plat.y + 6 && currY >= plat.y - 2) {
@@ -371,6 +379,9 @@ export class Level2 {
 
   isOnPlatform(x, y, isDivine = false) {
     for (const plat of this.platforms) {
+      if (plat.divineOnly && !isDivine) {
+        continue; // Golden bridge non-solid in mortal form!
+      }
       if (x >= plat.x1 - 2 && x <= plat.x2 + 2 && Math.abs(y - plat.y) <= 4) {
         return plat;
       }
@@ -458,56 +469,15 @@ export class Level2 {
       this.cameraShake = Math.max(0, this.cameraShake - dt * 2.2);
     }
 
-    // 1. Update Scorpions & Check Proximity / Knockback / Damage
-    for (const scorp of this.scorpions) {
-      if (!scorp.alive) continue;
-
-      // Patrol
-      scorp.x += scorp.dir * scorp.speed * dt;
-      if (scorp.x >= scorp.patrolX2) {
-        scorp.x = scorp.patrolX2;
-        scorp.dir = -1;
-      } else if (scorp.x <= scorp.patrolX1) {
-        scorp.x = scorp.patrolX1;
-        scorp.dir = 1;
-      }
-
-      // Check proximity to player
-      const distToPlayer = Math.hypot(playerX - scorp.x, playerY - scorp.y);
-
-      // Warning pulse when player is close
-      scorp.playerClose = (distToPlayer <= scorp.detectionRadius);
-      if (scorp.playerClose) {
-        scorp.pulseTimer += dt * 4.0;
-      }
-
-      // Strike & Knockback if player touches or enters strike radius
-      if (player && distToPlayer <= scorp.strikeRadius && player.invulnerableTimer <= 0) {
-        const knockDir = (playerX < scorp.x) ? -1 : 1;
-        player.takeDamage(scorp.damage, knockDir * 290, -220);
-        this.cameraShake = 0.55;
-
-        // Venom spark burst
-        for (let i = 0; i < 14; i++) {
-          const a = (i / 14) * Math.PI * 2;
-          this.spores.push({
-            x: scorp.x,
-            y: scorp.y - 6,
-            size: 2.5,
-            vx: Math.cos(a) * (50 + Math.random() * 50),
-            vy: Math.sin(a) * (50 + Math.random() * 50),
-            alpha: 1.0,
-            color: '#c044ff'
-          });
-        }
-      }
-    }
+    // Smooth bridge opacity fade in/out
+    const targetBridgeOpacity = isDivine ? 1.0 : 0.0;
+    this.bridgeOpacity += (targetBridgeOpacity - this.bridgeOpacity) * Math.min(1.0, dt * 6.0);
 
     if (this.killToastTimer > 0) {
       this.killToastTimer -= dt;
     }
 
-    // 2. Update Archer Entities & Attached/Flying Arrow Objects
+    // 1. Update Archer Entities & Attached/Flying Arrow Objects
     for (let i = this.archers.length - 1; i >= 0; i--) {
       const arc = this.archers[i];
       arc.update(dt, player, this);
@@ -523,7 +493,7 @@ export class Level2 {
       }
     }
 
-    // 3. Update Morphed Boulder Physics (Falls on Archer)
+    // 2. Update Morphed Boulder Physics (Falls on Archer)
     if (this.morphBox.isMorphed && this.morphBox.isFalling) {
       this.morphBox.vy += 850 * dt; // Gravity
       this.morphBox.x += this.morphBox.vx * dt;
@@ -550,7 +520,7 @@ export class Level2 {
       }
     }
 
-    // 4. Update Spores / Floating Sand Dust
+    // 3. Update Spores / Floating Sand Dust
     for (const s of this.spores) {
       s.x += s.vx * dt;
       s.y += s.vy * dt;
@@ -568,13 +538,15 @@ export class Level2 {
   renderBackground(ctx, isDivine = false) {
     ctx.save();
 
-    // 1. Draw Level 2 Base Map
-    if (this.bgLoaded) {
+    // 1. Draw Level 2 Base Map without bridge (mortal view)
+    if (this.baseMapLoaded) {
+      ctx.drawImage(this.baseMapImg, 0, 0, this.width, this.height);
+    } else if (this.bgLoaded) {
       ctx.drawImage(this.bgImg, 0, 0, this.width, this.height);
     }
 
-    // 2. Render Scorpions & Danger Radii
-    this.renderScorpions(ctx);
+    // 2. Render Golden Constellation Bridge (ONLY visible when Divine Form [X] is active)
+    this.renderGoldenBridge(ctx, isDivine);
 
     // 3. Render Archer Entities & Attached/Flying Arrows
     this.renderArchers(ctx);
@@ -595,51 +567,90 @@ export class Level2 {
   }
 
   renderScorpions(ctx) {
-    for (const scorp of this.scorpions) {
-      if (!scorp.alive) continue;
+    // Scorpions removed per user request
+  }
 
+  /**
+   * Renders the Golden Constellation Bridge ONLY when Divine Form (X ability) is used.
+   */
+  renderGoldenBridge(ctx, isDivine) {
+    if (this.bridgeOpacity <= 0.01) {
+      // Faint dormant celestial whisper (subtle star trace)
       ctx.save();
-
-      // Render Detection Danger Radius when player is close!
-      if (scorp.playerClose) {
-        ctx.save();
-        ctx.globalCompositeOperation = 'lighter';
-        const pulse = 0.5 + 0.5 * Math.sin(scorp.pulseTimer);
-        const rad = scorp.detectionRadius;
-
-        // Glowing purple radial aura on the ground
-        const radGrad = ctx.createRadialGradient(scorp.x, scorp.y, 4, scorp.x, scorp.y, rad);
-        radGrad.addColorStop(0, `rgba(180, 50, 255, ${0.35 * pulse})`);
-        radGrad.addColorStop(0.7, `rgba(140, 20, 220, ${0.15 * pulse})`);
-        radGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-        ctx.fillStyle = radGrad;
-        ctx.beginPath();
-        ctx.arc(scorp.x, scorp.y, rad, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Warning dashed perimeter ring
-        ctx.strokeStyle = `rgba(220, 100, 255, ${0.7 * pulse})`;
-        ctx.lineWidth = 1.5;
-        ctx.setLineDash([4, 4]);
-        ctx.beginPath();
-        ctx.arc(scorp.x, scorp.y, rad, 0, Math.PI * 2);
-        ctx.stroke();
-
-        ctx.restore();
-      }
-
-      // Glowing purple aura around the scorpion
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      const auraPulse = 0.6 + 0.4 * Math.sin(this.animTime * 4.0 + scorp.x);
-      ctx.fillStyle = `rgba(190, 60, 255, ${0.4 * auraPulse})`;
+      ctx.globalAlpha = 0.08;
+      ctx.strokeStyle = '#ffd700';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([2, 8]);
       ctx.beginPath();
-      ctx.arc(scorp.x, scorp.y - 12, 18, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.moveTo(460, 325);
+      ctx.lineTo(675, 325);
+      ctx.stroke();
       ctx.restore();
-
-      ctx.restore();
+      return;
     }
+
+    ctx.save();
+    ctx.globalAlpha = Math.min(1.0, this.bridgeOpacity);
+
+    // 1. Draw Golden Bridge Overlay
+    if (this.bridgeLoaded) {
+      ctx.drawImage(this.bridgeImg, 0, 0, this.width, this.height);
+    }
+
+    // 2. Dynamic celestial glow & light beam
+    ctx.globalCompositeOperation = 'lighter';
+
+    const bridgeGrad = ctx.createLinearGradient(460, 325, 675, 325);
+    bridgeGrad.addColorStop(0, 'rgba(255, 215, 0, 0.35)');
+    bridgeGrad.addColorStop(0.5, 'rgba(255, 245, 180, 0.85)');
+    bridgeGrad.addColorStop(1, 'rgba(255, 215, 0, 0.35)');
+
+    ctx.fillStyle = bridgeGrad;
+    ctx.fillRect(460, 323, 215, 5);
+
+    // Subtle underneath golden suspension beam
+    const beamGrad = ctx.createLinearGradient(460, 325, 675, 325);
+    beamGrad.addColorStop(0, 'rgba(255, 215, 0, 0.15)');
+    beamGrad.addColorStop(0.5, 'rgba(255, 235, 100, 0.45)');
+    beamGrad.addColorStop(1, 'rgba(255, 215, 0, 0.15)');
+    ctx.fillStyle = beamGrad;
+    ctx.beginPath();
+    ctx.moveTo(460, 325);
+    ctx.quadraticCurveTo(567, 345, 675, 325);
+    ctx.lineTo(675, 327);
+    ctx.quadraticCurveTo(567, 347, 460, 327);
+    ctx.fill();
+
+    // Animated shimmering constellation stars
+    for (const star of this.bridgeStars) {
+      const alpha = this.bridgeOpacity * (0.4 + 0.6 * Math.abs(Math.sin(this.animTime * star.twinkleSpeed + star.phase)));
+      ctx.fillStyle = `rgba(255, 248, 190, ${alpha})`;
+      ctx.beginPath();
+      ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Celestial bridge edge energy trails
+    ctx.strokeStyle = `rgba(255, 235, 120, ${0.75 * this.bridgeOpacity})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(460, 325);
+    ctx.lineTo(675, 325);
+    ctx.stroke();
+
+    // Anchor lanterns / lotus auras at bridge pedestals
+    const anchorPulse = 0.7 + 0.3 * Math.sin(this.animTime * 4.0);
+    for (const ax of [460, 675]) {
+      const g = ctx.createRadialGradient(ax, 325, 2, ax, 325, 18);
+      g.addColorStop(0, `rgba(255, 235, 120, ${0.7 * anchorPulse * this.bridgeOpacity})`);
+      g.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(ax, 325, 18, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.restore();
   }
 
   renderArchers(ctx) {
@@ -877,3 +888,4 @@ export class Level2 {
     ctx.restore();
   }
 }
+

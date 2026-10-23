@@ -232,7 +232,7 @@ export class Player {
     this.isDivine = true;
     this.divineTimer = this.divineDuration;
     this.speed = this.divineSpeed;
-    this.canDoubleJump = true;
+    this.canDoubleJump = false; // Double jump removed as requested!
 
     const flash = document.getElementById('divineFlash');
     if (flash) {
@@ -536,14 +536,8 @@ export class Player {
           this.vy = impulse;
           this.isGrounded = false;
           this.currentPlatform = null;
-          this.canDoubleJump = this.isDivine;
           this.spawnPoof(8);
         }
-      } else if (this.canDoubleJump) {
-        this.jumpBufferTimer = 0;
-        this.canDoubleJump = false;
-        this.vy = this.isDivine ? this.divineJumpImpulse : this.jumpImpulse * 0.95;
-        this.spawnDoubleJumpSparks();
       }
     }
 
@@ -577,7 +571,6 @@ export class Player {
         }
         this.isGrounded = true;
         this.currentPlatform = landed;
-        this.canDoubleJump = this.isDivine;
         this.coyoteTimer = 0;
       } else if (this.isGrounded) {
         if (!level.isOnPlatform(this.x, this.y, this.isDivine)) {
