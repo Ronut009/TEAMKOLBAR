@@ -181,9 +181,9 @@ export class Engine {
       if (this.morphGroup) this.morphGroup.style.display = 'none';
       if (this.killsGroup) this.killsGroup.style.display = 'flex';
     } else if (index === 2) {
-      // Start in Level 2: Left sand dune / stone ledge
-      this.player.x = 100;
-      this.player.y = 325;
+      // Start Level 2 on the high left ledge shown in the new map art.
+      this.player.x = 90;
+      this.player.y = 145;
       this.player.hasDivineUnlocked = true; // Divine power persists into Level 2
       if (this.divineGroup) this.divineGroup.style.display = 'flex';
       if (this.morphGroup) this.morphGroup.style.display = 'flex';

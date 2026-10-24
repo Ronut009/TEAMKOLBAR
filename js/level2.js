@@ -27,7 +27,18 @@ export class Level2 {
     this.levelIndex = 2;
     this.enemySprites = new EnemySpriteSheet();
 
-    // Base Map without bridge (mortal view)
+    // User-provided Level 2 art states: untouched, upper boulder moved,
+    // and lower causeway formed. The image itself carries each large rock change.
+    this.stageMaps = {
+      base: new Image(),
+      archerCrushed: new Image(),
+      causeway: new Image()
+    };
+    this.stageMaps.base.src = 'assets/level2_base.jpg';
+    this.stageMaps.archerCrushed.src = 'assets/level2_archer_crushed.jpg';
+    this.stageMaps.causeway.src = 'assets/level2_causeway.jpg';
+
+    // Legacy map fallback in case a supplied stage image cannot be loaded.
     this.baseMapImg = new Image();
     this.baseMapLoaded = false;
     this.baseMapImg.onload = () => { this.baseMapLoaded = true; };
@@ -108,11 +119,11 @@ export class Level2 {
       // 1. Upper Left Balcony (x=40..245, y=145)
       { id: 'top_left', x1: 40, x2: 245, y: 145, oneWay: true },
 
-      // 1b. Sand Dune Ledge below Upper Left Ladder (x=150..245, y=255)
-      { id: 'sand_dune', x1: 150, x2: 245, y: 255, oneWay: true },
+      // The first ladder drops from the upper-left ledge onto the lower shelf.
+      { id: 'lower_left_shelf', x1: 0, x2: 240, y: 295, oneWay: true },
 
-      // 2. Sand Dune & Middle Left Platform (x=40..460, y=325)
-      { id: 'middle_left', x1: 40, x2: 460, y: 325, oneWay: false },
+      // 2. Main left terrace (x=0..460, y=325)
+      { id: 'middle_left', x1: 0, x2: 460, y: 325, oneWay: false },
 
       // 3. Golden Celestial Bridge (x=460..675, y=325, only active in Divine Form [X])
       { id: 'bridge_lvl2', x1: 460, x2: 675, y: 325, oneWay: true, divineOnly: true },
@@ -122,25 +133,20 @@ export class Level2 {
 
       // Upper archer gallery has no collision; the archer is unreachable without crushing.
 
-      // 6. Bottom Left Cave Floor (x=40..440, y=535)
-      { id: 'cave_floor', x1: 40, x2: 440, y: 535, oneWay: false },
+      // The lower pit is deliberately wider than a normal or divine jump.
+      { id: 'cave_floor', x1: 40, x2: 350, y: 535, oneWay: false },
 
-      // 7. Bottom Right Floor (x=630..1024, y=515)
-      { id: 'floor_lower_right', x1: 630, x2: 1024, y: 515, oneWay: false },
-
-      // 8. Elephant Statue Back (x=730..810, y=415)
-      { id: 'elephant_back', x1: 730, x2: 810, y: 415, oneWay: true },
-
-      // 9. Water Dais Platform in Pit (x=495..545, y=440)
-      { id: 'water_dais', x1: 495, x2: 545, y: 440, oneWay: true }
+      // A raised dais on either side would let the player bypass the puzzle,
+      // so the lower-right route is reachable only after the causeway appears.
+      { id: 'floor_lower_right', x1: 730, x2: 1024, y: 535, oneWay: false, requiresCauseway: true }
     ];
 
     // Ladders (x position, top y, bottom y)
     this.ladders = [
-      // Ladder 1: Top Left down towards Sand Dune
-      { id: 'ladder_left', x: 205, y1: 145, y2: 255, width: 26 },
-      // Ladder 2: Middle platform down into Cave
-      { id: 'ladder_cave', x: 360, y1: 325, y2: 535, width: 26 }
+      // Ladder 1: Upper-left starting ledge down to the lower shelf
+      { id: 'ladder_left', x: 205, y1: 145, y2: 295, width: 26 },
+      // Ladder 2: Main terrace down to the chest level
+      { id: 'ladder_cave', x: 350, y1: 325, y2: 535, width: 26 }
     ];
 
     // Scorpions removed per user request
@@ -155,15 +161,15 @@ export class Level2 {
     this.killToastTimer = 0;
     this.killToastText = '';
 
-    // Morphable Object 1 (Square Stone Crate suspended above the Archer)
-    // When [Q] is pressed near seal, morphs into rolling boulder that plunges down shaft
+    // The large overhead stone is part of the base artwork. [Q] shrinks it into
+    // a rolling boulder that strikes the unreachable archer and settles in the pit.
     this.morphBox = {
-      x: 855,
-      y: 96,
-      initialX: 855,
-      initialY: 96,
-      size: 38,
-      isMorphed: false,       // false = square box, true = round boulder
+      x: 650,
+      y: 50,
+      initialX: 650,
+      initialY: 50,
+      size: 32,
+      isMorphed: false,
       isFalling: false,
       hasCrushed: false,
       hasLanded: false,
@@ -173,11 +179,10 @@ export class Level2 {
       morphAuraTimer: 0
     };
 
-    // Morphable Object 2 (Lower Chasm Cube)
-    // When [Q] is pressed near lower gap, morphs into solid stone causeway bridge
+    // Stones beside the chest become a round keystone and lower causeway.
     this.lowerBoulder = {
-      x: 535,
-      y: 514,
+      x: 390,
+      y: 518,
       size: 34,
       isMorphed: false,
       isBridge: false,
@@ -192,9 +197,9 @@ export class Level2 {
 
     // Bottom-Left Cave Chest (Contains Sanctum Key)
     this.chest = {
-      x: 125,
-      y: 535,
-      radius: 45,
+      x: 145,
+      y: 505,
+      radius: 48,
       opened: false,
       unlocked: false,
       glowPulse: 0
@@ -202,9 +207,9 @@ export class Level2 {
 
     // Locked Door on Lower Right (Requires Key & Guards defeated)
     this.lockedDoor = {
-      x: 898,
-      y: 515,
-      radius: 46,
+      x: 920,
+      y: 500,
+      radius: 54,
       unlocked: false,
       shatterParticles: [],
       openAnimProgress: 0
@@ -304,7 +309,7 @@ export class Level2 {
   reset() {
     this.scorpions = [];
 
-    // Reset archers to initial setup (Asura Archer at upper gallery)
+    // Reset the unreachable Asura Archer to the upper gallery.
     this.archers = [new Archer(855, 175, 'archer_primary')];
     this.archers[0].crushOnly = true;
     this.archers[0].engageRange = 250;
@@ -325,7 +330,7 @@ export class Level2 {
     this.morphBox.rotation = 0;
 
     Object.assign(this.lowerBoulder, {
-      x: 535, y: 514, size: 34,
+      x: 390, y: 518, size: 34,
       isMorphed: false, isBridge: false,
       rotation: 0, morphAuraTimer: 0
     });
@@ -346,8 +351,8 @@ export class Level2 {
 
   /**
    * Transmutation [Q] Trigger:
-   * 1. Upper Seal (x=720, y=325): Drops suspended boulder to crush the unreachable archer
-   * 2. Lower Chasm (x=440..630, y=515): Morphs cubic stone into a solid causeway
+   * 1. Upper Seal: transforms the overhead boulder and crushes the unreachable archer.
+   * 2. Lower Chasm: reshapes the second stone into a bridge across the wide pit.
    */
   triggerMorph(playerX, playerY) {
     // 1. Upper Boulder Drop
@@ -356,15 +361,15 @@ export class Level2 {
       this.morphBox.isMorphed = true;
       this.morphBox.morphAuraTimer = 1.2;
       this.morphBox.isFalling = true;
-      this.morphBox.vx = 0;
+      this.morphBox.vx = 340;
       this.morphBox.vy = 0;
       this.cameraShake = 0.55;
-      this.lastMorphMessage = "Transmutation unleashed! The celestial stone transforms into an unstoppable rolling sphere, plunging down the shaft to eliminate the sentinel archer!";
+      this.lastMorphMessage = "The overhanging boulder shrinks into a rolling stone and crashes into the unreachable archer!";
       return true;
     }
 
     // 2. Lower Causeway Formation
-    const atLowerGap = (playerX >= 385 && playerX <= 475) || (playerX >= 595 && playerX <= 690);
+    const atLowerGap = (playerX >= 315 && playerX <= 445) || (playerX >= 640 && playerX <= 770);
     if (this.morphBox.hasLanded && this.chest.opened && !this.lowerBoulder.isMorphed &&
         atLowerGap && playerY >= 515) {
       this.lowerBoulder.isMorphed = true;
@@ -372,11 +377,11 @@ export class Level2 {
       this.lowerBoulder.morphAuraTimer = 1.2;
       this.lowerCausewayActive = true;
       if (!this.platforms.some(plat => plat.id === 'morphed_causeway')) {
-        this.platforms.push({ id: 'morphed_causeway', x1: 440, x2: 630, y: 515, oneWay: true });
+        this.platforms.push({ id: 'morphed_causeway', x1: 350, x2: 730, y: 535, oneWay: true });
       }
       this.startMeleeWave();
       this.cameraShake = 0.8;
-      this.lastMorphMessage = "The second stone locks into the lower gap, forming a solid celestial causeway across the chasm! The Lower Guards awaken!";
+      this.lastMorphMessage = "The second stone becomes a round keystone and forms a bridge across the lower chasm. The guards awaken!";
       return true;
     }
     return false;
@@ -386,8 +391,8 @@ export class Level2 {
     if (this.enemyWaveStarted) return;
     this.enemyWaveStarted = true;
     this.meleeEnemies = [
-      { x: 735, y: 515, hp: 4, attackTimer: 0.8, hitFlash: 0, dead: false, phase: 0, facing: 'left', isMoving: false, isAttacking: false, attackAnimTimer: 0, attackAnimDuration: 0.72, hurtTimer: 0, animTime: 0 },
-      { x: 970, y: 515, hp: 4, attackTimer: 1.5, hitFlash: 0, dead: false, phase: 1, facing: 'left', isMoving: false, isAttacking: false, attackAnimTimer: 0, attackAnimDuration: 0.72, hurtTimer: 0, animTime: 0 }
+      { x: 760, y: 535, hp: 4, attackTimer: 0.8, hitFlash: 0, dead: false, phase: 0, facing: 'left', isMoving: false, isAttacking: false, attackAnimTimer: 0, attackAnimDuration: 0.72, hurtTimer: 0, animTime: 0 },
+      { x: 970, y: 535, hp: 4, attackTimer: 1.5, hitFlash: 0, dead: false, phase: 1, facing: 'left', isMoving: false, isAttacking: false, attackAnimTimer: 0, attackAnimDuration: 0.72, hurtTimer: 0, animTime: 0 }
     ];
     this.killToastText = '⚔ THE LOWER GUARD WAKES';
     this.killToastTimer = 2.4;
@@ -395,7 +400,7 @@ export class Level2 {
 
   checkPlatformLanding(prevY, currY, x, droppingThrough = false, isDivine = false) {
     for (const plat of this.platforms) {
-      if (plat.id === 'morphed_causeway' && !this.lowerCausewayActive) continue;
+      if ((plat.id === 'morphed_causeway' || plat.requiresCauseway) && !this.lowerCausewayActive) continue;
       if (plat.divineOnly && !isDivine) {
         continue; // Golden bridge only exists in Divine Form [X]!
       }
@@ -411,7 +416,7 @@ export class Level2 {
 
   isOnPlatform(x, y, isDivine = false) {
     for (const plat of this.platforms) {
-      if (plat.id === 'morphed_causeway' && !this.lowerCausewayActive) continue;
+      if ((plat.id === 'morphed_causeway' || plat.requiresCauseway) && !this.lowerCausewayActive) continue;
       if (plat.divineOnly && !isDivine) {
         continue; // Golden bridge non-solid in mortal form!
       }
@@ -433,24 +438,24 @@ export class Level2 {
         type: 'morph_box',
         speaker: 'kali',
         title: '⚜ MAA KALI: TRANSMUTATION ⚜',
-        x: 855,
-        y: 96,
+        x: this.morphBox.x,
+        y: this.morphBox.y,
         prompt: '[Q] TRANSMUTE BOULDER',
-        text: "The upper archer gallery is sealed by ancient masonry. Channel your transmutation magic [Q] to drop the suspended boulder and crush the sentinel!"
+        text: "The upper gallery is unreachable. Use transmutation [Q] to roll the overhead boulder into the archer."
       };
     }
 
     // 2. Lower Gap (Form a causeway)
-    const nearLowerGap = Math.hypot(px - 440, py - 535) <= 115 || Math.hypot(px - 630, py - 515) <= 115;
+    const nearLowerGap = Math.hypot(px - 350, py - 535) <= 120 || Math.hypot(px - 730, py - 535) <= 120;
     if (this.morphBox.hasLanded && this.chest.opened && !this.lowerBoulder.isMorphed && nearLowerGap) {
       return {
         type: 'morph_box',
         speaker: 'kali',
         title: '⚜ MAA KALI: CAUSEWAY ⚜',
-        x: 535,
-        y: 514,
+        x: this.lowerBoulder.x,
+        y: this.lowerBoulder.y,
         prompt: '[Q] CREATE CAUSEWAY',
-        text: "A suspended cubic monolith hangs above the lower abyss. Unleash transmutation [Q] to reshape the stone into a celestial causeway!"
+        text: "The stones beside the chest can become a round keystone. Use transmutation [Q] to form a causeway across the lower abyss."
       };
     }
 
@@ -577,6 +582,7 @@ export class Level2 {
       const prevY = this.morphBox.y;
       this.morphBox.vy += 850 * dt;
       this.morphBox.y += this.morphBox.vy * dt;
+      this.morphBox.x += this.morphBox.vx * dt;
       this.morphBox.rotation += 7.5 * dt;
 
       // Crushing the sentinel archer at y=175
@@ -586,22 +592,22 @@ export class Level2 {
           if (archer.alive && Math.abs(this.morphBox.x - archer.x) < 58) {
             if (archer.die('crushed')) {
               this.archerKilled = true;
-              this.lockedDoor.unlocked = true;
               this.registerKill(archer);
               this.chest.unlocked = true;
+              this.morphBox.vx = -700;
             }
           }
         }
       }
 
       // Middle floor shaft rumble
-      if (prevY < 325 && this.morphBox.y >= 325 && this.morphBox.x > 810 && this.morphBox.x < 900) {
+      if (prevY < 325 && this.morphBox.y >= 325) {
         this.cameraShake = Math.max(this.cameraShake, 0.42);
       }
 
-      // Landing at cave floor (y=515)
-      if (this.morphBox.y >= 515 - this.morphBox.size / 2) {
-        this.morphBox.y = 515 - this.morphBox.size / 2;
+      // The first boulder settles in the widened lower pit.
+      if (this.morphBox.y >= 535 - this.morphBox.size / 2) {
+        this.morphBox.y = 535 - this.morphBox.size / 2;
         this.morphBox.isFalling = false;
         this.morphBox.hasLanded = true;
         this.morphBox.vx = 0;
@@ -668,40 +674,33 @@ export class Level2 {
   renderBackground(ctx, isDivine = false) {
     ctx.save();
 
-    // 1. Draw Level 2 Base Map without bridge (mortal view)
-    if (this.baseMapLoaded) {
+    const stageMap = this.lowerCausewayActive
+      ? this.stageMaps.causeway
+      : this.morphBox.isMorphed
+        ? this.stageMaps.archerCrushed
+        : this.stageMaps.base;
+    if (stageMap.complete && stageMap.naturalWidth > 0) {
+      ctx.drawImage(stageMap, 0, 0, this.width, this.height);
+    } else if (this.baseMapLoaded) {
       ctx.drawImage(this.baseMapImg, 0, 0, this.width, this.height);
     } else if (this.bgLoaded) {
       ctx.drawImage(this.bgImg, 0, 0, this.width, this.height);
     }
 
-    // 2. Chasm & Wall masonry hiding old ladder
-    this.renderChasmAndSeal(ctx);
+    this.renderLowerChasm(ctx);
 
-    // 3. Falling-stone shaft cut into the mid-level floor
-    this.renderBoulderShaft(ctx);
-
-    // 4. Golden Constellation Bridge (ONLY visible when Divine Form [X] is active)
+    // The upper crossing still uses the existing Divine Form [X] mechanic.
     this.renderGoldenBridge(ctx, isDivine);
 
-    // 5. Asura Archer Entities & Attached/Flying Homing Arrows
     this.renderArchers(ctx);
 
-    // 6. Puzzle stones, causeway, and melee guards
     this.renderMorphBox(ctx);
     this.renderLowerBoulder(ctx);
     this.renderMeleeEnemies(ctx);
 
-    // 7. Sands of Time Objective Banner
     this.renderObjective(ctx);
-
-    // 8. Chest (Living Seal / Open State)
     this.renderChest(ctx);
-
-    // 9. Locked Cyan Padlock Door
     this.renderLockedDoor(ctx);
-
-    // 10. Ladders
     this.renderLadders(ctx);
 
     ctx.restore();
@@ -711,164 +710,80 @@ export class Level2 {
     // Scorpions removed per user request
   }
 
-  renderChasmAndSeal(ctx) {
+  renderLowerChasm(ctx) {
     ctx.save();
-    const depth = ctx.createLinearGradient(0, 292, 0, 367);
-    depth.addColorStop(0, '#18202e');
-    depth.addColorStop(0.42, '#10243a');
-    depth.addColorStop(1, '#07111d');
+    const depth = ctx.createLinearGradient(0, 480, 0, this.height);
+    depth.addColorStop(0, 'rgba(5, 13, 23, 0.12)');
+    depth.addColorStop(0.18, 'rgba(8, 17, 29, 0.88)');
+    depth.addColorStop(0.7, '#091522');
+    depth.addColorStop(1, '#050b13');
     ctx.fillStyle = depth;
-    ctx.fillRect(456, 292, 222, 76);
+    ctx.fillRect(350, 498, 380, this.height - 498);
 
-    const leftFade = ctx.createLinearGradient(444, 0, 466, 0);
-    leftFade.addColorStop(0, 'rgba(7,17,29,0)'); leftFade.addColorStop(1, '#10243a');
-    ctx.fillStyle = leftFade; ctx.fillRect(444, 292, 22, 76);
-
-    const rightFade = ctx.createLinearGradient(666, 0, 690, 0);
-    rightFade.addColorStop(0, '#10243a'); rightFade.addColorStop(1, 'rgba(7,17,29,0)');
-    ctx.fillStyle = rightFade; ctx.fillRect(666, 292, 24, 76);
-
-    // Broken stone lips
-    for (let x = 456; x < 678; x += 18) {
-      const notch = Math.round(3 + 3 * Math.sin(x * 0.12));
-      ctx.fillStyle = x % 3 ? '#40362f' : '#514337';
-      ctx.fillRect(x, 289 + notch, 18, 6);
-      ctx.fillStyle = '#342d2b';
-      ctx.fillRect(x + 2, 361 - notch, 16, 7);
-      ctx.fillStyle = 'rgba(190, 151, 94, 0.45)';
-      ctx.fillRect(x + 2, 289 + notch, 12, 1);
-    }
-
-    // Layered ruins depth
-    ctx.fillStyle = '#172437';
-    ctx.fillRect(462, 303, 28, 7);
-    ctx.fillRect(499, 313, 45, 6);
-    ctx.fillRect(555, 301, 18, 8);
-    ctx.fillRect(592, 316, 36, 6);
-    ctx.fillRect(638, 305, 32, 8);
-    ctx.fillStyle = '#26344a';
-    ctx.fillRect(470, 310, 5, 21);
-    ctx.fillRect(522, 319, 5, 24);
-    ctx.fillRect(562, 309, 5, 29);
-    ctx.fillRect(608, 322, 5, 19);
-    ctx.fillRect(651, 313, 5, 27);
-
-    const glow = ctx.createRadialGradient(563, 348, 2, 563, 348, 96);
-    glow.addColorStop(0, 'rgba(49, 202, 223, 0.28)');
-    glow.addColorStop(1, 'rgba(7, 17, 29, 0)');
-    ctx.fillStyle = glow;
-    ctx.fillRect(456, 292, 222, 76);
-
-    ctx.fillStyle = '#d5c06b';
-    for (const [x, y] of [[488, 331], [536, 346], [581, 327], [631, 350], [662, 337]]) {
-      ctx.globalAlpha = 0.45 + 0.4 * Math.sin(this.animTime * 2.4 + x);
-      ctx.fillRect(x, y, 2, 2);
-    }
-    ctx.globalAlpha = 1;
-
-    // The archer's balcony remains visible, but its ladder is sealed by masonry
-    const masonry = ctx.createLinearGradient(746, 0, 784, 0);
-    masonry.addColorStop(0, '#211b1d'); masonry.addColorStop(0.5, '#49382f'); masonry.addColorStop(1, '#211b1d');
-    ctx.fillStyle = masonry;
-    ctx.fillRect(746, 178, 38, 146);
-    ctx.fillStyle = '#6b5240';
-    ctx.fillRect(744, 178, 42, 7); ctx.fillRect(744, 317, 42, 7);
-    ctx.fillStyle = '#382c29';
-    ctx.fillRect(750, 188, 30, 124);
-    ctx.strokeStyle = 'rgba(196, 151, 87, 0.72)';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.arc(765, 249, 12, 0, Math.PI * 2); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(765, 229); ctx.lineTo(765, 269); ctx.moveTo(745, 249); ctx.lineTo(785, 249); ctx.stroke();
-    ctx.fillStyle = '#d2ad67';
-    ctx.fillRect(762, 246, 6, 6);
-    ctx.restore();
-  }
-
-  renderBoulderShaft(ctx) {
-    ctx.save();
-    const pulse = 0.55 + 0.2 * Math.sin(this.animTime * 2.2);
-    const shaft = ctx.createLinearGradient(832, 0, 880, 0);
-    shaft.addColorStop(0, 'rgba(5, 12, 23, 0.05)');
-    shaft.addColorStop(0.18, `rgba(5, 12, 23, ${pulse})`);
-    shaft.addColorStop(0.82, `rgba(5, 12, 23, ${pulse})`);
-    shaft.addColorStop(1, 'rgba(5, 12, 23, 0.05)');
-    ctx.fillStyle = shaft;
-    ctx.fillRect(832, 300, 48, 215);
-
-    ctx.strokeStyle = `rgba(78, 237, 255, ${0.35 + 0.2 * Math.sin(this.animTime * 3)})`;
-    ctx.lineWidth = 2;
+    // Broken stone lips make the lower jump read as a real chasm.
+    ctx.fillStyle = '#47392f';
     ctx.beginPath();
-    ctx.moveTo(834, 320); ctx.lineTo(834, 506);
-    ctx.moveTo(878, 320); ctx.lineTo(878, 506);
-    ctx.stroke();
+    ctx.moveTo(350, 515); ctx.lineTo(358, 512); ctx.lineTo(366, 518);
+    ctx.lineTo(374, 514); ctx.lineTo(382, 519); ctx.lineTo(382, 535);
+    ctx.lineTo(350, 535); ctx.closePath(); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(730, 515); ctx.lineTo(722, 512); ctx.lineTo(714, 518);
+    ctx.lineTo(706, 514); ctx.lineTo(698, 519); ctx.lineTo(698, 535);
+    ctx.lineTo(730, 535); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = 'rgba(193, 147, 87, 0.5)';
+    ctx.fillRect(352, 515, 25, 2);
+    ctx.fillRect(703, 515, 25, 2);
 
-    ctx.fillStyle = 'rgba(10, 17, 28, 0.9)';
-    ctx.fillRect(812, 317, 86, 10);
-    ctx.fillStyle = '#72edff';
-    ctx.fillRect(814, 317, 82, 2);
+    const glow = ctx.createRadialGradient(540, 541, 5, 540, 541, 142);
+    glow.addColorStop(0, 'rgba(32, 164, 190, 0.28)');
+    glow.addColorStop(1, 'rgba(4, 12, 20, 0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(350, 498, 380, this.height - 498);
     ctx.restore();
   }
 
   renderLowerBoulder(ctx) {
     const stone = this.lowerBoulder;
+    if (!stone.isBridge) return;
+
     ctx.save();
-    if (!stone.isBridge) {
-      const x = stone.x, y = stone.y, s = stone.size;
-      ctx.fillStyle = 'rgba(0,0,0,0.45)';
-      ctx.fillRect(x - s / 2 + 4, 532, s, 4);
+    const causeway = ctx.createLinearGradient(350, 0, 730, 0);
+    causeway.addColorStop(0, '#534636');
+    causeway.addColorStop(0.48, '#a38a67');
+    causeway.addColorStop(1, '#514434');
+    ctx.fillStyle = causeway;
+    ctx.fillRect(350, 537, 380, 15);
 
-      ctx.fillStyle = '#846d52';
-      ctx.fillRect(x - s / 2, y - s / 2, s, s);
-      ctx.strokeStyle = '#c69f59';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(x - s / 2 + 2, y - s / 2 + 2, s - 4, s - 4);
-
-      ctx.strokeStyle = '#453727';
-      ctx.beginPath();
-      ctx.moveTo(x - 13, y - 13); ctx.lineTo(x + 13, y + 13);
-      ctx.moveTo(x + 13, y - 13); ctx.lineTo(x - 13, y + 13);
-      ctx.stroke();
-
-      ctx.fillStyle = '#55eaff';
-      ctx.beginPath(); ctx.arc(x, y - 26, 3, 0, Math.PI * 2); ctx.fill();
-    } else {
-      const causeway = ctx.createLinearGradient(440, 0, 630, 0);
-      causeway.addColorStop(0, '#534636');
-      causeway.addColorStop(0.48, '#a38a67');
-      causeway.addColorStop(1, '#514434');
-      ctx.fillStyle = causeway;
-      ctx.fillRect(440, 505, 190, 16);
-
-      ctx.fillStyle = '#cfb27d';
-      ctx.fillRect(440, 503, 190, 4);
-      ctx.strokeStyle = 'rgba(78,237,255,0.8)';
-      ctx.lineWidth = 1;
-      for (let x = 452; x < 625; x += 24) {
-        ctx.beginPath(); ctx.moveTo(x, 508); ctx.lineTo(x + 8, 519); ctx.stroke();
-      }
-      ctx.fillStyle = 'rgba(78,237,255,0.24)';
-      ctx.fillRect(440, 521, 190, 5);
-
-      // The transformed round stone remains visible as the causeway's keystone.
-      const core = ctx.createRadialGradient(530, 498, 2, 535, 508, 15);
-      core.addColorStop(0, '#c5ad86');
-      core.addColorStop(0.65, '#78634b');
-      core.addColorStop(1, '#3c3024');
-      ctx.fillStyle = core;
-      ctx.beginPath();
-      ctx.arc(535, 508, 13, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = '#cda24e';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.arc(535, 508, 7, 0, Math.PI * 2);
-      ctx.stroke();
+    ctx.fillStyle = '#cfb27d';
+    ctx.fillRect(350, 533, 380, 4);
+    ctx.strokeStyle = 'rgba(78,237,255,0.8)';
+    ctx.lineWidth = 1;
+    for (let x = 362; x < 724; x += 24) {
+      ctx.beginPath(); ctx.moveTo(x, 538); ctx.lineTo(x + 8, 550); ctx.stroke();
     }
+    ctx.fillStyle = 'rgba(78,237,255,0.24)';
+    ctx.fillRect(350, 552, 380, 5);
+
+    // The transformed round stone remains visible as the causeway's keystone.
+    const x = stone.x;
+    const core = ctx.createRadialGradient(x - 4, 526, 2, x, 535, 17);
+    core.addColorStop(0, '#c5ad86');
+    core.addColorStop(0.65, '#78634b');
+    core.addColorStop(1, '#3c3024');
+    ctx.fillStyle = core;
+    ctx.beginPath();
+    ctx.arc(x, 535, 15, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#cda24e';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(x, 535, 8, 0, Math.PI * 2);
+    ctx.stroke();
 
     if (stone.morphAuraTimer > 0) {
       ctx.strokeStyle = `rgba(78,237,255,${Math.min(1, stone.morphAuraTimer)})`;
       ctx.lineWidth = 3;
-      ctx.strokeRect(436, 501, 198, 24);
+      ctx.strokeRect(347, 530, 386, 26);
     }
     ctx.restore();
   }
@@ -1014,6 +929,10 @@ export class Level2 {
   }
 
   renderMorphBox(ctx) {
+    // The starting artwork already shows the overhanging boulder. Draw only
+    // its transformed rolling form after the player uses [Q].
+    if (!this.morphBox.isMorphed) return;
+
     ctx.save();
     const bx = this.morphBox.x;
     const by = this.morphBox.y;
@@ -1037,69 +956,34 @@ export class Level2 {
       ctx.restore();
     }
 
-    if (!this.morphBox.isMorphed) {
-      // 1. SQUARE STONE CRATE
-      ctx.fillStyle = 'rgba(10, 8, 20, 0.5)';
-      ctx.fillRect(bx - s / 2 + 3, by + s / 2 - 2, s, 4);
+    // Small round stone transformed from the large overhead boulder.
+    ctx.save();
+    ctx.translate(bx, by);
+    ctx.rotate(this.morphBox.rotation);
 
-      const crateGrad = ctx.createLinearGradient(bx - s / 2, by - s / 2, bx + s / 2, by + s / 2);
-      crateGrad.addColorStop(0, '#756350');
-      crateGrad.addColorStop(0.5, '#8c7862');
-      crateGrad.addColorStop(1, '#4e3e30');
-      ctx.fillStyle = crateGrad;
-      ctx.fillRect(bx - s / 2, by - s / 2, s, s);
+    const rad = s / 2;
+    const bGrad = ctx.createRadialGradient(-rad * 0.3, -rad * 0.3, 2, 0, 0, rad);
+    bGrad.addColorStop(0, '#ad977d');
+    bGrad.addColorStop(0.5, '#73604b');
+    bGrad.addColorStop(1, '#3b2f22');
+    ctx.fillStyle = bGrad;
+    ctx.beginPath();
+    ctx.arc(0, 0, rad, 0, Math.PI * 2);
+    ctx.fill();
 
-      ctx.strokeStyle = '#cda24e';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(bx - s / 2 + 1, by - s / 2 + 1, s - 2, s - 2);
+    ctx.strokeStyle = '#221911';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(0, 0, rad - 1, 0, Math.PI * 2);
+    ctx.stroke();
 
-      ctx.strokeStyle = '#5a4635';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(bx - s / 2 + 2, by - s / 2 + 2);
-      ctx.lineTo(bx + s / 2 - 2, by + s / 2 - 2);
-      ctx.moveTo(bx + s / 2 - 2, by - s / 2 + 2);
-      ctx.lineTo(bx - s / 2 + 2, by + s / 2 - 2);
-      ctx.stroke();
+    ctx.strokeStyle = '#cda24e';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(0, 0, rad * 0.55, 0, Math.PI * 2);
+    ctx.stroke();
 
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      const hintPulse = 0.6 + 0.4 * Math.sin(this.animTime * 3.0);
-      ctx.fillStyle = `rgba(78, 237, 255, ${0.8 * hintPulse})`;
-      ctx.beginPath();
-      ctx.arc(bx, by - s / 2 - 10, 4, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-    } else {
-      // 2. ROUND ROLLING STONE BOULDER
-      ctx.save();
-      ctx.translate(bx, by);
-      ctx.rotate(this.morphBox.rotation);
-
-      const rad = s / 2;
-      const bGrad = ctx.createRadialGradient(-rad * 0.3, -rad * 0.3, 2, 0, 0, rad);
-      bGrad.addColorStop(0, '#ad977d');
-      bGrad.addColorStop(0.5, '#73604b');
-      bGrad.addColorStop(1, '#3b2f22');
-      ctx.fillStyle = bGrad;
-      ctx.beginPath();
-      ctx.arc(0, 0, rad, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.strokeStyle = '#221911';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.arc(0, 0, rad - 1, 0, Math.PI * 2);
-      ctx.stroke();
-
-      ctx.strokeStyle = '#cda24e';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.arc(0, 0, rad * 0.55, 0, Math.PI * 2);
-      ctx.stroke();
-
-      ctx.restore();
-    }
+    ctx.restore();
 
     ctx.restore();
   }
