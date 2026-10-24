@@ -302,13 +302,21 @@ export class Engine {
       return;
     }
 
-    // Level switching shortcuts [1] and [2]
+    // Level switching shortcuts [1] through [4]
     if (Input.isPressed('one') && this.currentLevelIndex !== 1) {
       this.loadLevel(1);
       return;
     }
     if (Input.isPressed('two') && this.currentLevelIndex !== 2) {
       this.loadLevel(2);
+      return;
+    }
+    if (Input.isPressed('three') && this.currentLevelIndex !== 3) {
+      this.loadLevel(3);
+      return;
+    }
+    if (Input.isPressed('four') && this.currentLevelIndex !== 4) {
+      this.loadLevel(4);
       return;
     }
 

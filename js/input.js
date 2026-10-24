@@ -46,6 +46,8 @@ export class InputManager {
       r: ['KeyR'],
       one: ['Digit1', 'Numpad1'],
       two: ['Digit2', 'Numpad2'],
+      three: ['Digit3', 'Numpad3'],
+      four: ['Digit4', 'Numpad4'],
       space: ['Space'],
       enter: ['Enter']
     };
