@@ -101,6 +101,7 @@ export class Engine {
 
     this.playerDying = false;
     this.levelCompleted = false;
+    this.levelTransitionTimer = 0;
 
     this.resizeCanvas = this.resizeCanvas.bind(this);
     this.loop = this.loop.bind(this);
@@ -152,6 +153,7 @@ export class Engine {
       : this.level1;
     this.level.reset();
     this.levelCompleted = false;
+    this.levelTransitionTimer = 0;
     this.closeDialogue();
 
     if (this.levelCompleteModal) {
@@ -236,6 +238,30 @@ export class Engine {
           this.dialoguePortraitImg.src = this.kaliPortraitFrames[frameIdx].src;
         }
       }
+    }
+
+    // Level 2 now continues automatically after its completion screen, while
+    // still allowing the player to enter Level 3 immediately with E or Space.
+    if (this.currentLevelIndex === 2 && this.levelCompleted) {
+      if (Input.isPressed('reset') || Input.isPressed('KeyR')) {
+        this.resetGame();
+        return;
+      }
+
+      this.levelTransitionTimer -= dt;
+      if (this.completePrompt) {
+        const seconds = Math.max(0, Math.ceil(this.levelTransitionTimer));
+        this.completePrompt.textContent = `[E] CONTINUE TO LEVEL 3  •  AUTO IN ${seconds}s`;
+      }
+      if (this.levelTransitionTimer <= 0 || Input.isPressed('interact') || Input.isPressed('space')) {
+        this.loadLevel(3);
+        return;
+      }
+
+      this.player.updateParticles(dt);
+      this.updateCamera(dt);
+      this.updateHUD();
+      return;
     }
 
     // Level 3 intentionally advances through a scripted defeat. Let its own
@@ -422,6 +448,7 @@ export class Engine {
     if (!this.levelCompleted && this.level.checkLevelComplete(this.player.x, this.player.y)) {
       this.levelCompleted = true;
       this.showLevelCompleteModal();
+      if (this.currentLevelIndex === 2) this.levelTransitionTimer = 3.0;
     }
 
     if (this.levelCompleted && this.player.doorwayFade > 0) {
@@ -447,7 +474,7 @@ export class Engine {
       if (this.completeTitle) this.completeTitle.textContent = 'LEVEL 2 COMPLETE';
       if (this.completeSubtitle) this.completeSubtitle.textContent = 'DESERT CATACOMBS CLEARED';
       if (this.completeFlavor) this.completeFlavor.textContent = '* The sealed passage opens onto the overgrown heart of the ruins.';
-      if (this.completePrompt) this.completePrompt.textContent = '[E] ENTER LEVEL 3  |  [R] REPLAY';
+      if (this.completePrompt) this.completePrompt.textContent = '[E] CONTINUE TO LEVEL 3  •  AUTO IN 3s';
     } else {
       if (this.completeTitle) this.completeTitle.textContent = 'LEVEL 4 COMPLETE';
       if (this.completeSubtitle) this.completeSubtitle.textContent = 'CELESTIAL ARENA CONQUERED';
