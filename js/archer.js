@@ -122,13 +122,18 @@ export class Arrow {
       }
     }
 
-    // Rakti Sword Strike Arrow Deflection: Slicing the arrow destroys it!
+    // Rakti Sword Strike / Right-Click Parry Arrow Deflection:
+    // Slicing or parrying towards the incoming arrow's direction shatters and destroys it!
     if (player && player.isAttacking) {
       const swordDist = Math.hypot(player.x - this.x, (player.y - 25) - this.y);
-      if (swordDist < 38) {
+      // Direction check: Rakti MUST face towards the arrow (e.g. face right if arrow is to the right)
+      const isArrowOnRight = this.x >= player.x;
+      const isFacingArrow = (isArrowOnRight && player.facing === 'right') || (!isArrowOnRight && player.facing === 'left');
+
+      if (swordDist < 54 && isFacingArrow) {
         this.spawnShatterParticles();
-        if (level) level.cameraShake = 0.25;
-        return false; // Arrow sliced out of the air!
+        if (level) level.cameraShake = 0.35;
+        return false; // Arrow sliced & deflected out of the air!
       }
     }
 

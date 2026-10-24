@@ -516,8 +516,16 @@ export class Player {
       return; // Locked in place during transformation sequence
     }
 
-    // 1. Attack on Left Click
-    if (Input.isPressed('attack')) {
+    // 1. Attack on Left Click or Right Click Parry / Deflection Strike
+    if (Input.isPressed('attack') || Input.isPressed('parry')) {
+      if (typeof window !== 'undefined' && (Input.isPressed('MouseLeft') || Input.isPressed('MouseRight'))) {
+        const screenCenterX = window.innerWidth / 2;
+        if (Input.mouseX > screenCenterX + 20) {
+          this.facing = 'right';
+        } else if (Input.mouseX < screenCenterX - 20) {
+          this.facing = 'left';
+        }
+      }
       this.triggerAttack();
     }
 

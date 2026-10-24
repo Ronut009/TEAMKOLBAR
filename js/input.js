@@ -1,7 +1,8 @@
 /**
  * ==========================================================================
  * GLITCHVERSE - INPUT MANAGER (js/input.js)
- * Robust keyboard & mouse input handler with edge-triggering and attack support.
+ * Robust keyboard & mouse input handler with edge-triggering, Right-Click
+ * parry/deflection support, and mouse tracking.
  * ==========================================================================
  */
 
@@ -9,6 +10,9 @@ export class InputManager {
   constructor() {
     this.keysDown = new Map();
     this.keysPressed = new Map();
+
+    this.mouseX = 0;
+    this.mouseY = 0;
 
     this.aliases = {
       // Platformer Controls
@@ -18,8 +22,9 @@ export class InputManager {
       down: ['KeyS', 'ArrowDown'],
       jump: ['Space', 'KeyW', 'ArrowUp'],
 
-      // Combat: Left Click, Z, J
-      attack: ['MouseLeft', 'KeyZ', 'KeyJ'],
+      // Combat: Left Click, Right Click, Z, J
+      attack: ['MouseLeft', 'MouseRight', 'KeyZ', 'KeyJ'],
+      parry: ['MouseRight'],
 
       // Interactions & Abilities
       interact: ['KeyE', 'Enter', 'KeyF'],
@@ -49,6 +54,8 @@ export class InputManager {
     this._handleKeyUp = this._handleKeyUp.bind(this);
     this._handleMouseDown = this._handleMouseDown.bind(this);
     this._handleMouseUp = this._handleMouseUp.bind(this);
+    this._handleMouseMove = this._handleMouseMove.bind(this);
+    this._handleContextMenu = this._handleContextMenu.bind(this);
     this._handleBlur = this._handleBlur.bind(this);
 
     this.init();
@@ -59,6 +66,8 @@ export class InputManager {
     window.addEventListener('keyup', this._handleKeyUp);
     window.addEventListener('mousedown', this._handleMouseDown);
     window.addEventListener('mouseup', this._handleMouseUp);
+    window.addEventListener('mousemove', this._handleMouseMove);
+    window.addEventListener('contextmenu', this._handleContextMenu);
     window.addEventListener('blur', this._handleBlur);
   }
 
@@ -67,7 +76,18 @@ export class InputManager {
     window.removeEventListener('keyup', this._handleKeyUp);
     window.removeEventListener('mousedown', this._handleMouseDown);
     window.removeEventListener('mouseup', this._handleMouseUp);
+    window.removeEventListener('mousemove', this._handleMouseMove);
+    window.removeEventListener('contextmenu', this._handleContextMenu);
     window.removeEventListener('blur', this._handleBlur);
+  }
+
+  _handleContextMenu(e) {
+    e.preventDefault(); // Suppress browser right-click menu for seamless in-game parrying
+  }
+
+  _handleMouseMove(e) {
+    this.mouseX = e.clientX;
+    this.mouseY = e.clientY;
   }
 
   _handleKeyDown(e) {
@@ -89,12 +109,22 @@ export class InputManager {
   }
 
   _handleMouseDown(e) {
+    this.mouseX = e.clientX;
+    this.mouseY = e.clientY;
+
     if (e.button === 0) {
       // Left Click
       if (!this.keysDown.get('MouseLeft')) {
         this.keysPressed.set('MouseLeft', true);
       }
       this.keysDown.set('MouseLeft', true);
+    } else if (e.button === 2) {
+      // Right Click (Parry / Directional Deflection Strike)
+      e.preventDefault();
+      if (!this.keysDown.get('MouseRight')) {
+        this.keysPressed.set('MouseRight', true);
+      }
+      this.keysDown.set('MouseRight', true);
     }
   }
 
@@ -102,6 +132,9 @@ export class InputManager {
     if (e.button === 0) {
       this.keysDown.set('MouseLeft', false);
       this.keysPressed.set('MouseLeft', false);
+    } else if (e.button === 2) {
+      this.keysDown.set('MouseRight', false);
+      this.keysPressed.set('MouseRight', false);
     }
   }
 
