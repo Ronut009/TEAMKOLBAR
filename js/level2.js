@@ -148,6 +148,8 @@ export class Level2 {
 
     // Modular Asura Archer & Attached Homing Arrow Objects (Level 2)
     this.archers = [new Archer(855, 175, 'archer_primary')];
+    this.archers[0].crushOnly = true;
+    this.archers[0].engageRange = 250;
     this.archerKilled = false;
     this.kills = 0;
     this.killToastTimer = 0;
@@ -269,6 +271,8 @@ export class Level2 {
 
   addArcher(x, y, id = null) {
     const newArcher = new Archer(x, y, id || `archer_${this.archers.length + 1}`);
+    newArcher.crushOnly = true;
+    newArcher.engageRange = 250;
     this.archers.push(newArcher);
     return newArcher;
   }
@@ -291,10 +295,10 @@ export class Level2 {
   registerKill(archer) {
     this.kills++;
     this.archerKilled = true;
-    this.lockedDoor.unlocked = true;
+    this.chest.unlocked = true;
     this.cameraShake = 1.0;
     this.killToastTimer = 3.2;
-    this.killToastText = '⚜ SENTINEL ARCHER ELIMINATED — SANCTUM UNSEALED! ⚜';
+    this.killToastText = '⚜ SENTINEL ARCHER ELIMINATED — CACHE SEAL BROKEN! ⚜';
   }
 
   reset() {
@@ -302,6 +306,8 @@ export class Level2 {
 
     // Reset archers to initial setup (Asura Archer at upper gallery)
     this.archers = [new Archer(855, 175, 'archer_primary')];
+    this.archers[0].crushOnly = true;
+    this.archers[0].engageRange = 250;
     this.archerKilled = false;
     this.kills = 0;
     this.killToastTimer = 0;
@@ -477,12 +483,18 @@ export class Level2 {
         unlocked: this.lockedDoor.unlocked,
         speaker: 'kali',
         title: this.lockedDoor.unlocked ? '⚜ SANCTUM OPEN ⚜' : '⚜ SEALED GATEWAY ⚜',
-        prompt: this.lockedDoor.unlocked ? '[E] ENTER SANCTUM' : '[E] UNLOCK GATE',
+        prompt: this.lockedDoor.unlocked
+          ? '[E] ENTER SANCTUM'
+          : (this.canUnlockDoor() ? '[E] UNLOCK GATE' : '[E] SEALED GATE'),
         text: this.lockedDoor.unlocked
           ? "The sanctum gate stands unsealed. Step boldly into the dark passage to conquer the catacombs."
           : (this.canUnlockDoor()
-              ? "The sentinel archer has fallen! Press [E] to shatter the padlock and unseal the sanctum."
-              : "The colossal sanctum gate is barred by an enchanted ward. Eliminate the sentinel archer above to shatter the seal.")
+              ? "The key is yours and the lower guards are defeated. Press [E] to open the sanctum gate, then walk through it."
+              : (!this.chest.opened
+                  ? "The gate needs the Sanctum Key. Break the archer's ward, climb down to the cave chest, and claim it."
+                  : (!this.lowerCausewayActive
+                      ? "The key fits, but two guards block the sanctum. Shape the lower boulder into a causeway to reach them."
+                      : "Two sentinels still guard the gate. Defeat them, then return here with the key.")))
       };
     }
 
@@ -506,8 +518,8 @@ export class Level2 {
 
   checkLevelComplete(px, py) {
     if (this.isCompleted) return false;
-    // When the door is unlocked and player steps into the black doorway (x=885..918, y=500..530)
-    if (this.lockedDoor.unlocked && px >= 870 && px <= 928 && py >= 490 && py <= 535) {
+    // Unlocking the padlock is separate from crossing through the doorway.
+    if (this.lockedDoor.unlocked && px >= 940 && px <= 1010 && py >= 485 && py <= 550) {
       this.isCompleted = true;
       return true;
     }
@@ -515,7 +527,12 @@ export class Level2 {
   }
 
   canUnlockDoor() {
-    return Boolean(this.archerKilled || !this.archers.some(archer => archer.alive));
+    return Boolean(
+      this.chest.opened &&
+      this.enemyWaveStarted &&
+      this.meleeEnemies.length > 0 &&
+      this.meleeEnemies.every(enemy => enemy.dead)
+    );
   }
 
   update(playerX, playerY, dt, isDivine = false, player = null) {
@@ -536,7 +553,18 @@ export class Level2 {
     // Update active archers
     for (let i = this.archers.length - 1; i >= 0; i--) {
       const archer = this.archers[i];
-      archer.update(dt, player, this);
+      const canSeePlayer = player && archer.alive && !this.morphBox.isFalling &&
+        Math.hypot(player.x - archer.x, player.y - archer.y) <= (archer.engageRange ?? Infinity);
+      if (!canSeePlayer && archer.alive) {
+        // Keep the unreachable gallery archer from sniping the entrance from across the map.
+        archer.cooldownTimer = archer.shootCooldown;
+        if (archer.state === 'aim') {
+          archer.state = 'idle';
+          archer.frame = 0;
+          archer.animTimer = 0;
+        }
+      }
+      archer.update(dt, canSeePlayer ? player : null, this);
       if (archer.canBeRemoved) this.removeArcher(archer);
     }
 
@@ -579,9 +607,8 @@ export class Level2 {
         this.morphBox.vx = 0;
         this.morphBox.vy = 0;
         if (this.archerKilled) {
-          this.lockedDoor.unlocked = true;
           this.chest.unlocked = true;
-          this.killToastText = '⚜ SENTINEL CRUSHED — SANCTUM DOOR UNSEALED! ⚜';
+          this.killToastText = '⚜ BOULDER LANDED — CLAIM THE SANCTUM KEY ⚜';
           this.killToastTimer = 3.2;
         }
       }
@@ -821,6 +848,21 @@ export class Level2 {
       }
       ctx.fillStyle = 'rgba(78,237,255,0.24)';
       ctx.fillRect(440, 521, 190, 5);
+
+      // The transformed round stone remains visible as the causeway's keystone.
+      const core = ctx.createRadialGradient(530, 498, 2, 535, 508, 15);
+      core.addColorStop(0, '#c5ad86');
+      core.addColorStop(0.65, '#78634b');
+      core.addColorStop(1, '#3c3024');
+      ctx.fillStyle = core;
+      ctx.beginPath();
+      ctx.arc(535, 508, 13, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#cda24e';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(535, 508, 7, 0, Math.PI * 2);
+      ctx.stroke();
     }
 
     if (stone.morphAuraTimer > 0) {
@@ -857,10 +899,12 @@ export class Level2 {
     if (this.lockedDoor.unlocked) objective = 'SANCTUM OPEN  •  ENTER THE DARKNESS';
 
     ctx.save();
+    // Keep this HUD in the viewport while the camera follows Rakti through the level.
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     // Sands of Time Styled Objective Bar
-    const boxW = 420;
+    const boxW = Math.min(420, ctx.canvas.width - 28);
     const boxH = 26;
-    const boxX = 14;
+    const boxX = ctx.canvas.width - boxW - 14;
     const boxY = 14;
 
     ctx.fillStyle = 'rgba(16, 11, 7, 0.9)';

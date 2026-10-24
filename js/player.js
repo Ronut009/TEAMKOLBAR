@@ -44,8 +44,9 @@ export class Player {
     this.spriteHeight = 80;
     this.footOffsetY = 274 / 280;
 
-    this.divineWidth = 70;
-    this.divineHeight = 100;
+    // Keep Rakti's hitbox presentation consistent across mortal and divine forms.
+    this.divineWidth = this.spriteWidth;
+    this.divineHeight = this.spriteHeight;
 
     // Divine Transformation State & Animation (6-Frame Fiery Transition)
     this.isTransforming = false;
@@ -671,21 +672,20 @@ export class Player {
       }
     }
 
-    // 7. Pit Fall & Respawn (Level 1: y > 434; Level 2: y > 585)
-    const deathY = (level && level.levelIndex === 2) ? 585 : 434;
+    // 7. Pit Fall & Respawn. The added chapters use taller maps than Levels 1–2.
+    const deathY = level?.levelIndex === 2 ? 585
+      : level?.levelIndex === 3 ? 550
+      : level?.levelIndex === 4 ? 670
+      : 434;
     if (this.y > deathY) {
       this.respawnFromPit(level);
     }
 
     // 8. Reset Key (R)
     if (Input.isPressed('KeyR') || Input.isPressed('reset')) {
-      if (level && level.levelIndex === 2) {
-        this.x = 100;
-        this.y = 325;
-      } else {
-        this.x = 180;
-        this.y = 368;
-      }
+      const spawn = this.getLevelSpawn(level);
+      this.x = spawn.x;
+      this.y = spawn.y;
       this.vx = 0;
       this.vy = 0;
       this.isGrounded = true;
@@ -703,13 +703,9 @@ export class Player {
   }
 
   respawnFromPit(level = null) {
-    if (level && level.levelIndex === 2) {
-      this.x = 100;
-      this.y = 325;
-    } else {
-      this.x = 180;
-      this.y = 368;
-    }
+    const spawn = this.getLevelSpawn(level);
+    this.x = spawn.x;
+    this.y = spawn.y;
     this.vx = 0;
     this.vy = 0;
     this.isGrounded = true;
@@ -730,6 +726,15 @@ export class Player {
         size: 3,
         color: '#4eedff'
       });
+    }
+  }
+
+  getLevelSpawn(level = null) {
+    switch (level?.levelIndex) {
+      case 2: return { x: 100, y: 325 };
+      case 3: return { x: 90, y: 108 };
+      case 4: return { x: 320, y: 480 };
+      default: return { x: 180, y: 368 };
     }
   }
 

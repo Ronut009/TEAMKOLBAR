@@ -1,13 +1,15 @@
 /**
  * ==========================================================================
  * GLITCHVERSE - CORE ENGINE (js/engine.js)
- * Fullscreen dynamic camera, multi-level management (Level 1 & Level 2),
+ * Fullscreen dynamic camera, four-chapter progression,
  * Undertale HUD binding, Climbing, Morphing [Q], and Quest progression.
  * ==========================================================================
  */
 
 import { Input } from './input.js';
 import { Level2 } from './level2.js';
+import { Level3 } from './level3.js';
+import { Level4, L4_CONFIG } from './level4.js';
 
 export class Engine {
   constructor(canvas, level, player) {
@@ -18,6 +20,8 @@ export class Engine {
     // Levels
     this.level1 = level;
     this.level2 = new Level2();
+    this.level3 = new Level3();
+    this.level4 = new Level4();
     this.currentLevelIndex = 1;
     this.level = this.level1;
 
@@ -142,7 +146,10 @@ export class Engine {
 
   loadLevel(index) {
     this.currentLevelIndex = index;
-    this.level = (index === 2) ? this.level2 : this.level1;
+    this.level = index === 4 ? this.level4
+      : index === 3 ? this.level3
+      : index === 2 ? this.level2
+      : this.level1;
     this.level.reset();
     this.levelCompleted = false;
     this.closeDialogue();
@@ -155,7 +162,23 @@ export class Engine {
       this.hudLv.textContent = 'CH. ' + index;
     }
 
-    if (index === 2) {
+    if (index === 4) {
+      // The arena is built around the raised circular floor.
+      this.player.x = 320;
+      this.player.y = 480;
+      this.player.hasDivineUnlocked = true;
+      if (this.divineGroup) this.divineGroup.style.display = 'flex';
+      if (this.morphGroup) this.morphGroup.style.display = 'none';
+      if (this.killsGroup) this.killsGroup.style.display = 'flex';
+    } else if (index === 3) {
+      // The Heart of Hubris begins on the upper-left ruin ledge.
+      this.player.x = 90;
+      this.player.y = 108;
+      this.player.hasDivineUnlocked = true;
+      if (this.divineGroup) this.divineGroup.style.display = 'flex';
+      if (this.morphGroup) this.morphGroup.style.display = 'none';
+      if (this.killsGroup) this.killsGroup.style.display = 'flex';
+    } else if (index === 2) {
       // Start in Level 2: Left sand dune / stone ledge
       this.player.x = 100;
       this.player.y = 325;
@@ -177,11 +200,13 @@ export class Engine {
 
     this.player.vx = 0;
     this.player.vy = 0;
-    this.player.hp = 20;
+    this.player.maxHp = index === 4 ? L4_CONFIG.PLAYER_MAX_HP : 20;
+    this.player.hp = this.player.maxHp;
     this.player.hasKey = false;
     this.player.isClimbing = false;
     this.player.isGrounded = true;
     this.player.isDead = false;
+    this.player.isAttacking = false;
     this.player.doorwayFade = 1.0;
     this.player.currentPlatform = null;
     this.playerDying = false;
@@ -189,6 +214,13 @@ export class Engine {
       this.deathScreen.classList.remove('active');
     }
     this.player.spawnPoof(20);
+
+    if (index === 4) {
+      // The arena's final chapter starts in the divine form used by its combat balance.
+      this.player.revertToMortal();
+      this.player.hasDivineUnlocked = true;
+      this.player.triggerDivineTransformation();
+    }
   }
 
   update(dt) {
@@ -204,6 +236,32 @@ export class Engine {
           this.dialoguePortraitImg.src = this.kaliPortraitFrames[frameIdx].src;
         }
       }
+    }
+
+    // Level 3 intentionally advances through a scripted defeat. Let its own
+    // fade and epilogue run instead of triggering the regular checkpoint reset.
+    if (this.currentLevelIndex === 3 && this.player.hp <= 0) {
+      if (Input.isPressed('reset') || Input.isPressed('KeyR')) {
+        this.resetGame();
+        return;
+      }
+
+      this.closeDialogue();
+      this.player.vx = 0;
+      this.player.vy = 0;
+      this.player.isDead = true;
+      this.player.updateParticles(dt);
+      this.level.update(this.player.x, this.player.y, dt, this.player.isDivine, this.player);
+      this.updateCamera(dt);
+      this.updateHUD();
+
+      if (this.level.proceedToLevel4 || (
+        this.level.epilogueAlpha > 0.6 &&
+        (Input.isPressed('interact') || Input.isPressed('space') || Input.isPressed('enter'))
+      )) {
+        this.loadLevel(4);
+      }
+      return;
     }
 
     // 0. Check Player 0 HP Defeat
@@ -266,6 +324,13 @@ export class Engine {
           // Transition to Level 2!
           this.loadLevel(2);
           return;
+        } else if (this.currentLevelIndex === 2) {
+          // Continue into the chosen Upgrade Level 3.
+          this.loadLevel(3);
+          return;
+        } else if (this.currentLevelIndex === 4) {
+          this.loadLevel(1);
+          return;
         } else {
           this.resetGame();
           return;
@@ -313,6 +378,31 @@ export class Engine {
             this.openDialogue("The colossal sanctum gate is barred by an enchanted ward. Eliminate the sentinel archer above to shatter the seal.", 'kali', '⚜ SANCTUM WARD ACTIVE ⚜');
           }
         }
+        // LEVEL 3: Sanctum key objective
+        else if (nearby.type === 'key' && !this.level.keyAltar.collected) {
+          this.level.keyAltar.collected = true;
+          this.level.hasKey = true;
+          this.level.hubrisStage = 2;
+          this.level.cameraShake = 0.5;
+          this.player.hasKey = true;
+          this.openDialogue(nearby.text, 'kali', '⚜ SANCTUM KEY ACQUIRED ⚜');
+        }
+        // LEVEL 3: Ancient egg objective starts the horde escalation
+        else if (nearby.type === 'egg' && !this.level.ancientEgg.harvested) {
+          this.level.ancientEgg.harvested = true;
+          this.level.hasEgg = true;
+          this.level.hubrisStage = 3;
+          this.level.levelTime = 0;
+          this.level.goblinSpawnTimer = 1.4;
+          this.level.archerSpawnTimer = 0;
+          this.level.cameraShake = 1.0;
+          this.openDialogue(nearby.text, 'kali', '⚜ THE HORDE AWAKENS ⚜');
+        }
+        // LEVEL 3: The sealed maw is a narrative landmark, not an exit.
+        else if (nearby.type === 'maw_door') {
+          this.level.cameraShake = 0.6;
+          this.openDialogue(nearby.text, 'stele', '⚜ THE SEALED MAW ⚜');
+        }
         // General text landmark
         else {
           this.openDialogue(nearby.text, nearby.speaker || 'stele', nearby.title);
@@ -353,11 +443,16 @@ export class Engine {
       if (this.completeSubtitle) this.completeSubtitle.textContent = 'RUINS OF SURYA CONQUERED';
       if (this.completeFlavor) this.completeFlavor.textContent = '* You step into the eternal darkness of the sanctum.';
       if (this.completePrompt) this.completePrompt.textContent = '[E] ENTER LEVEL 2  |  [R] REPLAY';
-    } else {
+    } else if (this.currentLevelIndex === 2) {
       if (this.completeTitle) this.completeTitle.textContent = 'LEVEL 2 COMPLETE';
       if (this.completeSubtitle) this.completeSubtitle.textContent = 'DESERT CATACOMBS CLEARED';
-      if (this.completeFlavor) this.completeFlavor.textContent = '* You unlock the inner sanctum. The mysteries of Surya await!';
-      if (this.completePrompt) this.completePrompt.textContent = '[R] PLAY AGAIN';
+      if (this.completeFlavor) this.completeFlavor.textContent = '* The sealed passage opens onto the overgrown heart of the ruins.';
+      if (this.completePrompt) this.completePrompt.textContent = '[E] ENTER LEVEL 3  |  [R] REPLAY';
+    } else {
+      if (this.completeTitle) this.completeTitle.textContent = 'LEVEL 4 COMPLETE';
+      if (this.completeSubtitle) this.completeSubtitle.textContent = 'CELESTIAL ARENA CONQUERED';
+      if (this.completeFlavor) this.completeFlavor.textContent = '* The champions fall and the celestial relic is yours.';
+      if (this.completePrompt) this.completePrompt.textContent = '[E] RETURN TO LEVEL 1  |  [R] REPLAY ARENA';
     }
 
     this.levelCompleteModal.classList.add('active');

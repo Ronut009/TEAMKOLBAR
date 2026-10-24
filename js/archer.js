@@ -238,6 +238,8 @@ export class Archer {
 
     this.alive = true;
     this.crushed = false;
+    // Some encounters can only be resolved by their authored puzzle.
+    this.crushOnly = false;
     this.facing = 'left';
 
     this.state = 'idle'; // 'idle', 'aim', 'shoot', 'hurt', 'defeated'
@@ -371,7 +373,7 @@ export class Archer {
     }
 
     // 2. Check Rakti Melee Sword Attack (Her sword deals 4 damage!)
-    if (this.alive && player && player.isAttacking && this.hitCooldown <= 0) {
+    if (!this.crushOnly && this.alive && player && player.isAttacking && this.hitCooldown <= 0) {
       const dist = Math.hypot(player.x - this.x, player.y - this.y);
       if (dist < 60) {
         const damage = player.swordDamage || 4;
