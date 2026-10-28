@@ -62,6 +62,7 @@ export class Engine {
     if (this.divineGroup) this.divineGroup.style.display = 'none';
     if (this.keyGroup) this.keyGroup.style.display = 'none';
     if (this.killsGroup) this.killsGroup.style.display = 'none';
+    this.hudEl?.classList.add('menu-hidden');
     this.player.hasDivineUnlocked = false;
 
     this.dialogueBox = document.getElementById('dialogueBox');
@@ -98,6 +99,33 @@ export class Engine {
     this.killToastText = document.getElementById('killToastText');
     this.killsGroup = document.getElementById('killsGroup');
     this.killsBadge = document.getElementById('killsBadge');
+    this.staminaTrack = document.getElementById('staminaTrack');
+    this.staminaBarFill = document.getElementById('staminaBarFill');
+    this.staminaNum = document.getElementById('staminaNum');
+    this.staminaState = document.getElementById('staminaState');
+    this.abilityDivine = document.getElementById('abilityDivine');
+    this.abilityMorph = document.getElementById('abilityMorph');
+
+    this.titleScreen = document.getElementById('titleScreen');
+    this.startGameButton = document.getElementById('startGameButton');
+    this.showControlsButton = document.getElementById('showControlsButton');
+    this.titleControls = document.getElementById('titleControls');
+    this.portalTransition = document.getElementById('portalTransition');
+    this.portalKicker = document.getElementById('portalKicker');
+    this.portalTitle = document.getElementById('portalTitle');
+    this.portalCaption = document.getElementById('portalCaption');
+    this.isGameStarted = false;
+    this.portalTransitionActive = false;
+    this.portalTransitionTimer = 0;
+    this.portalTargetIndex = null;
+
+    this.startGameButton?.addEventListener('click', () => this.startJourney());
+    this.showControlsButton?.addEventListener('click', () => {
+      if (!this.titleControls) return;
+      const open = this.titleControls.hidden;
+      this.titleControls.hidden = !open;
+      this.showControlsButton.textContent = open ? 'HIDE CONTROLS' : 'HOW TO PLAY';
+    });
 
     this.playerDying = false;
     this.levelCompleted = false;
@@ -146,6 +174,7 @@ export class Engine {
   }
 
   loadLevel(index) {
+    this.isGameStarted = true;
     this.currentLevelIndex = index;
     this.level = index === 4 ? this.level4
       : index === 3 ? this.level3
@@ -204,6 +233,9 @@ export class Engine {
     this.player.vy = 0;
     this.player.maxHp = index === 4 ? L4_CONFIG.PLAYER_MAX_HP : 20;
     this.player.hp = this.player.maxHp;
+    this.player.stamina = this.player.maxStamina;
+    this.player.isExhausted = false;
+    this.player.speed = this.player.baseSpeed;
     this.player.hasKey = false;
     this.player.isClimbing = false;
     this.player.isGrounded = true;
@@ -225,7 +257,80 @@ export class Engine {
     }
   }
 
+  startJourney() {
+    if (this.isGameStarted) return;
+    this.isGameStarted = true;
+    this.titleScreen?.classList.remove('active');
+    this.hudEl?.classList.remove('menu-hidden');
+    this.loadLevel(1);
+  }
+
+  returnToTitle() {
+    this.isGameStarted = false;
+    this.portalTransitionActive = false;
+    this.portalTargetIndex = null;
+    this.portalTransition?.classList.remove('active');
+    this.levelCompleteModal?.classList.remove('active');
+    this.closeDialogue();
+    this.titleScreen?.classList.add('active');
+    this.hudEl?.classList.add('menu-hidden');
+  }
+
+  beginPortalTransition(destinationIndex) {
+    if (this.portalTransitionActive || !this.portalTransition) return;
+
+    const destinations = {
+      2: {
+        kicker: 'THE FIRST RIFT',
+        title: 'DESERT CATACOMBS',
+        caption: 'A buried seal stirs beneath the shifting sands.'
+      },
+      3: {
+        kicker: 'THE ROOTED PASSAGE',
+        title: 'HEART OF HUBRIS',
+        caption: 'The relics call from the overgrown heart of the ruins.'
+      },
+      4: {
+        kicker: 'BEYOND THE VEIL',
+        title: 'THE ASTRAL SANCTUM',
+        caption: 'A final threshold opens where time has begun to fracture.'
+      }
+    };
+    const destination = destinations[destinationIndex];
+    if (!destination) return;
+
+    this.portalTargetIndex = destinationIndex;
+    this.portalTransitionTimer = 1.85;
+    this.portalTransitionActive = true;
+    if (this.portalKicker) this.portalKicker.textContent = destination.kicker;
+    if (this.portalTitle) this.portalTitle.textContent = destination.title;
+    if (this.portalCaption) this.portalCaption.textContent = destination.caption;
+    this.levelCompleteModal?.classList.remove('active');
+    this.closeDialogue();
+    this.portalTransition.classList.add('active');
+  }
+
   update(dt) {
+    if (!this.isGameStarted) {
+      if (Input.isPressed('enter') || Input.isPressed('space')) {
+        this.startJourney();
+      }
+      this.updateCamera(dt);
+      return;
+    }
+
+    if (this.portalTransitionActive) {
+      this.portalTransitionTimer -= dt;
+      if (this.portalTransitionTimer <= 0) {
+        const destinationIndex = this.portalTargetIndex;
+        this.portalTransitionActive = false;
+        this.portalTargetIndex = null;
+        this.portalTransition?.classList.remove('active');
+        if (destinationIndex) this.loadLevel(destinationIndex);
+      }
+      return;
+    }
+
     // Animate Kali Ma hands/arms when active (measuring divine stillness of body)
     if (this.dialogueActive && this.dialogueSpeaker === 'kali') {
       this.kaliAnimTimer += dt;
@@ -254,7 +359,7 @@ export class Engine {
         this.completePrompt.textContent = `[E] CONTINUE TO LEVEL 3  •  AUTO IN ${seconds}s`;
       }
       if (this.levelTransitionTimer <= 0 || Input.isPressed('interact') || Input.isPressed('space')) {
-        this.loadLevel(3);
+        this.beginPortalTransition(3);
         return;
       }
 
@@ -285,7 +390,7 @@ export class Engine {
         this.level.epilogueAlpha > 0.6 &&
         (Input.isPressed('interact') || Input.isPressed('space') || Input.isPressed('enter'))
       )) {
-        this.loadLevel(4);
+        this.beginPortalTransition(4);
       }
       return;
     }
@@ -351,19 +456,18 @@ export class Engine {
       }
     }
 
-    // 2. Handle [E] / [Z] / [Enter] to interact, pull lever, open chest, or unlock door
-    if (Input.isPressed('interact') || Input.isPressed('e') || Input.isPressed('z') || Input.isPressed('enter')) {
+    // 2. Handle [E] / [Enter] to interact, pull lever, open chest, or unlock door.
+    // Z is reserved for strike so attacking near a landmark never activates it.
+    if (Input.isPressed('interact') || Input.isPressed('e') || Input.isPressed('enter')) {
       if (this.levelCompleted) {
         if (this.currentLevelIndex === 1) {
-          // Transition to Level 2!
-          this.loadLevel(2);
+          this.beginPortalTransition(2);
           return;
         } else if (this.currentLevelIndex === 2) {
-          // Continue into the chosen Upgrade Level 3.
-          this.loadLevel(3);
+          this.beginPortalTransition(3);
           return;
         } else if (this.currentLevelIndex === 4) {
-          this.loadLevel(1);
+          this.returnToTitle();
           return;
         } else {
           this.resetGame();
@@ -484,10 +588,10 @@ export class Engine {
       if (this.completeFlavor) this.completeFlavor.textContent = '* The sealed passage opens onto the overgrown heart of the ruins.';
       if (this.completePrompt) this.completePrompt.textContent = '[E] CONTINUE TO LEVEL 3  •  AUTO IN 3s';
     } else {
-      if (this.completeTitle) this.completeTitle.textContent = 'LEVEL 4 COMPLETE';
-      if (this.completeSubtitle) this.completeSubtitle.textContent = 'CELESTIAL ARENA CONQUERED';
-      if (this.completeFlavor) this.completeFlavor.textContent = '* The champions fall and the celestial relic is yours.';
-      if (this.completePrompt) this.completePrompt.textContent = '[E] RETURN TO LEVEL 1  |  [R] REPLAY ARENA';
+      if (this.completeTitle) this.completeTitle.textContent = 'THE TIDE IS STILL';
+      if (this.completeSubtitle) this.completeSubtitle.textContent = 'THE FOUR RELICS ARE RESTORED';
+      if (this.completeFlavor) this.completeFlavor.textContent = '* Rakti steps out of the portal as the fractured realms fall quiet.';
+      if (this.completePrompt) this.completePrompt.textContent = '[E] RETURN TO TITLE  |  [R] RELIVE THE FINAL TRIAL';
     }
 
     this.levelCompleteModal.classList.add('active');
@@ -569,6 +673,23 @@ export class Engine {
       this.hpNum.textContent = this.player.hp + ' / ' + this.player.maxHp;
     }
 
+    if (this.staminaBarFill && this.player) {
+      const staminaRatio = Math.max(0, Math.min(1, this.player.stamina / this.player.maxStamina));
+      this.staminaBarFill.style.width = (staminaRatio * 100) + '%';
+      if (this.staminaTrack) this.staminaTrack.setAttribute('aria-valuenow', Math.round(this.player.stamina));
+      if (this.staminaNum) {
+        this.staminaNum.textContent = `${Math.ceil(this.player.stamina)} / ${this.player.maxStamina}`;
+      }
+      if (this.staminaState) {
+        this.staminaState.textContent = this.player.isExhausted
+          ? 'EXHAUSTED · REST TO RECOVER'
+          : this.player.stamina < this.player.maxStamina
+            ? (this.player.isGrounded && !this.player.isMoving ? 'VIGOR REPLENISHING' : 'VIGOR SPENT')
+            : 'READY';
+      }
+      this.hudEl.classList.toggle('wind-exhausted', this.player.isExhausted);
+    }
+
     // Key Inventory Badge
     if (this.keyGroup) {
       this.keyGroup.style.display = (this.player && this.player.hasKey) ? 'flex' : 'none';
@@ -600,8 +721,15 @@ export class Engine {
     if (this.morphGroup) {
       this.morphGroup.style.display = (this.currentLevelIndex === 2) ? 'flex' : 'none';
     }
+    if (this.abilityMorph) {
+      this.abilityMorph.classList.toggle('ability-hidden', this.currentLevelIndex !== 2);
+    }
     if (this.divineGroup) {
       this.divineGroup.style.display = (this.player.hasDivineUnlocked || this.currentLevelIndex === 2) ? 'flex' : 'none';
+    }
+    if (this.abilityDivine) {
+      this.abilityDivine.classList.toggle('ability-locked', !this.player.hasDivineUnlocked);
+      this.abilityDivine.classList.toggle('ability-active', this.player.isDivine || this.player.isTransforming);
     }
 
     // Medallion Divine Sands Ring Gauge (Circumference ~154px)

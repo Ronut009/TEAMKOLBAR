@@ -101,6 +101,37 @@
             <span class="kills-badge" id="killsBadge">⚔ 0</span>
           </div>
         </div>
+
+        <div class="vigor-panel" aria-label="Rakti's stamina">
+          <div class="resource-caption">
+            <span class="resource-name"><span class="resource-sigil">✦</span> VIGOR</span>
+            <span class="resource-value" id="staminaNum">100 / 100</span>
+          </div>
+          <div class="stamina-track" id="staminaTrack" role="progressbar" aria-label="Vigor" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100">
+            <div class="stamina-fill" id="staminaBarFill"></div>
+            <div class="stamina-sheen"></div>
+          </div>
+          <span class="stamina-state" id="staminaState">READY</span>
+        </div>
+
+        <div class="ability-bar" id="abilityBar" aria-label="Abilities">
+          <div class="ability-slot" id="abilityJump">
+            <span class="ability-glyph">↟</span>
+            <span class="ability-info"><kbd>SPACE</kbd><small>LEAP</small></span>
+          </div>
+          <div class="ability-slot" id="abilityStrike">
+            <span class="ability-glyph">⚔</span>
+            <span class="ability-info"><kbd>Z</kbd><small>STRIKE</small></span>
+          </div>
+          <div class="ability-slot ability-locked" id="abilityDivine">
+            <span class="ability-glyph">☼</span>
+            <span class="ability-info"><kbd>X</kbd><small>SIGHT</small></span>
+          </div>
+          <div class="ability-slot ability-hidden" id="abilityMorph">
+            <span class="ability-glyph">◈</span>
+            <span class="ability-info"><kbd>Q</kbd><small>TRANSMUTE</small></span>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -169,6 +200,52 @@
       <div class="complete-prompt" id="completePrompt">[E] ENTER LEVEL 2  |  [R] REPLAY</div>
     </div>
   </div>
+
+  <section class="title-screen active" id="titleScreen" aria-label="Rakti title screen">
+    <div class="title-backdrop"></div>
+    <div class="title-grain"></div>
+    <div class="title-panel">
+      <div class="title-crest" aria-hidden="true"><span></span><i>✦</i><span></span></div>
+      <p class="title-kicker">A MYTHIC JOURNEY THROUGH THE SUNKEN REALMS</p>
+      <h1 class="title-logo">RAKTI</h1>
+      <p class="title-subtitle">THE LAST GUARDIAN</p>
+      <p class="title-storyline">One daughter. Four relics. A world caught between tides.</p>
+      <div class="title-actions">
+        <button class="title-primary" id="startGameButton" type="button"><span>BEGIN THE JOURNEY</span><b>↗</b></button>
+        <button class="title-secondary" id="showControlsButton" type="button">HOW TO PLAY</button>
+      </div>
+      <div class="title-controls" id="titleControls" hidden>
+        <div><kbd>A</kbd><kbd>D</kbd><span>MOVE</span></div>
+        <div><kbd>SPACE</kbd><span>JUMP</span></div>
+        <div><kbd>Z</kbd><span>STRIKE</span></div>
+        <div><kbd>E</kbd><span>INTERACT</span></div>
+        <div><kbd>X</kbd><span>DIVINE SIGHT</span></div>
+        <div><kbd>Q</kbd><span>TRANSMUTE</span></div>
+        <p class="control-note">Running and leaping spend Vigor. Stand still on solid ground to recover it.</p>
+      </div>
+      <p class="title-footer"><span>✧</span> PRESS ENTER TO BEGIN <span>✧</span></p>
+    </div>
+    <div class="title-version">RAKTI · THE LAST GUARDIAN</div>
+  </section>
+
+  <section class="portal-transition" id="portalTransition" aria-live="polite" aria-label="Travelling between realms">
+    <div class="portal-halo"></div>
+    <div class="portal-mandala" aria-hidden="true">
+      <div class="mandala-ring ring-outer"></div>
+      <div class="mandala-ring ring-middle"></div>
+      <div class="mandala-ring ring-inner"></div>
+      <div class="mandala-core">✦</div>
+      <i class="relic-mark mark-one">◇</i>
+      <i class="relic-mark mark-two">◇</i>
+      <i class="relic-mark mark-three">◇</i>
+      <i class="relic-mark mark-four">◇</i>
+    </div>
+    <p class="portal-kicker" id="portalKicker">THE TIDE OPENS</p>
+    <h2 class="portal-title" id="portalTitle">A NEW REALM</h2>
+    <p class="portal-caption" id="portalCaption">The relics whisper across the veil.</p>
+    <div class="portal-progress" aria-hidden="true"><span></span></div>
+    <p class="portal-status">CROSSING BETWEEN REALMS</p>
+  </section>
 
   <script type="module" src="js/main.js"></script>
 </body>
