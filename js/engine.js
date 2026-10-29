@@ -108,8 +108,6 @@ export class Engine {
 
     this.titleScreen = document.getElementById('titleScreen');
     this.startGameButton = document.getElementById('startGameButton');
-    this.showControlsButton = document.getElementById('showControlsButton');
-    this.titleControls = document.getElementById('titleControls');
     this.portalTransition = document.getElementById('portalTransition');
     this.portalKicker = document.getElementById('portalKicker');
     this.portalTitle = document.getElementById('portalTitle');
@@ -119,12 +117,9 @@ export class Engine {
     this.portalTransitionTimer = 0;
     this.portalTargetIndex = null;
 
-    this.startGameButton?.addEventListener('click', () => this.startJourney());
-    this.showControlsButton?.addEventListener('click', () => {
-      if (!this.titleControls) return;
-      const open = this.titleControls.hidden;
-      this.titleControls.hidden = !open;
-      this.showControlsButton.textContent = open ? 'HIDE CONTROLS' : 'HOW TO PLAY';
+    this.startGameButton?.addEventListener('click', (event) => {
+      event.preventDefault();
+      this.startJourney();
     });
 
     this.playerDying = false;
