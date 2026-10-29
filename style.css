@@ -750,15 +750,14 @@ html, body {
   .loading-sigil { animation-duration: 32s, 2.6s; }
 }
 
-/* Compact, layered lotus HUD: static empty frame art with live fills above it. */
+/* Small, separated medallion-and-bars HUD. */
 .sands-hud {
-  top: 15px;
-  left: 18px;
+  top: 14px;
+  left: 16px;
   display: flex;
-  width: min(560px, calc(100vw - 30px));
-  flex-direction: column;
-  align-items: stretch;
-  gap: 0;
+  width: min(438px, calc(100vw - 26px));
+  align-items: flex-start;
+  gap: 2px;
   padding: 0;
   overflow: visible;
   border: 0;
@@ -768,20 +767,76 @@ html, body {
   backdrop-filter: none;
 }
 
-.hud-frame {
+.hud-portrait {
   position: relative;
-  width: 100%;
-  aspect-ratio: 3 / 1;
-  filter: drop-shadow(0 2px 7px rgba(0, 0, 0, 0.56));
+  z-index: 2;
+  width: 98px;
+  height: 98px;
+  flex: 0 0 98px;
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.65));
 }
 
-.hud-frame-art {
+.hud-portrait-window {
+  position: absolute;
+  top: 23%;
+  left: 23%;
+  width: 54%;
+  height: 54%;
+  overflow: hidden;
+  border-radius: 50%;
+  background: #24150f;
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.8);
+}
+
+.hud-portrait-art {
+  position: absolute;
+  top: -76%;
+  left: -63%;
+  display: block;
+  width: 804%;
+  max-width: none;
+  height: auto;
+  pointer-events: none;
+}
+
+.hud-portrait-frame {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  -webkit-mask-image: radial-gradient(circle at 50% 50%, transparent 0 26%, #000 28%);
+  mask-image: radial-gradient(circle at 50% 50%, transparent 0 26%, #000 28%);
+}
+
+.hud-readout {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 0;
+  padding-top: 8px;
+}
+
+.hud-bar {
+  position: relative;
+  width: 100%;
+  height: 43px;
+  overflow: hidden;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.46));
+}
+
+.hud-bar-art {
   position: absolute;
   inset: 0;
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: fill;
+  object-fit: cover;
+  object-position: center;
   pointer-events: none;
 }
 
@@ -793,27 +848,28 @@ html, body {
   margin: 0;
   padding: 0;
   border: 0;
-  border-radius: 3px;
-  background: transparent;
-  box-shadow: none;
+  border-radius: 4px;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.9);
 }
 
 .health-track {
-  top: 36.3%;
-  left: 31.7%;
-  width: 60%;
-  height: 10.5%;
+  top: 26%;
+  left: 16%;
+  width: 68%;
+  height: 31%;
+  background: #210e12;
 }
 
 .divine-track {
-  top: 59.4%;
-  left: 31.7%;
-  width: 49.6%;
-  height: 9.2%;
+  top: 25%;
+  left: 13%;
+  width: 74%;
+  height: 32%;
+  background: #08161b;
   transition: opacity 0.2s ease;
 }
 
-.divine-track.locked { opacity: 0.55; }
+.divine-track.locked { opacity: 0.72; }
 
 .health-fill,
 .divine-fill {
@@ -825,27 +881,27 @@ html, body {
 }
 
 .health-fill {
-  background: linear-gradient(180deg, rgba(255, 153, 102, 0.98), #db3942 35%, #981e36);
+  background: linear-gradient(180deg, #ffad77 0%, #e84c49 31%, #a51e33 100%);
   box-shadow: 0 0 7px rgba(226, 61, 61, 0.55), inset 0 1px rgba(255, 231, 194, 0.42);
 }
 
 .divine-fill {
-  background: linear-gradient(180deg, rgba(171, 220, 255, 0.98), #387fe3 36%, #15439a);
-  box-shadow: 0 0 7px rgba(74, 146, 244, 0.58), inset 0 1px rgba(233, 246, 255, 0.48);
+  background: linear-gradient(180deg, #a7edfa 0%, #31aeda 35%, #17639f 100%);
+  box-shadow: 0 0 7px rgba(74, 182, 244, 0.5), inset 0 1px rgba(233, 246, 255, 0.48);
 }
 
 .divine-track.active .divine-fill,
 .sands-hud.divine-mode .divine-fill {
-  box-shadow: 0 0 10px rgba(86, 160, 255, 0.78), inset 0 1px rgba(245, 251, 255, 0.64);
+  box-shadow: 0 0 10px rgba(86, 194, 255, 0.76), inset 0 1px rgba(245, 251, 255, 0.64);
 }
 
 .health-value {
   position: absolute;
   top: 50%;
-  right: 1.5%;
+  right: 2%;
   color: #fff2da;
-  font: 700 9px 'Cinzel', serif;
-  letter-spacing: 0.6px;
+  font: 700 8px 'Cinzel', serif;
+  letter-spacing: 0.4px;
   text-shadow: 0 1px 3px #080705, 0 0 6px rgba(0, 0, 0, 0.9);
   transform: translateY(-50%);
   white-space: nowrap;
@@ -853,25 +909,29 @@ html, body {
 
 .hud-weapon {
   display: flex;
-  width: 104px;
-  height: 48px;
+  width: 112px;
+  height: 52px;
   align-items: center;
   justify-content: center;
-  margin-top: -2px;
-  margin-left: 32%;
-  filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.72));
+  margin-top: -3px;
+  margin-left: 0;
+  align-self: center;
+  filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.68));
 }
 
 .hud-weapon img {
   display: block;
-  width: 100px;
-  height: 46px;
+  width: 108px;
+  height: 50px;
   object-fit: contain;
 }
 
 @media (max-width: 600px) {
-  .sands-hud { top: 9px; left: 9px; width: calc(100vw - 18px); }
-  .hud-weapon { width: 78px; height: 38px; margin-left: 32%; }
-  .hud-weapon img { width: 74px; height: 36px; }
-  .health-value { font-size: 7px; }
+  .sands-hud { top: 8px; left: 8px; width: calc(100vw - 16px); gap: 1px; }
+  .hud-portrait { width: clamp(72px, 22vw, 88px); height: clamp(72px, 22vw, 88px); flex-basis: clamp(72px, 22vw, 88px); }
+  .hud-readout { padding-top: 5px; }
+  .hud-bar { height: clamp(32px, 10vw, 39px); }
+  .hud-weapon { width: 80px; height: 40px; margin-left: 0; }
+  .hud-weapon img { width: 78px; height: 38px; }
+  .health-value { font-size: 6px; }
 }

@@ -42,7 +42,7 @@ export class Engine {
 
     // Cached DOM elements
     this.hudEl = document.getElementById('hud');
-    this.hudFrameArt = document.getElementById('hudFrameArt');
+    this.hudPortraitArt = document.getElementById('hudPortraitArt');
     this.hpNum = document.getElementById('hpNum');
     this.healthTrack = document.getElementById('healthTrack');
     this.healthBarFill = document.getElementById('healthBarFill');
@@ -584,13 +584,13 @@ export class Engine {
 
     const hpRatio = Math.max(0, Math.min(1, this.player.hp / this.player.maxHp));
     const hurtPortrait = this.player.hp < 10;
-    if (this.hudFrameArt && hurtPortrait !== this.isHurtPortrait) {
-      this.hudFrameArt.src = hurtPortrait
+    if (this.hudPortraitArt && hurtPortrait !== this.isHurtPortrait) {
+      this.hudPortraitArt.src = hurtPortrait
         ? 'assets/ui/hud/combat-frame-hurt.png'
         : 'assets/ui/hud/combat-frame-normal.png';
-      this.hudFrameArt.alt = hurtPortrait
-        ? 'Rakti, hurt, with health and ability frames'
-        : 'Rakti with health and ability frames';
+      this.hudPortraitArt.alt = hurtPortrait
+        ? 'Rakti, hurt'
+        : 'Rakti at full health';
       this.isHurtPortrait = hurtPortrait;
     }
     if (this.healthBarFill) this.healthBarFill.style.width = `${hpRatio * 100}%`;
@@ -613,10 +613,10 @@ export class Engine {
     if (this.divineTrack) {
       this.divineTrack.setAttribute('aria-valuenow', Math.round(divinePercent));
       this.divineTrack.setAttribute('aria-valuetext', !divineUnlocked
-        ? 'Divine ability locked'
+        ? 'X ability locked'
         : divineActive
           ? `${this.player.divineTimer.toFixed(1)} seconds remain`
-          : 'Divine ability ready');
+          : 'X ability ready');
     }
     if (this.divineMeter) {
       this.divineMeter.classList.toggle('locked', !divineUnlocked);
