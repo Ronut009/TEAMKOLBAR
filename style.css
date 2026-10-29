@@ -1037,8 +1037,8 @@ html, body {
 .title-menu {
   position: absolute;
   z-index: 2;
-  top: clamp(30px, 7vh, 70px);
-  right: clamp(34px, 7vw, 120px);
+  top: clamp(42px, 11vh, 100px);
+  right: clamp(60px, 11vw, 180px);
   display: flex;
   width: min(44vw, 760px);
   flex-direction: column;
