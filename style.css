@@ -1132,35 +1132,41 @@ html, body {
 .loading-dots { display: inline-block; width: 2.5em; text-align: left; animation: loadingDots 1.15s steps(4, end) infinite; }
 .loading-progress {
   position: relative;
-  display: flex;
-  width: clamp(240px, 34vw, 390px);
-  height: clamp(48px, 6vw, 62px);
-  align-items: center;
-  padding: 0 21%;
-  overflow: hidden;
-  background: url('assets/title/menu-button.png') center / 100% 100% no-repeat;
+  width: clamp(300px, 48vw, 540px);
+  height: clamp(44px, 7.2vw, 74px);
+  overflow: visible;
 }
-.loading-progress::before {
+.loading-progress-ornament {
   position: absolute;
-  top: calc(50% - 2px);
-  right: 21%;
-  left: 21%;
-  height: 4px;
-  content: '';
-  background: rgba(5, 19, 20, 0.86);
-  box-shadow: 0 0 5px rgba(221, 169, 72, 0.34);
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  filter: drop-shadow(0 0 8px rgba(225, 170, 61, 0.3));
 }
-.loading-progress span {
+.loading-progress-track {
   position: relative;
   display: block;
+  width: 65%;
+  height: 8%;
+  top: 46%;
+  left: 17.5%;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(1, 10, 11, 0.92);
+  box-shadow: 0 0 5px rgba(235, 182, 76, 0.42), inset 0 0 3px rgba(0, 0, 0, 0.9);
+}
+.loading-progress-fill {
+  display: block;
   width: 100%;
-  height: 4px;
-  background: linear-gradient(90deg, #36a879, #92e1aa 42%, #fff0bd 54%, #e4b74d 78%, #9b6224);
-  box-shadow: 0 0 9px rgba(255, 194, 77, 0.9);
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #087351, #41d59b 37%, #d8f7ad 66%, #fff0b7 76%, #e6ad3f 92%, #9b6224);
+  box-shadow: 0 0 8px rgba(65, 213, 155, 0.9), 0 0 14px rgba(240, 190, 84, 0.7);
   transform: scaleX(0);
   transform-origin: left center;
 }
-.loading-screen.active .loading-progress span { animation: loadingProgress 2.2s linear forwards; }
+.loading-screen.active .loading-progress-fill { animation: loadingProgress 2.2s linear forwards; }
 
 .portal-transition {
   position: fixed;

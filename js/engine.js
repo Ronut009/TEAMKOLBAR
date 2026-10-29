@@ -109,6 +109,7 @@ export class Engine {
     this.titleScreen = document.getElementById('titleScreen');
     this.startGameButton = document.getElementById('startGameButton');
     this.loadingScreen = document.getElementById('loadingScreen');
+    this.loadingProgress = document.getElementById('loadingProgress');
     this.isLoading = false;
     this.loadingTimer = 0;
     this.loadingTargetIndex = null;
@@ -267,6 +268,7 @@ export class Engine {
     this.isGameStarted = false;
     this.loadingTimer = 2.2;
     this.loadingTargetIndex = destinationIndex;
+    this.loadingProgress?.setAttribute('aria-valuenow', '0');
     this.titleScreen?.classList.remove('active');
     this.portalTransition?.classList.remove('active');
     this.levelCompleteModal?.classList.remove('active');
@@ -323,6 +325,8 @@ export class Engine {
   update(dt) {
     if (this.isLoading) {
       this.loadingTimer -= dt;
+      const loadingProgress = Math.max(0, Math.min(100, Math.round((1 - this.loadingTimer / 2.2) * 100)));
+      this.loadingProgress?.setAttribute('aria-valuenow', String(loadingProgress));
       if (this.loadingTimer <= 0) {
         const destinationIndex = this.loadingTargetIndex;
         this.isLoading = false;
