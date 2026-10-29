@@ -42,26 +42,12 @@ export class Engine {
 
     // Cached DOM elements
     this.hudEl = document.getElementById('hud');
-    this.hudName = document.getElementById('hudName');
-    this.hudLv = document.getElementById('hudLv');
-    this.hpFill = document.getElementById('hpFill');
-    this.hpSvgFill = document.getElementById('hpSvgFill');
-    this.divineRingFill = document.getElementById('divineRingFill');
     this.hpNum = document.getElementById('hpNum');
-
-    this.divineGroup = document.getElementById('divineGroup');
-    this.divineFill = document.getElementById('divineFill');
-    this.divineTime = document.getElementById('divineTime');
-    this.divineLabel = document.getElementById('divineLabel');
-
-    this.morphGroup = document.getElementById('morphGroup');
-    this.keyGroup = document.getElementById('keyGroup');
-
-    // Round 1 initial UI: Morph is hidden, Divine is locked until Lotus interaction
-    if (this.morphGroup) this.morphGroup.style.display = 'none';
-    if (this.divineGroup) this.divineGroup.style.display = 'none';
-    if (this.keyGroup) this.keyGroup.style.display = 'none';
-    if (this.killsGroup) this.killsGroup.style.display = 'none';
+    this.healthTrack = document.getElementById('healthTrack');
+    this.healthBarFill = document.getElementById('healthBarFill');
+    this.divineMeter = document.getElementById('divineMeter');
+    this.divineTrack = document.getElementById('divineTrack');
+    this.divineBarFill = document.getElementById('divineBarFill');
     this.hudEl?.classList.add('menu-hidden');
     this.player.hasDivineUnlocked = false;
 
@@ -97,19 +83,10 @@ export class Engine {
     this.deathScreen = document.getElementById('deathScreen');
     this.killToast = document.getElementById('killToast');
     this.killToastText = document.getElementById('killToastText');
-    this.killsGroup = document.getElementById('killsGroup');
-    this.killsBadge = document.getElementById('killsBadge');
-    this.staminaTrack = document.getElementById('staminaTrack');
-    this.staminaBarFill = document.getElementById('staminaBarFill');
-    this.staminaNum = document.getElementById('staminaNum');
-    this.staminaState = document.getElementById('staminaState');
-    this.abilityDivine = document.getElementById('abilityDivine');
-    this.abilityMorph = document.getElementById('abilityMorph');
 
     this.titleScreen = document.getElementById('titleScreen');
     this.startGameButton = document.getElementById('startGameButton');
     this.loadingScreen = document.getElementById('loadingScreen');
-    this.loadingProgress = document.getElementById('loadingProgress');
     this.isLoading = false;
     this.loadingTimer = 0;
     this.loadingTargetIndex = null;
@@ -189,52 +166,32 @@ export class Engine {
       this.levelCompleteModal.classList.remove('active');
     }
 
-    if (this.hudLv) {
-      this.hudLv.textContent = 'CH. ' + index;
-    }
-
     if (index === 4) {
       // The arena is built around the raised circular floor.
       this.player.x = 320;
       this.player.y = 480;
       this.player.hasDivineUnlocked = true;
-      if (this.divineGroup) this.divineGroup.style.display = 'flex';
-      if (this.morphGroup) this.morphGroup.style.display = 'none';
-      if (this.killsGroup) this.killsGroup.style.display = 'flex';
     } else if (index === 3) {
       // The Heart of Hubris begins on the upper-left ruin ledge.
       this.player.x = 90;
       this.player.y = 108;
       this.player.hasDivineUnlocked = true;
-      if (this.divineGroup) this.divineGroup.style.display = 'flex';
-      if (this.morphGroup) this.morphGroup.style.display = 'none';
-      if (this.killsGroup) this.killsGroup.style.display = 'flex';
     } else if (index === 2) {
       // Start Level 2 on the high left ledge shown in the new map art.
       this.player.x = 90;
       this.player.y = 145;
       this.player.hasDivineUnlocked = true; // Divine power persists into Level 2
-      if (this.divineGroup) this.divineGroup.style.display = 'flex';
-      if (this.morphGroup) this.morphGroup.style.display = 'flex';
-      if (this.killsGroup) this.killsGroup.style.display = 'flex';
     } else {
       // Start in Level 1: Sunken courtyard
       this.player.x = 160;
       this.player.y = 368;
       this.player.hasDivineUnlocked = false; // Strictly requires lotus interaction in Round 1
-      // In round 1, morph is strictly hidden, and divine shows only once unlocked
-      if (this.morphGroup) this.morphGroup.style.display = 'none';
-      if (this.killsGroup) this.killsGroup.style.display = 'none';
-      if (this.keyGroup) this.keyGroup.style.display = 'none';
-      if (this.divineGroup) this.divineGroup.style.display = 'none';
     }
 
     this.player.vx = 0;
     this.player.vy = 0;
     this.player.maxHp = index === 4 ? L4_CONFIG.PLAYER_MAX_HP : 20;
     this.player.hp = this.player.maxHp;
-    this.player.stamina = this.player.maxStamina;
-    this.player.isExhausted = false;
     this.player.speed = this.player.baseSpeed;
     this.player.hasKey = false;
     this.player.isClimbing = false;
@@ -268,7 +225,6 @@ export class Engine {
     this.isGameStarted = false;
     this.loadingTimer = 2.2;
     this.loadingTargetIndex = destinationIndex;
-    this.loadingProgress?.setAttribute('aria-valuenow', '0');
     this.titleScreen?.classList.remove('active');
     this.portalTransition?.classList.remove('active');
     this.levelCompleteModal?.classList.remove('active');
@@ -325,8 +281,6 @@ export class Engine {
   update(dt) {
     if (this.isLoading) {
       this.loadingTimer -= dt;
-      const loadingProgress = Math.max(0, Math.min(100, Math.round((1 - this.loadingTimer / 2.2) * 100)));
-      this.loadingProgress?.setAttribute('aria-valuenow', String(loadingProgress));
       if (this.loadingTimer <= 0) {
         const destinationIndex = this.loadingTargetIndex;
         this.isLoading = false;
@@ -512,7 +466,6 @@ export class Engine {
         // LEVEL 1: Sacred Lotus Awakening (Unlocks X ability - Taught by Maa Kali)
         if (nearby.type === 'lotus_awakening' || nearby.id === 'sacred_lotus') {
           this.player.hasDivineUnlocked = true;
-          if (this.divineGroup) this.divineGroup.style.display = 'flex';
           this.openDialogue(nearby.text, 'kali', nearby.title || '⚜ DIVINE AWAKENING: MAA KALI ⚜');
           const flash = document.getElementById('divineFlash');
           if (flash) {
@@ -682,61 +635,41 @@ export class Engine {
   }
 
   updateHUD() {
-    if (!this.hudEl) return;
+    if (!this.hudEl || !this.player) return;
 
-    // HP Bar Update (Reflects damage: curved SVG line drains smoothly from right to left)
     const hpRatio = Math.max(0, Math.min(1, this.player.hp / this.player.maxHp));
-    if (this.hpSvgFill) {
-      let totalLen = 266;
-      try {
-        if (typeof this.hpSvgFill.getTotalLength === 'function') {
-          const l = this.hpSvgFill.getTotalLength();
-          if (l > 0) totalLen = l;
-        }
-      } catch (e) {}
-      this.hpSvgFill.style.strokeDasharray = `${totalLen}`;
-      this.hpSvgFill.style.strokeDashoffset = `${(1 - hpRatio) * totalLen}`;
+    if (this.healthBarFill) this.healthBarFill.style.width = `${hpRatio * 100}%`;
+    if (this.healthTrack) {
+      this.healthTrack.setAttribute('aria-valuemax', this.player.maxHp);
+      this.healthTrack.setAttribute('aria-valuenow', Math.max(0, Math.ceil(this.player.hp)));
     }
-    if (this.hpFill) {
-      this.hpFill.style.width = (hpRatio * 100) + '%';
-    }
-    if (this.hpNum && this.player) {
-      this.hpNum.textContent = this.player.hp + ' / ' + this.player.maxHp;
-    }
+    if (this.hpNum) this.hpNum.textContent = `${this.player.hp} / ${this.player.maxHp}`;
 
-    if (this.staminaBarFill && this.player) {
-      const staminaRatio = Math.max(0, Math.min(1, this.player.stamina / this.player.maxStamina));
-      this.staminaBarFill.style.width = (staminaRatio * 100) + '%';
-      if (this.staminaTrack) this.staminaTrack.setAttribute('aria-valuenow', Math.round(this.player.stamina));
-      if (this.staminaNum) {
-        this.staminaNum.textContent = `${Math.ceil(this.player.stamina)} / ${this.player.maxStamina}`;
-      }
-      if (this.staminaState) {
-        this.staminaState.textContent = this.player.isExhausted
-          ? 'EXHAUSTED · REST TO RECOVER'
-          : this.player.stamina < this.player.maxStamina
-            ? (this.player.isGrounded && !this.player.isMoving ? 'VIGOR REPLENISHING' : 'VIGOR SPENT')
-            : 'READY';
-      }
-      this.hudEl.classList.toggle('wind-exhausted', this.player.isExhausted);
-    }
+    const divineUnlocked = this.player.hasDivineUnlocked;
+    const divineActive = this.player.isDivine || this.player.isTransforming;
+    const divineRatio = this.player.isTransforming
+      ? 1
+      : this.player.isDivine
+        ? Math.max(0, Math.min(1, this.player.divineTimer / this.player.divineDuration))
+        : 1;
+    const divinePercent = divineUnlocked ? divineRatio * 100 : 0;
 
-    // Key Inventory Badge
-    if (this.keyGroup) {
-      this.keyGroup.style.display = (this.player && this.player.hasKey) ? 'flex' : 'none';
+    if (this.divineBarFill) this.divineBarFill.style.width = `${divinePercent}%`;
+    if (this.divineTrack) {
+      this.divineTrack.setAttribute('aria-valuenow', Math.round(divinePercent));
+      this.divineTrack.setAttribute('aria-valuetext', !divineUnlocked
+        ? 'Divine ability locked'
+        : divineActive
+          ? `${this.player.divineTimer.toFixed(1)} seconds remain`
+          : 'Divine ability ready');
     }
-
-    // Kill Counter Badge (Tracks kills in level)
-    if (this.killsGroup && this.killsBadge) {
-      if (this.level && this.level.kills !== undefined && this.level.kills > 0) {
-        this.killsGroup.style.display = 'flex';
-        this.killsBadge.textContent = '☠ KILLS: ' + this.level.kills;
-      } else {
-        this.killsGroup.style.display = 'none';
-      }
+    if (this.divineMeter) {
+      this.divineMeter.classList.toggle('locked', !divineUnlocked);
+      this.divineMeter.classList.toggle('active', divineActive);
     }
+    this.hudEl.classList.toggle('divine-mode', divineActive);
 
-    // Kill Toast Sync
+    // Keep combat notifications separate from the minimal persistent HUD.
     if (this.killToast) {
       if (this.level && this.level.killToastTimer > 0) {
         if (this.killToastText && this.level.killToastText) {
@@ -746,53 +679,6 @@ export class Engine {
       } else {
         this.killToast.classList.remove('active');
       }
-    }
-
-    // Visibility: Morph only in Level 2; Divine Sands only once unlocked
-    if (this.morphGroup) {
-      this.morphGroup.style.display = (this.currentLevelIndex === 2) ? 'flex' : 'none';
-    }
-    if (this.abilityMorph) {
-      this.abilityMorph.classList.toggle('ability-hidden', this.currentLevelIndex !== 2);
-    }
-    if (this.divineGroup) {
-      this.divineGroup.style.display = (this.player.hasDivineUnlocked || this.currentLevelIndex === 2) ? 'flex' : 'none';
-    }
-    if (this.abilityDivine) {
-      this.abilityDivine.classList.toggle('ability-locked', !this.player.hasDivineUnlocked);
-      this.abilityDivine.classList.toggle('ability-active', this.player.isDivine || this.player.isTransforming);
-    }
-
-    // Medallion Divine Sands Ring Gauge (Circumference ~154px)
-    if (this.divineRingFill) {
-      if (this.player.isDivine || this.player.isTransforming) {
-        const pct = this.player.isTransforming ? 1.0 : Math.max(0, Math.min(1, this.player.divineTimer / this.player.divineDuration));
-        this.divineRingFill.style.strokeDashoffset = `${(1 - pct) * 154}`;
-        this.divineRingFill.style.opacity = '1';
-      } else if (this.player.hasDivineUnlocked || this.currentLevelIndex === 2) {
-        this.divineRingFill.style.strokeDashoffset = '0';
-        this.divineRingFill.style.opacity = '0.7';
-      } else {
-        this.divineRingFill.style.strokeDashoffset = '154';
-        this.divineRingFill.style.opacity = '0.2';
-      }
-    }
-
-    // Divine Form HUD State
-    if (this.player.isDivine || this.player.isTransforming) {
-      this.hudEl.classList.add('divine-mode');
-      if (this.hudName) this.hudName.textContent = 'RAKTI (KALI)';
-      if (this.divineLabel) this.divineLabel.textContent = 'SANDS OF KALI';
-
-      const pct = Math.max(0, (this.player.divineTimer / this.player.divineDuration) * 100);
-      if (this.divineFill) this.divineFill.style.width = pct + '%';
-      if (this.divineTime) this.divineTime.textContent = this.player.isTransforming ? 'AWAKENING' : this.player.divineTimer.toFixed(1) + 's';
-    } else {
-      this.hudEl.classList.remove('divine-mode');
-      if (this.hudName) this.hudName.textContent = 'RAKTI';
-      if (this.divineLabel) this.divineLabel.textContent = '[X] DIVINE SANDS';
-      if (this.divineFill) this.divineFill.style.width = '0%';
-      if (this.divineTime) this.divineTime.textContent = '';
     }
   }
 

@@ -18,14 +18,6 @@ export class Player {
     this.baseSpeed = 205;
     this.divineSpeed = 265;
     this.speed = this.baseSpeed;
-    this.maxStamina = 100;
-    this.stamina = this.maxStamina;
-    this.staminaRunDrain = 7.5;
-    this.staminaJumpCost = 13;
-    this.staminaRecoveryRate = 22;
-    this.exhaustionRecoveryThreshold = 28;
-    this.exhaustedSpeedMultiplier = 0.68;
-    this.isExhausted = false;
     this.acceleration = 1800;
     this.friction = 1400;
 
@@ -405,8 +397,6 @@ export class Player {
           this.isClimbing = false;
           this.currentLadder = null;
           this.ladderCooldown = 0.32;
-          this.stamina = Math.max(0, this.stamina - this.staminaJumpCost);
-          if (this.stamina <= 0) this.isExhausted = true;
           this.vy = this.jumpImpulse * 0.85;
           this.vx = (moveDir !== 0 ? moveDir * 170 : (this.facing === 'left' ? -140 : 140));
           this.isGrounded = false;
@@ -607,19 +597,9 @@ export class Player {
     if (moveDir < 0) this.facing = 'left';
     else if (moveDir > 0) this.facing = 'right';
 
-    // Running is Rakti's default pace. Sustained movement and jumps spend
-    // vigor; standing still on the ground restores it. Keep the Divine form's
-    // speed bonus while applying the same exhaustion penalty to either form.
+    // Running is Rakti's default pace. Keep the Divine form's existing speed bonus.
     const formSpeed = this.isDivine ? this.divineSpeed : this.baseSpeed;
-    if (moveDir !== 0) {
-      this.stamina = Math.max(0, this.stamina - this.staminaRunDrain * dt);
-    } else if (this.isGrounded) {
-      this.stamina = Math.min(this.maxStamina, this.stamina + this.staminaRecoveryRate * dt);
-    }
-
-    if (this.stamina <= 0) this.isExhausted = true;
-    else if (this.isExhausted && this.stamina >= this.exhaustionRecoveryThreshold) this.isExhausted = false;
-    this.speed = formSpeed * (this.isExhausted ? this.exhaustedSpeedMultiplier : 1);
+    this.speed = formSpeed;
 
     const targetVx = moveDir * this.speed;
     if (this.isMoving) {
@@ -655,8 +635,6 @@ export class Player {
           this.currentPlatform = null;
           this.vy = 90;
         } else {
-          this.stamina = Math.max(0, this.stamina - this.staminaJumpCost);
-          if (this.stamina <= 0) this.isExhausted = true;
           const impulse = this.isDivine ? this.divineJumpImpulse : this.jumpImpulse;
           this.vy = impulse;
           this.isGrounded = false;

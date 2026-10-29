@@ -1,5 +1,5 @@
 /* ==========================================================================
-   PRINCE OF PERSIA: THE SANDS OF TIME - MINIMALIST TOP-LEFT HUD & UI
+   RAKTI: THE LAST GUARDIAN — GAME UI
    ========================================================================== */
 
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Marcellus&display=swap');
@@ -60,248 +60,17 @@ html, body {
   opacity: 1;
 }
 
-/* ==========================================================================
-   MINIMALIST TOP-LEFT HUD (MATCHING USER IMAGES 1 & 2)
-   ========================================================================== */
+/* Clean combat HUD anchor; the weapon and meters are styled below. */
 .sands-hud {
   position: absolute;
   top: 18px;
   left: 22px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
   z-index: 25;
   pointer-events: none;
   font-family: 'Cinzel', serif;
 }
 
-.sands-top-group {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-}
-
-/* SVG Life Bar & Medallion Dial */
-.sands-svg {
-  display: block;
-  overflow: visible;
-  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.9));
-}
-
-/* Dial Components */
-.dial-bg {
-  fill: #140d09;
-  fill-opacity: 0.94;
-}
-
-.dial-border {
-  stroke: #cda24e;
-  stroke-width: 1.5;
-  fill: none;
-}
-
-.dial-inner-ring {
-  stroke: rgba(205, 162, 78, 0.45);
-  stroke-width: 1;
-  fill: none;
-  stroke-dasharray: 4, 3;
-}
-
-.dial-divine-ring {
-  stroke: #3ce8f5;
-  stroke-width: 2.2;
-  fill: none;
-  stroke-linecap: round;
-  opacity: 0.7;
-  filter: drop-shadow(0 0 5px rgba(60, 232, 245, 0.8));
-  stroke-dasharray: 154;
-  stroke-dashoffset: 0;
-  transition: stroke-dashoffset 0.1s linear, stroke 0.35s ease;
-}
-
-.sand-orb {
-  fill: #fff7d1;
-  filter: drop-shadow(0 0 3px #ffd700);
-}
-
-.center-crescent {
-  fill: #ffffff;
-  filter: drop-shadow(0 0 4px rgba(60, 232, 245, 0.9));
-  transition: fill 0.3s ease;
-}
-
-/* Curved Life Bar Track & Fill (Image 1) */
-.life-bar-track {
-  stroke: rgba(14, 20, 24, 0.75);
-  stroke-width: 4;
-  stroke-linecap: round;
-  fill: none;
-}
-
-.life-bar-fill {
-  stroke: url(#cyanLifeGrad);
-  stroke-width: 3.5;
-  stroke-linecap: round;
-  fill: none;
-  filter: url(#glowCyan);
-  stroke-dasharray: 266;
-  stroke-dashoffset: 0;
-  transition: stroke-dashoffset 0.25s ease-out, stroke 0.35s ease;
-}
-
-/* Divine Mode Visual Flare (Solar Kali Power) */
-.sands-hud.divine-mode .life-bar-fill {
-  stroke: url(#divineLifeGrad);
-  filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.95)) drop-shadow(0 0 16px rgba(255, 0, 80, 0.7));
-}
-
-.sands-hud.divine-mode .dial-divine-ring {
-  stroke: #ffd700;
-  opacity: 1;
-  filter: drop-shadow(0 0 8px #ffd700);
-}
-
-.sands-hud.divine-mode .center-crescent {
-  fill: #ffd700;
-  filter: drop-shadow(0 0 6px #ff2255);
-}
-
-/* Metadata Tags below Life Bar */
-.sands-meta {
-  margin-left: 48px;
-  margin-top: -12px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.meta-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.hud-name {
-  font-family: 'Cinzel', serif;
-  font-size: 11px;
-  font-weight: 700;
-  color: #f7eed8;
-  letter-spacing: 2px;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95);
-  transition: color 0.3s ease;
-}
-
-.sands-hud.divine-mode .hud-name {
-  color: #ffd700;
-  text-shadow: 0 0 10px rgba(255, 215, 0, 0.9);
-}
-
-.hud-hp-num {
-  font-family: 'Cinzel', serif;
-  font-size: 10px;
-  font-weight: 700;
-  color: #e5be75;
-  letter-spacing: 1.5px;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95);
-}
-
-.hud-lv {
-  font-family: 'Cinzel', serif;
-  font-size: 9px;
-  color: #cda24e;
-  letter-spacing: 1.5px;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95);
-}
-
-/* Minimal Badge Pills */
-.divine-status-group {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  background: rgba(18, 12, 8, 0.85);
-  border: 1px solid rgba(205, 162, 78, 0.55);
-  border-radius: 3px;
-  padding: 2px 7px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
-}
-
-.divine-label {
-  font-size: 9px;
-  font-weight: 700;
-  color: #3ce8f5;
-  letter-spacing: 1px;
-}
-
-.sands-hud.divine-mode .divine-label {
-  color: #ffd700;
-}
-
-.divine-time {
-  font-size: 9px;
-  font-weight: 700;
-  color: #ffd700;
-  min-width: 22px;
-}
-
-.morph-status-group {
-  display: flex;
-  align-items: center;
-  background: rgba(12, 18, 22, 0.85);
-  border: 1px solid rgba(92, 225, 230, 0.55);
-  border-radius: 3px;
-  padding: 2px 7px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
-}
-
-.morph-badge {
-  font-size: 9px;
-  font-weight: 700;
-  color: #5ce1e6;
-  letter-spacing: 1px;
-}
-
-.key-status-group {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  background: rgba(22, 16, 8, 0.85);
-  border: 1px solid rgba(255, 215, 0, 0.55);
-  border-radius: 3px;
-  padding: 2px 7px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
-}
-
-.key-icon {
-  font-size: 11px;
-  color: #ffd700;
-}
-
-.key-label {
-  font-size: 9px;
-  font-weight: 700;
-  color: #ffd700;
-  letter-spacing: 1px;
-}
-
-.kills-status-group {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  background: rgba(24, 10, 10, 0.85);
-  border: 1px solid rgba(229, 115, 115, 0.55);
-  border-radius: 3px;
-  padding: 2px 7px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
-}
-
-.kills-badge {
-  font-size: 9px;
-  font-weight: 700;
-  color: #e57373;
-  letter-spacing: 1px;
-}
-
+.sands-hud.menu-hidden { opacity: 0; visibility: hidden; }
 /* ==========================================================================
    MINIMALIST GUIDANCE DIALOGUE BOX (IMAGE 3 THEME)
    ========================================================================== */
@@ -735,179 +504,6 @@ html, body {
   letter-spacing: 0.5px;
 }
 
-/* ======================================================================
-   RAKTI TITLE SCREEN, PORTAL INTERLUDE, AND RESOURCE / ABILITY HUD
-   ====================================================================== */
-.sands-hud.menu-hidden {
-  opacity: 0;
-  visibility: hidden;
-}
-
-.sands-meta {
-  width: min(330px, calc(100vw - 40px));
-  margin-left: 44px;
-  margin-top: -10px;
-  gap: 6px;
-}
-
-.bottom-row {
-  flex-wrap: wrap;
-  gap: 5px;
-}
-
-.vigor-panel {
-  position: relative;
-  width: min(278px, calc(100vw - 58px));
-  padding: 7px 10px 8px;
-  overflow: hidden;
-  border: 1px solid rgba(203, 166, 92, 0.52);
-  border-radius: 5px;
-  background: linear-gradient(105deg, rgba(11, 15, 22, 0.93), rgba(25, 19, 14, 0.86));
-  box-shadow: 0 5px 18px rgba(0, 0, 0, 0.58), inset 0 1px 0 rgba(255, 238, 186, 0.09);
-}
-
-.vigor-panel::before,
-.vigor-panel::after {
-  position: absolute;
-  top: 50%;
-  width: 4px;
-  height: 4px;
-  content: '';
-  transform: translateY(-50%) rotate(45deg);
-  background: #e7c77f;
-  box-shadow: 0 0 7px rgba(255, 214, 119, 0.7);
-}
-
-.vigor-panel::before { left: 3px; }
-.vigor-panel::after { right: 3px; }
-
-.resource-caption {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 5px;
-  font-family: 'Cinzel', serif;
-  font-size: 8px;
-  font-weight: 700;
-  letter-spacing: 1.5px;
-  text-shadow: 0 1px 3px #000;
-}
-
-.resource-name { color: #ecd59b; }
-.resource-sigil { color: #55e8ec; margin-right: 4px; }
-.resource-value { color: #f2efe5; font-size: 8px; letter-spacing: 1px; }
-
-.stamina-track {
-  position: relative;
-  height: 8px;
-  overflow: hidden;
-  border: 1px solid rgba(209, 178, 118, 0.6);
-  border-radius: 9px;
-  background: linear-gradient(90deg, rgba(4, 8, 12, 0.95), rgba(31, 25, 17, 0.95));
-  box-shadow: inset 0 1px 3px #000;
-}
-
-.stamina-fill {
-  width: 100%;
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, #92713c, #e8c46d 58%, #fff1b3);
-  box-shadow: 0 0 9px rgba(239, 193, 90, 0.52);
-  transition: width 0.14s linear, filter 0.2s ease;
-}
-
-.stamina-sheen {
-  position: absolute;
-  inset: 1px 0 auto;
-  height: 2px;
-  pointer-events: none;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 238, 0.52), transparent);
-}
-
-.stamina-state {
-  display: block;
-  height: 8px;
-  margin-top: 3px;
-  color: #b8c1bf;
-  font: 700 7px 'Cinzel', serif;
-  letter-spacing: 1.2px;
-  text-align: right;
-}
-
-.sands-hud.wind-exhausted .stamina-fill {
-  background: linear-gradient(90deg, #8a3731, #d66d4d 60%, #ffd17e);
-  filter: saturate(0.88);
-}
-
-.sands-hud.wind-exhausted .stamina-state { color: #ffb59c; }
-
-.ability-bar {
-  display: flex;
-  width: min(294px, calc(100vw - 50px));
-  gap: 5px;
-  margin-top: 1px;
-  padding: 5px;
-  border: 1px solid rgba(189, 153, 91, 0.44);
-  border-radius: 6px;
-  background: linear-gradient(100deg, rgba(9, 12, 18, 0.93), rgba(20, 15, 12, 0.92));
-  box-shadow: 0 5px 17px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 247, 220, 0.07);
-}
-
-.ability-slot {
-  position: relative;
-  display: flex;
-  min-width: 0;
-  min-height: 42px;
-  flex: 1 1 0;
-  align-items: center;
-  gap: 5px;
-  padding: 4px 5px;
-  border: 1px solid rgba(180, 153, 105, 0.3);
-  border-radius: 4px;
-  background: linear-gradient(145deg, rgba(61, 48, 31, 0.55), rgba(14, 16, 20, 0.8));
-  transition: border-color 0.2s ease, background 0.2s ease, opacity 0.2s ease;
-}
-
-.ability-glyph {
-  display: grid;
-  width: 23px;
-  height: 26px;
-  flex: 0 0 23px;
-  place-items: center;
-  color: #e6ca86;
-  font-size: 17px;
-  text-shadow: 0 0 8px rgba(230, 196, 112, 0.48);
-}
-
-.ability-info { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
-.ability-info kbd {
-  width: fit-content;
-  padding: 1px 3px;
-  border: 1px solid rgba(219, 190, 130, 0.48);
-  border-radius: 2px;
-  color: #f8e5b6;
-  background: rgba(5, 7, 10, 0.6);
-  font: 700 7px 'Cinzel', serif;
-  letter-spacing: 0.5px;
-}
-.ability-info small {
-  overflow: hidden;
-  color: #c9c0ae;
-  font: 700 6px 'Cinzel', serif;
-  letter-spacing: 0.6px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.ability-slot.ability-active {
-  border-color: rgba(255, 214, 119, 0.94);
-  background: linear-gradient(145deg, rgba(100, 70, 24, 0.7), rgba(22, 18, 14, 0.92));
-  box-shadow: inset 0 0 12px rgba(255, 198, 67, 0.14), 0 0 10px rgba(255, 198, 67, 0.16);
-}
-
-.ability-slot.ability-locked { opacity: 0.52; filter: grayscale(0.65); }
-.ability-slot.ability-hidden { display: none; }
-
 .title-screen {
   position: fixed;
   z-index: 200;
@@ -1130,44 +726,6 @@ html, body {
   text-shadow: 0 0 13px rgba(244, 166, 47, 0.45);
 }
 .loading-dots { display: inline-block; width: 2.5em; text-align: left; animation: loadingDots 1.15s steps(4, end) infinite; }
-.loading-progress {
-  position: relative;
-  width: clamp(300px, 48vw, 540px);
-  height: clamp(44px, 7.2vw, 74px);
-  overflow: visible;
-}
-.loading-progress-ornament {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-  filter: drop-shadow(0 0 8px rgba(225, 170, 61, 0.3));
-}
-.loading-progress-track {
-  position: relative;
-  display: block;
-  width: 65%;
-  height: 8%;
-  top: 46%;
-  left: 17.5%;
-  overflow: hidden;
-  border-radius: 999px;
-  background: rgba(1, 10, 11, 0.92);
-  box-shadow: 0 0 5px rgba(235, 182, 76, 0.42), inset 0 0 3px rgba(0, 0, 0, 0.9);
-}
-.loading-progress-fill {
-  display: block;
-  width: 100%;
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, #087351, #41d59b 37%, #d8f7ad 66%, #fff0b7 76%, #e6ad3f 92%, #9b6224);
-  box-shadow: 0 0 8px rgba(65, 213, 155, 0.9), 0 0 14px rgba(240, 190, 84, 0.7);
-  transform: scaleX(0);
-  transform-origin: left center;
-}
-.loading-screen.active .loading-progress-fill { animation: loadingProgress 2.2s linear forwards; }
-
 .portal-transition {
   position: fixed;
   z-index: 180;
@@ -1213,10 +771,8 @@ html, body {
 @keyframes loadingSigilGlow { to { filter: drop-shadow(0 0 23px rgba(255, 181, 64, 0.78)); } }
 @keyframes loadingAura { to { transform: scale(1.12); opacity: 0.64; } }
 @keyframes loadingDots { 0%, 15% { width: 0.5em; } 40% { width: 1.2em; } 65% { width: 1.8em; } 90%, 100% { width: 2.5em; } }
-@keyframes loadingProgress { to { transform: scaleX(1); } }
 
 @media (max-width: 600px) {
-  .sands-hud { top: 9px; left: 8px; transform: scale(0.86); transform-origin: top left; }
   .title-screen { padding: 14px; }
   .title-panel { padding: 30px 21px 24px; }
   .title-storyline { font-size: 13px; }
@@ -1240,4 +796,163 @@ html, body {
   }
   .title-logo-image { animation-duration: 12s; }
   .loading-sigil { animation-duration: 32s, 2.6s; }
+}
+
+/* Minimal floating weapon + Divine and health meters; no HUD plate or side panels. */
+.sands-hud {
+  top: 18px;
+  left: 22px;
+  display: flex;
+  width: auto;
+  max-width: calc(100vw - 44px);
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  overflow: visible;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.hud-weapon {
+  display: flex;
+  width: 102px;
+  height: 100px;
+  flex: 0 0 102px;
+  align-items: center;
+  justify-content: center;
+}
+
+.hud-weapon img {
+  display: block;
+  width: 116px;
+  height: 100px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.76)) drop-shadow(0 0 5px rgba(232, 188, 87, 0.35));
+}
+
+.hud-bars {
+  display: flex;
+  width: min(440px, calc(100vw - 145px));
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.hud-meter {
+  position: relative;
+  width: 100%;
+  height: 58px;
+  filter: drop-shadow(0 2px 7px rgba(0, 0, 0, 0.6));
+  transition: opacity 0.25s ease, filter 0.25s ease;
+}
+
+.divine-frame,
+.health-frame {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  pointer-events: none;
+}
+
+.meter-track {
+  position: absolute;
+  z-index: 1;
+  display: block;
+  height: 14%;
+  overflow: hidden;
+  margin: 0;
+  border: 0;
+  border-radius: 4px;
+  background: linear-gradient(90deg, rgba(2, 9, 13, 0.97), rgba(5, 17, 20, 0.95));
+  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.94), 0 0 2px rgba(0, 0, 0, 0.8);
+}
+
+.divine-track {
+  top: 43%;
+  left: 17%;
+  right: 8%;
+}
+
+.divine-fill,
+.health-fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  transition: width 0.12s linear;
+}
+
+.divine-fill {
+  background: linear-gradient(90deg, #147981, #2fd5bd 58%, #c7ffeb);
+  box-shadow: 0 0 8px rgba(60, 232, 210, 0.68);
+}
+
+.meter-sheen {
+  position: absolute;
+  inset: 1px 0 auto;
+  height: 2px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(240, 255, 239, 0.58), transparent);
+}
+
+.divine-meter.locked {
+  opacity: 0.46;
+  filter: grayscale(0.55) drop-shadow(0 2px 6px rgba(0, 0, 0, 0.55));
+}
+
+.divine-meter.active .divine-fill,
+.sands-hud.divine-mode .divine-fill {
+  box-shadow: 0 0 9px rgba(72, 239, 218, 0.78), inset 0 1px rgba(237, 255, 240, 0.5);
+}
+
+.health-meter {
+  height: 50px;
+  margin-top: -10px;
+}
+
+.health-track {
+  top: 44%;
+  left: 17%;
+  right: 8%;
+  height: 13%;
+}
+
+.health-fill {
+  background: linear-gradient(90deg, #7e1e28, #d83b43 58%, #ff9b61);
+  box-shadow: 0 0 7px rgba(226, 61, 61, 0.6);
+}
+
+.health-value {
+  position: absolute;
+  top: 50%;
+  right: 3%;
+  color: #fff0cf;
+  font: 700 9px 'Cinzel', serif;
+  letter-spacing: 0.7px;
+  text-shadow: 0 1px 3px #080705, 0 0 6px rgba(0, 0, 0, 0.9);
+  transform: translateY(-50%);
+  white-space: nowrap;
+}
+
+@media (max-width: 600px) {
+  .sands-hud {
+    top: 10px;
+    left: 9px;
+    gap: 5px;
+    transform: scale(0.82);
+    transform-origin: top left;
+  }
+  .hud-weapon { width: 76px; height: 82px; flex-basis: 76px; }
+  .hud-weapon img { width: 88px; height: 82px; }
+  .hud-bars { width: min(330px, calc(100vw - 104px)); }
+  .hud-meter { height: 52px; }
+  .health-meter { height: 44px; margin-top: -9px; }
+  .health-value { font-size: 8px; }
 }
