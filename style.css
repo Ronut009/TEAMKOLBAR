@@ -1087,6 +1087,81 @@ html, body {
 .menu-button:disabled:hover { transform: none; background-image: url('assets/title/menu-button.png'); }
 @keyframes logoHover { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
 
+.loading-screen {
+  position: fixed;
+  z-index: 220;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(16px, 3vh, 28px);
+  overflow: hidden;
+  background: radial-gradient(ellipse at center, #100c07 0%, #050403 48%, #010101 100%);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 320ms ease, visibility 320ms ease;
+}
+.loading-screen.active { opacity: 1; visibility: visible; }
+.loading-aura {
+  position: absolute;
+  width: min(58vw, 480px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 170, 43, 0.16), rgba(220, 107, 16, 0.06) 34%, transparent 69%);
+  filter: blur(8px);
+  animation: loadingAura 2.6s ease-in-out infinite alternate;
+}
+.loading-sigil {
+  position: relative;
+  display: block;
+  width: clamp(148px, 24vw, 270px);
+  aspect-ratio: 1;
+  object-fit: contain;
+  filter: drop-shadow(0 0 11px rgba(255, 174, 51, 0.42));
+  animation: loadingSigilTurn 32s linear infinite, loadingSigilGlow 2.6s ease-in-out infinite alternate;
+}
+.loading-label {
+  position: relative;
+  margin: 0;
+  color: #e5b54d;
+  font: 500 clamp(13px, 1.7vw, 19px) 'Cinzel', Georgia, serif;
+  letter-spacing: clamp(3px, 0.65vw, 7px);
+  text-shadow: 0 0 13px rgba(244, 166, 47, 0.45);
+}
+.loading-dots { display: inline-block; width: 2.5em; text-align: left; animation: loadingDots 1.15s steps(4, end) infinite; }
+.loading-progress {
+  position: relative;
+  display: flex;
+  width: clamp(240px, 34vw, 390px);
+  height: clamp(48px, 6vw, 62px);
+  align-items: center;
+  padding: 0 21%;
+  overflow: hidden;
+  background: url('assets/title/menu-button.png') center / 100% 100% no-repeat;
+}
+.loading-progress::before {
+  position: absolute;
+  top: calc(50% - 2px);
+  right: 21%;
+  left: 21%;
+  height: 4px;
+  content: '';
+  background: rgba(5, 19, 20, 0.86);
+  box-shadow: 0 0 5px rgba(221, 169, 72, 0.34);
+}
+.loading-progress span {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 4px;
+  background: linear-gradient(90deg, #36a879, #92e1aa 42%, #fff0bd 54%, #e4b74d 78%, #9b6224);
+  box-shadow: 0 0 9px rgba(255, 194, 77, 0.9);
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+.loading-screen.active .loading-progress span { animation: loadingProgress 2.2s linear forwards; }
+
 .portal-transition {
   position: fixed;
   z-index: 180;
@@ -1128,6 +1203,11 @@ html, body {
 @keyframes portalBreathe { to { transform: scale(1.12); opacity: 0.72; } }
 @keyframes corePulse { to { transform: scale(1.08); filter: brightness(1.2); } }
 @keyframes portalSweep { 0% { transform: translateX(-110%); } 100% { transform: translateX(310%); } }
+@keyframes loadingSigilTurn { to { transform: rotate(360deg); } }
+@keyframes loadingSigilGlow { to { filter: drop-shadow(0 0 23px rgba(255, 181, 64, 0.78)); } }
+@keyframes loadingAura { to { transform: scale(1.12); opacity: 0.64; } }
+@keyframes loadingDots { 0%, 15% { width: 0.5em; } 40% { width: 1.2em; } 65% { width: 1.8em; } 90%, 100% { width: 2.5em; } }
+@keyframes loadingProgress { to { transform: scaleX(1); } }
 
 @media (max-width: 600px) {
   .sands-hud { top: 9px; left: 8px; transform: scale(0.86); transform-origin: top left; }
@@ -1153,4 +1233,5 @@ html, body {
     animation-duration: 12s;
   }
   .title-logo-image { animation-duration: 12s; }
+  .loading-sigil { animation-duration: 32s, 2.6s; }
 }

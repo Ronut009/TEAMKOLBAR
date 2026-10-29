@@ -108,6 +108,10 @@ export class Engine {
 
     this.titleScreen = document.getElementById('titleScreen');
     this.startGameButton = document.getElementById('startGameButton');
+    this.loadingScreen = document.getElementById('loadingScreen');
+    this.isLoading = false;
+    this.loadingTimer = 0;
+    this.loadingTargetIndex = null;
     this.portalTransition = document.getElementById('portalTransition');
     this.portalKicker = document.getElementById('portalKicker');
     this.portalTitle = document.getElementById('portalTitle');
@@ -253,11 +257,22 @@ export class Engine {
   }
 
   startJourney() {
-    if (this.isGameStarted) return;
-    this.isGameStarted = true;
+    if (this.isGameStarted || this.isLoading) return;
+    this.beginLoadingTransition(1);
+  }
+
+  beginLoadingTransition(destinationIndex) {
+    if (this.isLoading) return;
+    this.isLoading = true;
+    this.isGameStarted = false;
+    this.loadingTimer = 2.2;
+    this.loadingTargetIndex = destinationIndex;
     this.titleScreen?.classList.remove('active');
-    this.hudEl?.classList.remove('menu-hidden');
-    this.loadLevel(1);
+    this.portalTransition?.classList.remove('active');
+    this.levelCompleteModal?.classList.remove('active');
+    this.hudEl?.classList.add('menu-hidden');
+    this.loadingScreen?.classList.add('active');
+    this.loadingScreen?.setAttribute('aria-hidden', 'false');
   }
 
   returnToTitle() {
@@ -306,6 +321,23 @@ export class Engine {
   }
 
   update(dt) {
+    if (this.isLoading) {
+      this.loadingTimer -= dt;
+      if (this.loadingTimer <= 0) {
+        const destinationIndex = this.loadingTargetIndex;
+        this.isLoading = false;
+        this.loadingTargetIndex = null;
+        this.loadingScreen?.classList.remove('active');
+        this.loadingScreen?.setAttribute('aria-hidden', 'true');
+        if (destinationIndex) {
+          this.loadLevel(destinationIndex);
+          this.hudEl?.classList.remove('menu-hidden');
+        }
+      }
+      this.updateCamera(dt);
+      return;
+    }
+
     if (!this.isGameStarted) {
       if (Input.isPressed('enter') || Input.isPressed('space')) {
         this.startJourney();
@@ -321,7 +353,7 @@ export class Engine {
         this.portalTransitionActive = false;
         this.portalTargetIndex = null;
         this.portalTransition?.classList.remove('active');
-        if (destinationIndex) this.loadLevel(destinationIndex);
+        if (destinationIndex) this.beginLoadingTransition(destinationIndex);
       }
       return;
     }
@@ -404,19 +436,19 @@ export class Engine {
 
     // Level switching shortcuts [1] through [4]
     if (Input.isPressed('one') && this.currentLevelIndex !== 1) {
-      this.loadLevel(1);
+      this.beginLoadingTransition(1);
       return;
     }
     if (Input.isPressed('two') && this.currentLevelIndex !== 2) {
-      this.loadLevel(2);
+      this.beginLoadingTransition(2);
       return;
     }
     if (Input.isPressed('three') && this.currentLevelIndex !== 3) {
-      this.loadLevel(3);
+      this.beginLoadingTransition(3);
       return;
     }
     if (Input.isPressed('four') && this.currentLevelIndex !== 4) {
-      this.loadLevel(4);
+      this.beginLoadingTransition(4);
       return;
     }
 
