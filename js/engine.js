@@ -42,12 +42,14 @@ export class Engine {
 
     // Cached DOM elements
     this.hudEl = document.getElementById('hud');
+    this.hudFrameArt = document.getElementById('hudFrameArt');
     this.hpNum = document.getElementById('hpNum');
     this.healthTrack = document.getElementById('healthTrack');
     this.healthBarFill = document.getElementById('healthBarFill');
-    this.divineMeter = document.getElementById('divineMeter');
     this.divineTrack = document.getElementById('divineTrack');
+    this.divineMeter = this.divineTrack;
     this.divineBarFill = document.getElementById('divineBarFill');
+    this.isHurtPortrait = false;
     this.hudEl?.classList.add('menu-hidden');
     this.player.hasDivineUnlocked = false;
 
@@ -90,14 +92,7 @@ export class Engine {
     this.isLoading = false;
     this.loadingTimer = 0;
     this.loadingTargetIndex = null;
-    this.portalTransition = document.getElementById('portalTransition');
-    this.portalKicker = document.getElementById('portalKicker');
-    this.portalTitle = document.getElementById('portalTitle');
-    this.portalCaption = document.getElementById('portalCaption');
     this.isGameStarted = false;
-    this.portalTransitionActive = false;
-    this.portalTransitionTimer = 0;
-    this.portalTargetIndex = null;
 
     this.startGameButton?.addEventListener('click', (event) => {
       event.preventDefault();
@@ -226,7 +221,6 @@ export class Engine {
     this.loadingTimer = 2.2;
     this.loadingTargetIndex = destinationIndex;
     this.titleScreen?.classList.remove('active');
-    this.portalTransition?.classList.remove('active');
     this.levelCompleteModal?.classList.remove('active');
     this.hudEl?.classList.add('menu-hidden');
     this.loadingScreen?.classList.add('active');
@@ -235,47 +229,10 @@ export class Engine {
 
   returnToTitle() {
     this.isGameStarted = false;
-    this.portalTransitionActive = false;
-    this.portalTargetIndex = null;
-    this.portalTransition?.classList.remove('active');
     this.levelCompleteModal?.classList.remove('active');
     this.closeDialogue();
     this.titleScreen?.classList.add('active');
     this.hudEl?.classList.add('menu-hidden');
-  }
-
-  beginPortalTransition(destinationIndex) {
-    if (this.portalTransitionActive || !this.portalTransition) return;
-
-    const destinations = {
-      2: {
-        kicker: 'THE FIRST RIFT',
-        title: 'DESERT CATACOMBS',
-        caption: 'A buried seal stirs beneath the shifting sands.'
-      },
-      3: {
-        kicker: 'THE ROOTED PASSAGE',
-        title: 'HEART OF HUBRIS',
-        caption: 'The relics call from the overgrown heart of the ruins.'
-      },
-      4: {
-        kicker: 'BEYOND THE VEIL',
-        title: 'THE ASTRAL SANCTUM',
-        caption: 'A final threshold opens where time has begun to fracture.'
-      }
-    };
-    const destination = destinations[destinationIndex];
-    if (!destination) return;
-
-    this.portalTargetIndex = destinationIndex;
-    this.portalTransitionTimer = 1.85;
-    this.portalTransitionActive = true;
-    if (this.portalKicker) this.portalKicker.textContent = destination.kicker;
-    if (this.portalTitle) this.portalTitle.textContent = destination.title;
-    if (this.portalCaption) this.portalCaption.textContent = destination.caption;
-    this.levelCompleteModal?.classList.remove('active');
-    this.closeDialogue();
-    this.portalTransition.classList.add('active');
   }
 
   update(dt) {
@@ -301,18 +258,6 @@ export class Engine {
         this.startJourney();
       }
       this.updateCamera(dt);
-      return;
-    }
-
-    if (this.portalTransitionActive) {
-      this.portalTransitionTimer -= dt;
-      if (this.portalTransitionTimer <= 0) {
-        const destinationIndex = this.portalTargetIndex;
-        this.portalTransitionActive = false;
-        this.portalTargetIndex = null;
-        this.portalTransition?.classList.remove('active');
-        if (destinationIndex) this.beginLoadingTransition(destinationIndex);
-      }
       return;
     }
 
@@ -344,7 +289,7 @@ export class Engine {
         this.completePrompt.textContent = `[E] CONTINUE TO LEVEL 3  •  AUTO IN ${seconds}s`;
       }
       if (this.levelTransitionTimer <= 0 || Input.isPressed('interact') || Input.isPressed('space')) {
-        this.beginPortalTransition(3);
+        this.beginLoadingTransition(3);
         return;
       }
 
@@ -375,7 +320,7 @@ export class Engine {
         this.level.epilogueAlpha > 0.6 &&
         (Input.isPressed('interact') || Input.isPressed('space') || Input.isPressed('enter'))
       )) {
-        this.beginPortalTransition(4);
+        this.beginLoadingTransition(4);
       }
       return;
     }
@@ -446,10 +391,10 @@ export class Engine {
     if (Input.isPressed('interact') || Input.isPressed('e') || Input.isPressed('enter')) {
       if (this.levelCompleted) {
         if (this.currentLevelIndex === 1) {
-          this.beginPortalTransition(2);
+          this.beginLoadingTransition(2);
           return;
         } else if (this.currentLevelIndex === 2) {
-          this.beginPortalTransition(3);
+          this.beginLoadingTransition(3);
           return;
         } else if (this.currentLevelIndex === 4) {
           this.returnToTitle();
@@ -638,6 +583,16 @@ export class Engine {
     if (!this.hudEl || !this.player) return;
 
     const hpRatio = Math.max(0, Math.min(1, this.player.hp / this.player.maxHp));
+    const hurtPortrait = this.player.hp < 10;
+    if (this.hudFrameArt && hurtPortrait !== this.isHurtPortrait) {
+      this.hudFrameArt.src = hurtPortrait
+        ? 'assets/ui/hud/combat-frame-hurt.png'
+        : 'assets/ui/hud/combat-frame-normal.png';
+      this.hudFrameArt.alt = hurtPortrait
+        ? 'Rakti, hurt, with health and ability frames'
+        : 'Rakti with health and ability frames';
+      this.isHurtPortrait = hurtPortrait;
+    }
     if (this.healthBarFill) this.healthBarFill.style.width = `${hpRatio * 100}%`;
     if (this.healthTrack) {
       this.healthTrack.setAttribute('aria-valuemax', this.player.maxHp);

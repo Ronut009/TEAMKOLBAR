@@ -19,26 +19,20 @@
   <!-- Divine Transformation Fullscreen Flash Effect -->
   <div class="divine-flash" id="divineFlash"></div>
 
-  <!-- Floating weapon, Divine ability meter, and custom health meter. -->
-  <div class="sands-hud" id="hud" aria-label="Combat HUD">
+  <!-- Compact portrait-and-meter HUD; fills animate above the empty frame art. -->
+  <div class="sands-hud menu-hidden" id="hud" aria-label="Combat HUD">
+    <div class="hud-frame" id="hudFrame">
+      <img class="hud-frame-art" id="hudFrameArt" src="assets/ui/hud/combat-frame-normal.png" alt="Rakti portrait with health and ability frames" draggable="false">
+      <div class="meter-track health-track" id="healthTrack" role="progressbar" aria-label="Rakti's health" aria-valuemin="0" aria-valuemax="20" aria-valuenow="20">
+        <span class="health-fill" id="healthBarFill"></span>
+        <span class="health-value" id="hpNum">20 / 20</span>
+      </div>
+      <div class="meter-track divine-track" id="divineTrack" role="progressbar" aria-label="Divine ability duration" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <span class="divine-fill" id="divineBarFill"></span>
+      </div>
+    </div>
     <div class="hud-weapon" aria-label="Equipped weapon: Guardian Talwar">
       <img src="assets/weapons/guardian-talwar.png" alt="Guardian Talwar" draggable="false">
-    </div>
-    <div class="hud-bars">
-      <div class="hud-meter divine-meter" id="divineMeter">
-        <img class="divine-frame" src="assets/ui/hud/divine-frame.png" alt="" draggable="false">
-        <div class="meter-track divine-track" id="divineTrack" role="progressbar" aria-label="Divine ability duration" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-          <div class="divine-fill" id="divineBarFill"></div>
-          <div class="meter-sheen"></div>
-        </div>
-      </div>
-      <div class="hud-meter health-meter">
-        <img class="health-frame" src="assets/ui/hud/health-frame.png" alt="" draggable="false">
-        <div class="meter-track health-track" id="healthTrack" role="progressbar" aria-label="Rakti's health" aria-valuemin="0" aria-valuemax="20" aria-valuenow="20">
-          <div class="health-fill" id="healthBarFill"></div>
-          <span class="health-value" id="hpNum">20 / 20</span>
-        </div>
-      </div>
     </div>
   </div>
 
@@ -118,25 +112,6 @@
     <div class="loading-aura" aria-hidden="true"></div>
     <img class="loading-sigil" src="assets/title/kali-loading-sigil.png" alt="">
     <p class="loading-label">LOADING<span class="loading-dots" aria-hidden="true">...</span></p>
-  </section>
-
-  <section class="portal-transition" id="portalTransition" aria-live="polite" aria-label="Travelling between realms">
-    <div class="portal-halo"></div>
-    <div class="portal-mandala" aria-hidden="true">
-      <div class="mandala-ring ring-outer"></div>
-      <div class="mandala-ring ring-middle"></div>
-      <div class="mandala-ring ring-inner"></div>
-      <div class="mandala-core">✦</div>
-      <i class="relic-mark mark-one">◇</i>
-      <i class="relic-mark mark-two">◇</i>
-      <i class="relic-mark mark-three">◇</i>
-      <i class="relic-mark mark-four">◇</i>
-    </div>
-    <p class="portal-kicker" id="portalKicker">THE TIDE OPENS</p>
-    <h2 class="portal-title" id="portalTitle">A NEW REALM</h2>
-    <p class="portal-caption" id="portalCaption">The relics whisper across the veil.</p>
-    <div class="portal-progress" aria-hidden="true"><span></span></div>
-    <p class="portal-status">CROSSING BETWEEN REALMS</p>
   </section>
 
   <script type="module" src="js/main.js"></script>

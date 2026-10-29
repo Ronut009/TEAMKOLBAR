@@ -726,47 +726,7 @@ html, body {
   text-shadow: 0 0 13px rgba(244, 166, 47, 0.45);
 }
 .loading-dots { display: inline-block; width: 2.5em; text-align: left; animation: loadingDots 1.15s steps(4, end) infinite; }
-.portal-transition {
-  position: fixed;
-  z-index: 180;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  padding: 24px;
-  color: #f6ead0;
-  background: radial-gradient(ellipse at center, rgba(27, 36, 46, 0.95), rgba(4, 7, 12, 0.985) 68%);
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity 0.35s ease, visibility 0.35s ease;
-}
-.portal-transition.active { opacity: 1; visibility: visible; }
-.portal-halo { position: absolute; width: min(86vw, 720px); aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle, rgba(220, 171, 79, 0.13), rgba(82, 218, 220, 0.05) 37%, transparent 70%); filter: blur(8px); animation: portalBreathe 3.5s ease-in-out infinite alternate; }
-.portal-mandala { position: relative; width: clamp(144px, 28vw, 230px); aspect-ratio: 1; margin-bottom: 32px; }
-.mandala-ring { position: absolute; inset: 0; border: 1px solid rgba(228, 183, 90, 0.68); border-radius: 50%; box-shadow: 0 0 17px rgba(226, 172, 69, 0.18), inset 0 0 15px rgba(226, 172, 69, 0.08); }
-.ring-outer { inset: 1%; border-style: dashed; animation: portalSpin 28s linear infinite; }
-.ring-middle { inset: 12%; border-color: rgba(83, 222, 226, 0.78); border-width: 2px; box-shadow: 0 0 17px rgba(83, 222, 226, 0.28), inset 0 0 18px rgba(83, 222, 226, 0.1); animation: portalSpin 14s linear infinite reverse; }
-.ring-inner { inset: 28%; border-color: rgba(255, 222, 147, 0.9); animation: portalSpin 18s linear infinite; }
-.mandala-core { position: absolute; inset: 38%; display: grid; place-items: center; border: 1px solid rgba(246, 216, 150, 0.72); border-radius: 50%; color: #fff0bd; background: radial-gradient(circle, rgba(227, 181, 92, 0.5), rgba(23, 31, 36, 0.84)); font-size: 24px; text-shadow: 0 0 16px #efc96e; box-shadow: 0 0 28px rgba(243, 194, 88, 0.44); animation: corePulse 1.4s ease-in-out infinite alternate; }
-.relic-mark { position: absolute; color: #efcb7c; font-size: 20px; font-style: normal; text-shadow: 0 0 12px rgba(255, 204, 100, 0.9); }
-.mark-one { top: 0; left: 50%; transform: translateX(-50%); }
-.mark-two { top: 50%; right: -1%; transform: translateY(-50%); }
-.mark-three { bottom: 0; left: 50%; transform: translateX(-50%); }
-.mark-four { top: 50%; left: -1%; transform: translateY(-50%); }
-.portal-kicker { position: relative; margin: 0 0 10px; color: #80dfe0; font: 700 9px 'Cinzel', serif; letter-spacing: 4px; text-align: center; }
-.portal-title { position: relative; margin: 0; color: #f4dfaa; font: 700 clamp(22px, 5vw, 38px) 'Cinzel', serif; letter-spacing: clamp(2px, 1vw, 6px); text-align: center; text-shadow: 0 0 24px rgba(239, 196, 98, 0.29); }
-.portal-caption { position: relative; max-width: min(430px, 90vw); margin: 12px 0 25px; color: #d0ccc2; font: 15px 'Marcellus', Georgia, serif; line-height: 1.6; text-align: center; }
-.portal-progress { position: relative; width: min(230px, 62vw); height: 3px; overflow: hidden; background: rgba(202, 177, 126, 0.18); }
-.portal-progress span { display: block; width: 38%; height: 100%; background: linear-gradient(90deg, transparent, #63dadd, #f5d68f, transparent); box-shadow: 0 0 11px rgba(94, 224, 224, 0.74); animation: portalSweep 1.3s ease-in-out infinite; }
-.portal-status { position: relative; margin: 11px 0 0; color: rgba(218, 205, 178, 0.62); font: 700 7px 'Cinzel', serif; letter-spacing: 2px; }
-
 @keyframes titleOrbit { to { transform: rotate(360deg); } }
-@keyframes portalSpin { to { transform: rotate(360deg); } }
-@keyframes portalBreathe { to { transform: scale(1.12); opacity: 0.72; } }
-@keyframes corePulse { to { transform: scale(1.08); filter: brightness(1.2); } }
-@keyframes portalSweep { 0% { transform: translateX(-110%); } 100% { transform: translateX(310%); } }
 @keyframes loadingSigilTurn { to { transform: rotate(360deg); } }
 @keyframes loadingSigilGlow { to { filter: drop-shadow(0 0 23px rgba(255, 181, 64, 0.78)); } }
 @keyframes loadingAura { to { transform: scale(1.12); opacity: 0.64; } }
@@ -786,30 +746,21 @@ html, body {
 
 @media (prefers-reduced-motion: reduce) {
   .title-screen::after,
-  .portal-halo,
-  .ring-outer,
-  .ring-middle,
-  .ring-inner,
-  .mandala-core,
-  .portal-progress span {
-    animation-duration: 12s;
-  }
   .title-logo-image { animation-duration: 12s; }
   .loading-sigil { animation-duration: 32s, 2.6s; }
 }
 
-/* Minimal floating weapon + Divine and health meters; no HUD plate or side panels. */
+/* Compact, layered lotus HUD: static empty frame art with live fills above it. */
 .sands-hud {
-  top: 18px;
-  left: 22px;
+  top: 15px;
+  left: 18px;
   display: flex;
-  width: auto;
-  max-width: calc(100vw - 44px);
-  flex-direction: row;
-  align-items: center;
-  gap: 10px;
-  overflow: visible;
+  width: min(560px, calc(100vw - 30px));
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
   padding: 0;
+  overflow: visible;
   border: 0;
   border-radius: 0;
   background: none;
@@ -817,41 +768,14 @@ html, body {
   backdrop-filter: none;
 }
 
-.hud-weapon {
-  display: flex;
-  width: 102px;
-  height: 100px;
-  flex: 0 0 102px;
-  align-items: center;
-  justify-content: center;
-}
-
-.hud-weapon img {
-  display: block;
-  width: 116px;
-  height: 100px;
-  object-fit: contain;
-  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.76)) drop-shadow(0 0 5px rgba(232, 188, 87, 0.35));
-}
-
-.hud-bars {
-  display: flex;
-  width: min(440px, calc(100vw - 145px));
-  min-width: 0;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.hud-meter {
+.hud-frame {
   position: relative;
   width: 100%;
-  height: 58px;
-  filter: drop-shadow(0 2px 7px rgba(0, 0, 0, 0.6));
-  transition: opacity 0.25s ease, filter 0.25s ease;
+  aspect-ratio: 3 / 1;
+  filter: drop-shadow(0 2px 7px rgba(0, 0, 0, 0.56));
 }
 
-.divine-frame,
-.health-frame {
+.hud-frame-art {
   position: absolute;
   inset: 0;
   display: block;
@@ -865,94 +789,89 @@ html, body {
   position: absolute;
   z-index: 1;
   display: block;
-  height: 14%;
   overflow: hidden;
   margin: 0;
+  padding: 0;
   border: 0;
-  border-radius: 4px;
-  background: linear-gradient(90deg, rgba(2, 9, 13, 0.97), rgba(5, 17, 20, 0.95));
-  box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.94), 0 0 2px rgba(0, 0, 0, 0.8);
+  border-radius: 3px;
+  background: transparent;
+  box-shadow: none;
+}
+
+.health-track {
+  top: 36.3%;
+  left: 31.7%;
+  width: 60%;
+  height: 10.5%;
 }
 
 .divine-track {
-  top: 43%;
-  left: 17%;
-  right: 8%;
+  top: 59.4%;
+  left: 31.7%;
+  width: 49.6%;
+  height: 9.2%;
+  transition: opacity 0.2s ease;
 }
 
-.divine-fill,
-.health-fill {
+.divine-track.locked { opacity: 0.55; }
+
+.health-fill,
+.divine-fill {
   display: block;
   width: 100%;
   height: 100%;
   border-radius: inherit;
-  transition: width 0.12s linear;
-}
-
-.divine-fill {
-  background: linear-gradient(90deg, #147981, #2fd5bd 58%, #c7ffeb);
-  box-shadow: 0 0 8px rgba(60, 232, 210, 0.68);
-}
-
-.meter-sheen {
-  position: absolute;
-  inset: 1px 0 auto;
-  height: 2px;
-  pointer-events: none;
-  background: linear-gradient(90deg, transparent, rgba(240, 255, 239, 0.58), transparent);
-}
-
-.divine-meter.locked {
-  opacity: 0.46;
-  filter: grayscale(0.55) drop-shadow(0 2px 6px rgba(0, 0, 0, 0.55));
-}
-
-.divine-meter.active .divine-fill,
-.sands-hud.divine-mode .divine-fill {
-  box-shadow: 0 0 9px rgba(72, 239, 218, 0.78), inset 0 1px rgba(237, 255, 240, 0.5);
-}
-
-.health-meter {
-  height: 50px;
-  margin-top: -10px;
-}
-
-.health-track {
-  top: 44%;
-  left: 17%;
-  right: 8%;
-  height: 13%;
+  transition: width 0.14s linear;
 }
 
 .health-fill {
-  background: linear-gradient(90deg, #7e1e28, #d83b43 58%, #ff9b61);
-  box-shadow: 0 0 7px rgba(226, 61, 61, 0.6);
+  background: linear-gradient(180deg, rgba(255, 153, 102, 0.98), #db3942 35%, #981e36);
+  box-shadow: 0 0 7px rgba(226, 61, 61, 0.55), inset 0 1px rgba(255, 231, 194, 0.42);
+}
+
+.divine-fill {
+  background: linear-gradient(180deg, rgba(171, 220, 255, 0.98), #387fe3 36%, #15439a);
+  box-shadow: 0 0 7px rgba(74, 146, 244, 0.58), inset 0 1px rgba(233, 246, 255, 0.48);
+}
+
+.divine-track.active .divine-fill,
+.sands-hud.divine-mode .divine-fill {
+  box-shadow: 0 0 10px rgba(86, 160, 255, 0.78), inset 0 1px rgba(245, 251, 255, 0.64);
 }
 
 .health-value {
   position: absolute;
   top: 50%;
-  right: 3%;
-  color: #fff0cf;
+  right: 1.5%;
+  color: #fff2da;
   font: 700 9px 'Cinzel', serif;
-  letter-spacing: 0.7px;
+  letter-spacing: 0.6px;
   text-shadow: 0 1px 3px #080705, 0 0 6px rgba(0, 0, 0, 0.9);
   transform: translateY(-50%);
   white-space: nowrap;
 }
 
+.hud-weapon {
+  display: flex;
+  width: 104px;
+  height: 48px;
+  align-items: center;
+  justify-content: center;
+  margin-top: -2px;
+  margin-left: 32%;
+  filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.72));
+}
+
+.hud-weapon img {
+  display: block;
+  width: 100px;
+  height: 46px;
+  object-fit: contain;
+}
+
 @media (max-width: 600px) {
-  .sands-hud {
-    top: 10px;
-    left: 9px;
-    gap: 5px;
-    transform: scale(0.82);
-    transform-origin: top left;
-  }
-  .hud-weapon { width: 76px; height: 82px; flex-basis: 76px; }
-  .hud-weapon img { width: 88px; height: 82px; }
-  .hud-bars { width: min(330px, calc(100vw - 104px)); }
-  .hud-meter { height: 52px; }
-  .health-meter { height: 44px; margin-top: -9px; }
-  .health-value { font-size: 8px; }
+  .sands-hud { top: 9px; left: 9px; width: calc(100vw - 18px); }
+  .hud-weapon { width: 78px; height: 38px; margin-left: 32%; }
+  .hud-weapon img { width: 74px; height: 36px; }
+  .health-value { font-size: 7px; }
 }
