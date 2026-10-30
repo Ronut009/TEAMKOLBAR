@@ -183,7 +183,7 @@ export class Engine {
     } else {
       // Level 1: the prologue (portal room -> idol) unless it has already been played
       this.level1.idolBlessed = this.prologueComplete;
-      this.player.x = this.prologueComplete ? 160 : this.level1.prologue.wakeX;
+      this.player.x = this.prologueComplete ? this.level1.getRespawnPoint().x : this.level1.prologue.wakeX;
       this.player.y = 368;
       this.player.hasDivineUnlocked = false; // Strictly requires lotus interaction in Round 1
     }
@@ -228,6 +228,7 @@ export class Engine {
   startJourney() {
     if (this.isGameStarted || this.isLoading) return;
     this.prologueComplete = false;   // a new game always starts with the wake-up
+    this.level1.checkpointIndex = -1;
     this.beginLoadingTransition(1);
   }
 
@@ -432,6 +433,11 @@ export class Engine {
           this.level.idolGlow = 1.8;
           this.player.startOutfitChange();
         }
+        // LEVEL 1: claiming the relic in the shrine opens the door to Level 2
+        else if (nearby.type === 'relic' && !this.level.relic.collected) {
+          this.level.collectRelic(this.player);
+          this.openDialogue(nearby.text, 'kali', '⚜ PEARL OF THE TIDE ⚜');
+        }
         // LEVEL 1: Sacred Lotus Awakening (Unlocks X ability - Taught by Maa Kali)
         else if (nearby.type === 'lotus_awakening' || nearby.id === 'sacred_lotus') {
           this.player.hasDivineUnlocked = true;
@@ -539,8 +545,8 @@ export class Engine {
 
     if (this.currentLevelIndex === 1) {
       if (this.completeTitle) this.completeTitle.textContent = 'LEVEL 1 COMPLETE';
-      if (this.completeSubtitle) this.completeSubtitle.textContent = 'RUINS OF SURYA CONQUERED';
-      if (this.completeFlavor) this.completeFlavor.textContent = '* You step into the eternal darkness of the sanctum.';
+      if (this.completeSubtitle) this.completeSubtitle.textContent = 'DROWNED DWARAKA CLEARED';
+      if (this.completeFlavor) this.completeFlavor.textContent = '* The Pearl of the Tide hums in your hands as the portal takes you.';
       if (this.completePrompt) this.completePrompt.textContent = '[E] ENTER LEVEL 2  |  [R] REPLAY';
     } else if (this.currentLevelIndex === 2) {
       if (this.completeTitle) this.completeTitle.textContent = 'LEVEL 2 COMPLETE';

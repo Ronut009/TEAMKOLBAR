@@ -5,7 +5,7 @@
  * ==========================================================================
  */
 
-import { Level } from './level.js';
+import { Level } from './level1.js';   // js/level.js = previous single-screen Level 1 (backup)
 import { Player } from './player.js';
 import { Engine } from './engine.js';
 import { Input } from './input.js';

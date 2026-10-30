@@ -965,10 +965,10 @@ export class Player {
     }
 
     // 7. Pit Fall & Respawn. The added chapters use taller maps than Levels 1–2.
-    const deathY = level?.levelIndex === 2 ? 585
+    const deathY = level?.deathY ?? (level?.levelIndex === 2 ? 585
       : level?.levelIndex === 3 ? 550
       : level?.levelIndex === 4 ? 670
-      : 434;
+      : 434);
     if (this.y > deathY) {
       this.respawnFromPit(level);
     }
@@ -995,7 +995,12 @@ export class Player {
   }
 
   respawnFromPit(level = null) {
-    const spawn = this.getLevelSpawn(level);
+    // Levels with checkpoints (Level 1) decide where Rakti comes back; falling also costs HP there.
+    const spawn = level?.getRespawnPoint?.() || this.getLevelSpawn(level);
+    if (level?.pitDamage) {
+      this.hp = Math.max(0, this.hp - level.pitDamage);
+      this.invulnerableTimer = 1.0;
+    }
     this.x = spawn.x;
     this.y = spawn.y;
     this.vx = 0;
