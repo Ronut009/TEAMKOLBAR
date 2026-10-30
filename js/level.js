@@ -8,6 +8,7 @@
  */
 
 import { EnemySpriteSheet } from './enemySprites.js';
+import { PlatformArt } from './platformArt.js';
 
 export class Level {
   constructor() {
@@ -40,8 +41,9 @@ export class Level {
     // Platform definitions
     // The fall space is increased (x=430 to 690) so MC cannot jump across directly!
     this.platforms = [
-      // 0. Prologue floor (portal room + idol room, negative x)
-      { id: 'prologue_floor', x1: -2200, x2: 0, y: 368, oneWay: false },
+      // 0. Prologue floor (portal room + idol room, negative x; x1 is set to minX below).
+      //    `art: 'temple'` draws it with the tiled stone platform strip.
+      { id: 'prologue_floor', x1: -2200, x2: 0, y: 368, oneWay: false, art: 'temple' },
 
       // 1. Lower Left Ground (Ends at x=430 at the edge of the widened fall)
       { id: 'floor_left', x1: 0, x2: 430, y: 368, oneWay: false },
@@ -105,8 +107,9 @@ export class Level {
     // ------------------------------------------------------------------------
     // PROLOGUE: two screens to the LEFT of the original temple map (negative x).
     // Screen 1: the rift portal where Rakti wakes. Screen 2: Maa Kali's idol.
-    // Both images are scaled so their floor line (image y=655) sits on the
-    // temple floor (world y=368); walking right continues into the old map at x=0.
+    // The backgrounds have no floor of their own: the walkable ground is the tiled
+    // platform strip (js/platformArt.js) at world y=368, the same floor height as the
+    // old map, so walking right continues into it at x=0.
     // ------------------------------------------------------------------------
     const proScale = 368 / 655;
     this.prologue = {
@@ -121,8 +124,10 @@ export class Level {
     };
     this.minX = -Math.round(2 * this.prologue.screenW);          // left edge of the playable world
     this.prologue.wakeX = this.minX + 430 * proScale;              // just right of the portal
-    this.prologue.idolX = this.minX + this.prologue.screenW + 1215 * proScale;
-    this.prologue.idolFaceY = 175 * proScale;
+    this.prologue.idolX = this.minX + this.prologue.screenW + 1330 * proScale;   // idol centre in the idol screen
+    this.prologue.idolFaceY = 150 * proScale;
+    this.platforms.find((p) => p.id === 'prologue_floor').x1 = this.minX;
+    this.platformArt = new PlatformArt('temple');
     this.prologue.idolRange = 95;
     this.idolBlessed = false;   // set by the engine once Rakti has received Kali's blessing
     this.idolGlow = 0;          // golden glow on the idol during the blessing
@@ -661,6 +666,11 @@ export class Level {
         ctx.drawImage(img, this.minX + i * p.screenW, 0, p.screenW + 1, p.screenH);
       }
     });
+
+    // Platforms with platform art (the prologue floor; add more by giving platforms an `art` style)
+    for (const plat of this.platforms) {
+      if (plat.art) this.platformArt.draw(ctx, plat.x1, plat.x2, plat.y);
+    }
 
     // Idol: soft pulse while she can still be touched, a strong golden bloom during the blessing
     const pulse = this.idolBlessed ? 0 : 0.18 + Math.sin(this.animTime * 2.2) * 0.08;
