@@ -4,8 +4,8 @@
  * Asura / Rakshasa Archer & Homing Tracking Arrow System:
  * - Authentic 6-Frame Aim & Shoot and Aim-Up Animation cycles
  * - 4-Frame Hurt & Fall Death Sequence with Collapsed State & Dropped Bow
- * - Archer HP: 12 HP (divided into 3 segments of 4 damage each)
- * - Rakti's Sword Damage: 4 damage per melee strike (3 hits defeat archer)
+ * - Archer HP: 12 HP
+ * - Rakti's Sword Damage: 5 damage per swing (3 hits defeat an archer)
  * - Homing / Tracking Arrow: Released arrow continuously curves and follows Rakti!
  * - Mini Ornate HP Bar rendered above the archer displaying 12 / 12 HP
  * - Dynamic removal and replacement with reinforcement archers
@@ -237,7 +237,7 @@ export class Archer {
     this.width = 96;
     this.height = 116;
 
-    // Archer Stats: 12 HP (Rakti deals 4 damage per sword strike)
+    // Archer Stats: 12 HP (Rakti deals 5 damage per sword swing)
     this.hp = 12;
     this.maxHp = 12;
 
@@ -377,12 +377,11 @@ export class Archer {
       return;
     }
 
-    // 2. Check Rakti Melee Sword Attack (Her sword deals 4 damage!)
+    // 2. Check Rakti Melee Sword Attack (one hit per swing, player.swordDamage)
     if (!this.crushOnly && this.alive && player && player.isAttacking && this.hitCooldown <= 0) {
       const dist = Math.hypot(player.x - this.x, player.y - this.y);
-      if (dist < 60) {
-        const damage = player.swordDamage || 4;
-        const killed = this.takeDamage(damage, player.x);
+      if (dist < 60 && player.claimSwingHit(this)) {
+        const killed = this.takeDamage(player.swordDamage, player.x);
         if (level) {
           level.cameraShake = 0.35;
           if (killed && level.registerKill) {

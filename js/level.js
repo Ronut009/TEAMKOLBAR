@@ -461,13 +461,14 @@ export class Level {
     const dx = playerX - enemy.x;
     const closeVertically = Math.abs(playerY - enemy.y) < 48;
     const canPlayerHit = player?.isAttacking
-      && !enemy.playerAttackWasActive
       && Math.abs(dx) < 58
       && closeVertically
-      && (dx === 0 || (dx < 0 && player.facing === 'left') || (dx > 0 && player.facing !== 'left'));
+      // dx = player - enemy: a player left of the sentinel (dx < 0) must face right to hit it.
+      && (dx === 0 || (dx < 0 && player.facing !== 'left') || (dx > 0 && player.facing === 'left'))
+      && player.claimSwingHit(enemy);
 
     if (canPlayerHit) {
-      enemy.hp = Math.max(0, enemy.hp - (player.swordDamage || 4));
+      enemy.hp = Math.max(0, enemy.hp - player.swordDamage);
       enemy.hitFlash = 0.22;
       enemy.hurtTimer = 0.3;
       if (enemy.hp === 0) {

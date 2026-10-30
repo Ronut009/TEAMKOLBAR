@@ -639,9 +639,8 @@ export class Level2 {
       const dx = playerX - enemy.x;
 
       // Player melee attack hitting enemy
-      if (player?.isAttacking && Math.abs(dx) < 56 && Math.abs(playerY - enemy.y) < 42 && enemy.hitFlash <= 0) {
-        const damage = player.swordDamage || 4;
-        enemy.hp -= damage;
+      if (player?.isAttacking && Math.abs(dx) < 56 && Math.abs(playerY - enemy.y) < 42 && player.claimSwingHit(enemy)) {
+        enemy.hp -= player.swordDamage;
         enemy.hitFlash = 0.3;
         enemy.hurtTimer = 0.3;
         if (enemy.hp <= 0) {

@@ -193,6 +193,8 @@ export class Engine {
     this.player.isGrounded = true;
     this.player.isDead = false;
     this.player.isAttacking = false;
+    this.player.attackQueued = false;
+    this.player.climbTransition = null;
     this.player.doorwayFade = 1.0;
     this.player.currentPlatform = null;
     this.playerDying = false;

@@ -39,10 +39,39 @@ export class Player {
     // Landing animation trigger
     this.landingTimer = 0;
 
-    // Sprite Display Dimensions (Normalized to 160x280 canvas with foot at y=274)
+    // Sprite Display Dimensions (Kali divine frames are drawn into this 46x80 box)
     this.spriteWidth = 46;
     this.spriteHeight = 80;
     this.footOffsetY = 274 / 280;
+
+    // Rakti's frames live in assets/anims/rakti/. Each frame set shares one canvas; (anchorX, anchorY)
+    // is the point between her feet. All sets were normalised to the same head size, so one scale
+    // converts sheet pixels to world pixels for every set.
+    this.spriteScale = 0.24;
+    this.spriteMetrics = {
+      main:          { frameW: 290, frameH: 260, anchorX: 152, anchorY: 258 }, // run/attack/jump/climb/mantle/descend/runback
+      idle:          { frameW: 136, frameH: 258, anchorX: 76,  anchorY: 256 },
+      kaliTransform: { frameW: 194, frameH: 228, anchorX: 90,  anchorY: 226 },
+      kaliHover:     { frameW: 182, frameH: 227, anchorX: 88,  anchorY: 225 },
+      kaliMove:      { frameW: 178, frameH: 203, anchorX: 80,  anchorY: 201 },
+      kaliRevert:    { frameW: 181, frameH: 175, anchorX: 91,  anchorY: 172 }
+    };
+    // Maa Kali floats this many world pixels above the ground.
+    this.kaliHoverLift = 5;
+
+    // Idle breathing loop
+    this.idleFrame = 0;
+    this.idleTimer = 0;
+    this.idleFrameDuration = 0.16;
+
+    // Kali -> Rakti return animation (6 frames)
+    this.isReverting = false;
+    this.revertFrame = 0;
+    this.revertTimer = 0;
+    this.revertFrameDuration = 0.09;
+
+    // Short locked animations when stepping on/off a ladder (mantle over the top, land at the bottom).
+    this.climbTransition = null;
 
     // Keep Rakti's hitbox presentation consistent across mortal and divine forms.
     this.divineWidth = this.spriteWidth;
@@ -70,6 +99,10 @@ export class Player {
     this.attackTimer = 0;
     this.attackFrameDuration = 0.065;
     this.slashes = [];
+    // Every swing gets a new id; an enemy can only be damaged once per swing id.
+    this.attackId = 0;
+    // A click during the first half of a swing is queued instead of restarting it.
+    this.attackQueued = false;
 
     // Run Animation
     this.runFrame = 0;
@@ -88,7 +121,7 @@ export class Player {
     this.particles = [];
 
     this.name = 'RAKTI';
-    this.swordDamage = 4; // Her sword deals 4 damage per strike
+    this.swordDamage = 5; // Every sword hit deals 5 damage to every enemy (one hit per swing)
     this.hp = 20;
     this.maxHp = 20;
     this.hasKey = false;
@@ -107,66 +140,41 @@ export class Player {
   }
 
   loadAnimations() {
+    const frames = (name, count = 6) => Array.from({ length: count }, (_, i) => {
+      const img = new Image();
+      img.src = `assets/anims/rakti/${name}_${i}.png`;
+      return img;
+    });
+
     this.anims = {
-      idle: new Image(),
-      run: [],
-      attack: [],
-      jump: [],
-      divine: new Image(),
-      kaliTrans: [],
-      kaliHoverIdle: [],
-      kaliHoverMove: []
+      run: frames('run'),            // side run, sword in hand
+      runBack: frames('runback'),    // running away from camera (used when walking into an exit)
+      attack: frames('attack'),      // 6-frame talwar combo
+      jump: frames('jump'),          // 0 crouch, 1 rise, 2 tuck, 3 fall, 4-5 landing crouch
+      climb: frames('climb'),        // ladder climb up (back view)
+      descend: frames('descend'),    // 0-2 ladder climb down, 3-5 step off at the bottom
+      mantle: frames('mantle'),      // 0-1 hang, 2 pull up, 3-5 over the top ledge
+      idle: frames('idle'),          // 6-frame standing breath, sword sheathed
+      kaliTrans: frames('kali_transform'), // Rakti -> golden aura -> Maa Kali
+      kaliHoverIdle: frames('kali_hover'), // Maa Kali hovering in place
+      kaliHoverMove: frames('kali_move'),  // Maa Kali gliding
+      kaliRevert: frames('kali_revert')    // Maa Kali -> aura -> Rakti
     };
+  }
 
-    this.anims.idle.src = 'assets/anims/idle.png';
+  /**
+   * Returns true the first time the current swing touches `target`, false afterwards.
+   * Enemies call this after their own range checks so one swing = one hit = swordDamage.
+   */
+  claimSwingHit(target) {
+    if (!this.isAttacking || !target) return false;
+    if (target.lastSwingHitId === this.attackId) return false;
+    target.lastSwingHitId = this.attackId;
+    return true;
+  }
 
-    for (let i = 0; i < 6; i++) {
-      const img = new Image();
-      img.src = `assets/anims/run_${i}.png`;
-      this.anims.run.push(img);
-    }
-
-    for (let i = 0; i < 6; i++) {
-      const img = new Image();
-      img.src = `assets/anims/attack_${i}.png`;
-      this.anims.attack.push(img);
-    }
-
-    for (let i = 0; i < 6; i++) {
-      const img = new Image();
-      img.src = `assets/anims/jump_${i}.png`;
-      this.anims.jump.push(img);
-    }
-
-    this.anims.divine.src = 'assets/anims/kali_hover_idle_0.png';
-
-    // Preload Maa Kali Divine Transformation, Hovering Idle, and Hover Move Frames
-    for (let i = 0; i < 6; i++) {
-      const transImg = new Image();
-      transImg.src = `assets/anims/kali_trans_${i}.png`;
-      this.anims.kaliTrans.push(transImg);
-
-      const idleImg = new Image();
-      idleImg.src = `assets/anims/kali_hover_idle_${i}.png`;
-      this.anims.kaliHoverIdle.push(idleImg);
-
-      const moveImg = new Image();
-      moveImg.src = `assets/anims/kali_hover_move_${i}.png`;
-      this.anims.kaliHoverMove.push(moveImg);
-    }
-
-    // Preload Climbing Animations
-    this.anims.climbUp = [];
-    this.anims.climbDown = [];
-    for (let i = 0; i < 6; i++) {
-      const imgUp = new Image();
-      imgUp.src = `assets/anims/climb_up_${i}.png`;
-      this.anims.climbUp.push(imgUp);
-
-      const imgDown = new Image();
-      imgDown.src = `assets/anims/climb_down_${i}.png`;
-      this.anims.climbDown.push(imgDown);
-    }
+  startClimbTransition(anim, frames, duration, fromOffset = 0, toOffset = 0) {
+    this.climbTransition = { anim, frames, duration, time: 0, fromOffset, toOffset };
   }
 
   takeDamage(amount, knockbackX = 0, knockbackY = 0) {
@@ -188,6 +196,7 @@ export class Player {
       this.isClimbing = false;
       this.currentLadder = null;
     }
+    this.climbTransition = null;
 
     this.vx = knockbackX;
     this.vy = knockbackY;
@@ -228,14 +237,17 @@ export class Player {
   }
 
   triggerAttack() {
-    if (this.isAttacking) {
-      this.attackFrame = 0;
-      this.attackTimer = 0;
-    } else {
-      this.isAttacking = true;
-      this.attackFrame = 0;
-      this.attackTimer = 0;
+    // Mashing used to restart the swing every click, so enemies took a hit per click.
+    // Clicks during the first half of a swing now queue the next swing instead.
+    if (this.isAttacking && this.attackFrame < 3) {
+      this.attackQueued = true;
+      return;
     }
+    this.attackQueued = false;
+    this.isAttacking = true;
+    this.attackFrame = 0;
+    this.attackTimer = 0;
+    this.attackId++;
 
     const slashDir = (this.facing === 'left') ? -1 : 1;
     this.slashes.push({
@@ -262,7 +274,7 @@ export class Player {
   }
 
   triggerDivineTransformation() {
-    if (this.isTransforming || this.isDivine) return;
+    if (this.isTransforming || this.isDivine || this.isReverting) return;
     this.isTransforming = true;
     this.transFrame = 0;
     this.transTimer = 0;
@@ -293,9 +305,11 @@ export class Player {
     }
   }
 
+  /** Instantly back to mortal form (level loads). Use startRevert() for the animated return. */
   revertToMortal() {
     this.isDivine = false;
     this.isTransforming = false;
+    this.isReverting = false;
     this.divineTimer = 0.0;
     this.speed = this.baseSpeed;
     this.canDoubleJump = false;
@@ -315,6 +329,16 @@ export class Player {
     }
   }
 
+  /** Plays the 6-frame Kali -> Rakti return; she hangs in place briefly, then normal physics resumes. */
+  startRevert() {
+    this.revertToMortal();
+    this.isReverting = true;
+    this.revertFrame = 0;
+    this.revertTimer = 0;
+    this.vx = 0;
+    this.vy = 0;
+  }
+
   update(dt, level, dialogueActive = false) {
     this.animTime += dt;
     this.divinePulse += dt * 4.0;
@@ -325,6 +349,20 @@ export class Player {
     if (this.jumpBufferTimer > 0) this.jumpBufferTimer -= dt;
     if (this.invulnerableTimer > 0) this.invulnerableTimer -= dt;
     if (this.ladderCooldown > 0) this.ladderCooldown -= dt;
+
+    // Ladder mantle / step-off animations briefly lock movement.
+    if (this.climbTransition) {
+      this.climbTransition.time += dt;
+      this.vx = 0;
+      this.isMoving = false;
+      if (this.climbTransition.time < this.climbTransition.duration) {
+        if (!this.isClimbing) this.vy = 0;
+        this.updateParticles(dt);
+        this.updateSlashes(dt);
+        return;
+      }
+      this.climbTransition = null;
+    }
 
     // Movement Inputs
     let moveDir = 0;
@@ -361,6 +399,9 @@ export class Player {
             this.vy = 0;
             this.isGrounded = false;
             this.currentPlatform = null;
+            this.climbDir = 'down';
+            this.climbFrame = 0;
+            this.startClimbTransition('mantle', [5, 4, 3, 2], 0.26, -10, 0);
           }
         } else if (atBottomLedge) {
           // Standing at bottom: mount ladder if pressing Up (W)
@@ -435,6 +476,7 @@ export class Player {
               this.isGrounded = true;
               this.vy = 0;
               this.ladderCooldown = 0.35; // Prevents infinite re-grab loop
+              this.startClimbTransition('mantle', [0, 1, 2, 3, 4, 5], 0.4, 18, 0);
             }
           } else if (climbMove > 0) {
             this.climbDir = 'down';
@@ -453,6 +495,7 @@ export class Player {
               this.isGrounded = true;
               this.vy = 0;
               this.ladderCooldown = 0.3;
+              this.startClimbTransition('descend', [3, 4, 5], 0.2, 0, 0);
             }
           } else {
             this.vy = 0;
@@ -516,6 +559,36 @@ export class Player {
       return; // Locked in place during transformation sequence
     }
 
+    // 0b. Kali -> Rakti return playback (brief hang in the air, then normal physics)
+    if (this.isReverting) {
+      this.vx = 0;
+      this.vy = 0;
+      this.isMoving = false;
+      this.revertTimer += dt;
+      if (this.revertTimer >= this.revertFrameDuration) {
+        this.revertTimer = 0;
+        this.revertFrame++;
+        if (this.revertFrame >= 6) {
+          this.isReverting = false;
+          this.revertFrame = 0;
+        }
+      }
+      if (Math.random() < 0.4) {
+        this.particles.push({
+          x: this.x + (Math.random() - 0.5) * 28,
+          y: this.y - 28 + (Math.random() - 0.5) * 28,
+          vx: (Math.random() - 0.5) * 30,
+          vy: -20 - Math.random() * 30,
+          life: 0.4,
+          maxLife: 0.4,
+          size: 2 + Math.random() * 2,
+          color: Math.random() > 0.5 ? '#ffd700' : '#ffea79'
+        });
+      }
+      this.updateParticles(dt);
+      return;
+    }
+
     // 1. Attack on Left Click or Right Click Parry / Deflection Strike
     if (Input.isPressed('attack') || Input.isPressed('parry')) {
       if (typeof window !== 'undefined' && (Input.isPressed('MouseLeft') || Input.isPressed('MouseRight'))) {
@@ -534,7 +607,9 @@ export class Player {
       if (this.attackTimer >= this.attackFrameDuration) {
         this.attackTimer = 0;
         this.attackFrame++;
-        if (this.attackFrame >= 6) {
+        if (this.attackQueued && this.attackFrame >= 3) {
+          this.triggerAttack();
+        } else if (this.attackFrame >= 6) {
           this.isAttacking = false;
           this.attackFrame = 0;
         }
@@ -577,13 +652,12 @@ export class Player {
         });
       }
       if (this.divineTimer <= 0) {
-        this.revertToMortal();
+        this.startRevert();
 
         // If standing on the divine golden bridge when power expires, fall!
         if (this.currentPlatform && this.currentPlatform.divineOnly) {
           this.isGrounded = false;
           this.currentPlatform = null;
-          this.vy = 80;
         }
       }
     }
@@ -613,6 +687,11 @@ export class Player {
       this.vx = this.approach(this.vx, 0, this.friction * dt);
       this.runFrame = 0;
       this.runTimer = 0;
+    }
+    this.idleTimer += dt;
+    if (this.idleTimer >= this.idleFrameDuration) {
+      this.idleTimer = 0;
+      this.idleFrame = (this.idleFrame + 1) % 6;
     }
 
     // 4. Jump & Drop-Through Handling
@@ -723,6 +802,9 @@ export class Player {
     this.isGrounded = true;
     this.isDead = false;
     this.currentPlatform = null;
+    this.isClimbing = false;
+    this.currentLadder = null;
+    this.climbTransition = null;
     this.spawnPoof(12);
 
     for (let i = 0; i < 24; i++) {
@@ -869,9 +951,9 @@ export class Player {
       ctx.globalAlpha = 0.35;
     }
 
-    // 1. Divine Aura (When in Maa Kali Divine Form or Transforming)
-    if (this.isDivine || this.isTransforming) {
-      this.drawDivineAura(ctx, cx, cy - 35);
+    // 1. Divine Aura (Maa Kali form only; the transformation frames carry their own golden aura)
+    if (this.isDivine) {
+      this.drawDivineAura(ctx, cx, cy - 35 - this.kaliHoverLift);
     }
 
     // 2. Render Sprite
@@ -881,59 +963,23 @@ export class Player {
       ctx.scale(-1, 1);
     }
 
+    const lift = this.kaliHoverLift;
     if (this.isTransforming) {
-      const rw = this.divineWidth;
-      const rh = this.divineHeight;
-      const transImg = (this.anims.kaliTrans && this.anims.kaliTrans[this.transFrame]) || this.anims.idle;
-      if (transImg && transImg.complete && transImg.naturalWidth > 0) {
-        ctx.drawImage(transImg, -rw / 2, -rh, rw, rh);
-      }
+      const progress = Math.min(1, (this.transFrame + this.transTimer / this.transFrameDuration) / 6);
+      this.drawFrame(ctx, this.anims.kaliTrans[this.transFrame], 'kaliTransform', -lift * progress);
+    } else if (this.isReverting) {
+      const progress = Math.min(1, (this.revertFrame + this.revertTimer / this.revertFrameDuration) / 6);
+      this.drawFrame(ctx, this.anims.kaliRevert[this.revertFrame], 'kaliRevert', -lift * (1 - progress));
     } else if (this.isDivine) {
-      const rw = this.divineWidth;
-      const rh = this.divineHeight;
-      let divineImg;
+      const bob = this.isMoving ? 0 : Math.sin(this.animTime * 3.5) * 2.5;
       if (this.isMoving) {
-        // Hover & Move animation (Row 4 - flying horizontally with hair trailing)
-        divineImg = (this.anims.kaliHoverMove && this.anims.kaliHoverMove[this.hoverFrame]) || (this.anims.kaliHoverIdle && this.anims.kaliHoverIdle[0]);
+        this.drawFrame(ctx, this.anims.kaliHoverMove[this.hoverFrame], 'kaliMove', -lift);
       } else {
-        // Hovering Idle animation (Row 3 - vertical hovering stance)
-        divineImg = (this.anims.kaliHoverIdle && this.anims.kaliHoverIdle[this.hoverFrame]) || (this.anims.kaliHoverIdle && this.anims.kaliHoverIdle[0]);
-      }
-
-      if (divineImg && divineImg.complete && divineImg.naturalWidth > 0) {
-        const floatBob = this.isMoving ? 0 : Math.sin(this.animTime * 3.5) * 4;
-        ctx.drawImage(divineImg, -rw / 2, -rh + floatBob, rw, rh);
+        this.drawFrame(ctx, this.anims.kaliHoverIdle[this.hoverFrame], 'kaliHover', -lift + bob);
       }
     } else {
-      let currentImg = this.anims.idle;
-
-      if (this.isClimbing) {
-        currentImg = (this.climbDir === 'down'
-          ? this.anims.climbDown[this.climbFrame]
-          : this.anims.climbUp[this.climbFrame]) || this.anims.climbUp[0];
-      } else if (this.isAttacking) {
-        currentImg = this.anims.attack[this.attackFrame] || this.anims.idle;
-      } else if (!this.isGrounded) {
-        if (this.vy < -120) {
-          currentImg = this.anims.jump[1] || this.anims.jump[0];
-        } else if (Math.abs(this.vy) <= 120) {
-          currentImg = this.anims.jump[2] || this.anims.jump[3];
-        } else {
-          currentImg = this.anims.jump[3] || this.anims.jump[4];
-        }
-      } else if (this.landingTimer > 0) {
-        currentImg = this.anims.jump[4] || this.anims.idle;
-      } else if (this.isMoving) {
-        currentImg = this.anims.run[this.runFrame] || this.anims.idle;
-      }
-
-      const rw = this.spriteWidth;
-      const rh = this.spriteHeight;
-
-      if (currentImg && currentImg.complete && currentImg.naturalWidth > 0) {
-        const drawOffsetY = -rh * this.footOffsetY;
-        ctx.drawImage(currentImg, -rw / 2, drawOffsetY, rw, rh);
-      }
+      const frame = this.getMortalFrame();
+      this.drawFrame(ctx, frame.img, frame.set || 'main', frame.offsetY || 0);
     }
 
     ctx.restore();
@@ -942,6 +988,45 @@ export class Player {
     this.renderSlashes(ctx);
 
     ctx.restore();
+  }
+
+  getMortalFrame() {
+    const a = this.anims;
+    const t = this.climbTransition;
+    if (t) {
+      const progress = Math.min(1, t.time / t.duration);
+      const index = Math.min(t.frames.length - 1, Math.floor(progress * t.frames.length));
+      return {
+        img: a[t.anim][t.frames[index]],
+        offsetY: t.fromOffset + (t.toOffset - t.fromOffset) * progress
+      };
+    }
+    if (this.isClimbing) {
+      if (this.climbDir === 'down') return { img: a.descend[[0, 1, 2, 1][this.climbFrame % 4]] };
+      return { img: a.climb[this.climbFrame % 6] };
+    }
+    // Level exits fade the player out; show her running into the doorway.
+    if (this.doorwayFade < 1) return { img: a.runBack[Math.floor(this.animTime / 0.09) % 6] };
+    if (this.isAttacking) return { img: a.attack[this.attackFrame] || a.attack[0] };
+    if (!this.isGrounded) {
+      if (this.vy < -120) return { img: a.jump[1] };
+      if (this.vy <= 120) return { img: a.jump[2] };
+      return { img: a.jump[3] };
+    }
+    if (this.landingTimer > 0) return { img: a.jump[4] };
+    if (this.isMoving) return { img: a.run[this.runFrame] };
+    return { img: a.idle[this.idleFrame], set: 'idle' };
+  }
+
+  /** Draws one frame with its set's foot anchor at the current origin (already translated/flipped). */
+  drawFrame(ctx, img, setName, offsetY = 0) {
+    if (!img || !img.complete || img.naturalWidth === 0) return;
+    const m = this.spriteMetrics[setName];
+    const s = this.spriteScale;
+    // The art is high-resolution, so smooth downscaling keeps it clean.
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(img, -m.anchorX * s, -m.anchorY * s + offsetY, m.frameW * s, m.frameH * s);
   }
 
   drawDivineAura(ctx, x, y) {

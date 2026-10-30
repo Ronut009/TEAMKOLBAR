@@ -30,9 +30,7 @@ export const L4_CONFIG = {
   SKULL_HUNTER_MAX_HP: 20,
   GREEN_ARCHER_MAX_HP: 18,
 
-  // Player whip & divine damage
-  PLAYER_WHIP_DAMAGE: 3,
-  PLAYER_DIVINE_DAMAGE: 6,
+  // Rakti's sword damage lives on the player (player.swordDamage = 5, one hit per swing)
 
   // Speeds & ranges
   SWORDSMAN_SPEED: 75,
@@ -1373,8 +1371,8 @@ export class Level4 {
       // Player melee whip strike
       if (sw.alive && player && player.isAttacking && sw.hitCooldown <= 0) {
         const dist = Math.hypot(player.x - sw.x, (player.y - 25) - (sw.y - 35));
-        if (dist <= 70) {
-          const dmg = isDivine ? L4_CONFIG.PLAYER_DIVINE_DAMAGE : L4_CONFIG.PLAYER_WHIP_DAMAGE;
+        if (dist <= 70 && player.claimSwingHit(sw)) {
+          const dmg = player.swordDamage;
           sw.takeDamage(dmg, player.x);
           this.addFloatingText(sw.x, sw.y - 65, `-${dmg}`, isDivine ? '#ffd700' : '#ffffff', 14);
           this.spawnSparks(sw.x, sw.y - 35, 12, isDivine ? '#ffd700' : '#ff3344');
@@ -1392,8 +1390,8 @@ export class Level4 {
 
       if (sc.alive && player && player.isAttacking && sc.hitCooldown <= 0) {
         const dist = Math.hypot(player.x - sc.x, (player.y - 25) - (sc.y - 35));
-        if (dist <= 70) {
-          const dmg = isDivine ? L4_CONFIG.PLAYER_DIVINE_DAMAGE : L4_CONFIG.PLAYER_WHIP_DAMAGE;
+        if (dist <= 70 && player.claimSwingHit(sc)) {
+          const dmg = player.swordDamage;
           sc.takeDamage(dmg, player.x);
           this.addFloatingText(sc.x, sc.y - 65, `-${dmg}`, isDivine ? '#ffd700' : '#ba55d3', 14);
           this.spawnSparks(sc.x, sc.y - 35, 12, '#ba55d3');
@@ -1411,8 +1409,8 @@ export class Level4 {
 
       if (sh.alive && player && player.isAttacking && sh.hitCooldown <= 0) {
         const dist = Math.hypot(player.x - sh.x, (player.y - 25) - (sh.y - 35));
-        if (dist <= 70) {
-          const dmg = isDivine ? L4_CONFIG.PLAYER_DIVINE_DAMAGE : L4_CONFIG.PLAYER_WHIP_DAMAGE;
+        if (dist <= 70 && player.claimSwingHit(sh)) {
+          const dmg = player.swordDamage;
           sh.takeDamage(dmg, player.x);
           this.addFloatingText(sh.x, sh.y - 65, `-${dmg}`, isDivine ? '#ffd700' : '#e67e22', 14);
           this.spawnSparks(sh.x, sh.y - 35, 12, '#e67e22');
@@ -1430,8 +1428,8 @@ export class Level4 {
 
       if (ga.alive && player && player.isAttacking && ga.hitCooldown <= 0) {
         const dist = Math.hypot(player.x - ga.x, (player.y - 25) - (ga.y - 35));
-        if (dist <= 70) {
-          const dmg = isDivine ? L4_CONFIG.PLAYER_DIVINE_DAMAGE : L4_CONFIG.PLAYER_WHIP_DAMAGE;
+        if (dist <= 70 && player.claimSwingHit(ga)) {
+          const dmg = player.swordDamage;
           ga.takeDamage(dmg, player.x);
           this.addFloatingText(ga.x, ga.y - 65, `-${dmg}`, isDivine ? '#ffd700' : '#2ecc71', 14);
           this.spawnSparks(ga.x, ga.y - 35, 12, '#2ecc71');

@@ -253,15 +253,10 @@ export class SwordGoblin {
       // Generous melee slash hit detection
       if (dy < 40 && Math.abs(dx) < 56) {
         const isFacingGoblin = (Math.sign(dx) === playerSlashDir || Math.abs(dx) < 20);
-        if (isFacingGoblin) {
-          const now = Date.now();
-          if (now - this.lastPlayerAttackTime > 320) {
-            this.lastPlayerAttackTime = now;
-            // Player deals 8-10 damage (2 hits kill standard goblin)
-            const dmg = player.isDivine ? 16 : 9;
-            this.takeDamage(dmg, playerSlashDir, level);
-            if (level) level.cameraShake = 0.3;
-          }
+        // One hit per swing; the sword always deals player.swordDamage (5).
+        if (isFacingGoblin && player.claimSwingHit(this)) {
+          this.takeDamage(player.swordDamage, playerSlashDir, level);
+          if (level) level.cameraShake = 0.3;
         }
       }
     }
