@@ -1,132 +1,70 @@
-const ENEMY_FRAMES = {
-  walk: [
-    { x: 42, y: 60, width: 176, height: 190 },
-    { x: 218, y: 60, width: 166, height: 190 },
-    { x: 384, y: 60, width: 166, height: 190 },
-    { x: 550, y: 60, width: 168, height: 190 },
-    { x: 718, y: 60, width: 160, height: 190 },
-    { x: 878, y: 60, width: 146, height: 190 }
-  ],
-  attack: [
-    { x: 47, y: 311, width: 168, height: 174 },
-    { x: 215, y: 312, width: 166, height: 173 },
-    { x: 381, y: 280, width: 174, height: 205 },
-    { x: 555, y: 279, width: 163, height: 206 },
-    { x: 718, y: 313, width: 160, height: 172 },
-    { x: 878, y: 310, width: 146, height: 175 }
-  ],
-  hurt: [
-    { x: 46, y: 785, width: 169, height: 177 },
-    { x: 215, y: 785, width: 169, height: 177 }
-  ],
-  fallen: { x: 550, y: 862, width: 220, height: 105 }
+/**
+ * ==========================================================================
+ * ENEMY SPRITES (js/enemySprites.js)
+ * Draws Betal, the grey-skinned blade demon (assets/anims/betal/*.png).
+ * Any enemy object with { x, y, facing, isMoving, isAttacking/attacking,
+ * attackAnimTimer, attackAnimDuration, hurtTimer, dead, deathTimer, animTime,
+ * hitFlash } can be rendered with EnemySpriteSheet.render(ctx, enemy).
+ * (Betal replaced the earlier grey ghoul sheet, sentinel_enemy_sheet.jpeg.)
+ * ==========================================================================
+ */
+
+// Frame canvases: (anchorX, anchorY) is the point between his feet. Frames are ~120 px tall.
+const BETAL_FRAMES = {
+  walk:   { count: 6, frameW: 135, frameH: 125, anchorX: 56, anchorY: 123 },
+  attack: { count: 6, frameW: 170, frameH: 137, anchorX: 74, anchorY: 135 },
+  hurt:   { count: 2, frameW: 116, frameH: 111, anchorX: 52, anchorY: 109 },
+  death:  { count: 4, frameW: 131, frameH: 81,  anchorX: 47, anchorY: 79 }
 };
-
-function makeTransparentBackground(frame) {
-  const ctx = frame.getContext('2d', { willReadFrequently: true });
-  const imageData = ctx.getImageData(0, 0, frame.width, frame.height);
-  const pixels = imageData.data;
-  const queue = new Int32Array(frame.width * frame.height);
-  let head = 0;
-  let tail = 0;
-
-  const isWhiteBackground = (pixel) => {
-    const red = pixels[pixel];
-    const green = pixels[pixel + 1];
-    const blue = pixels[pixel + 2];
-    return red > 238 && green > 238 && blue > 238
-      && Math.max(red, green, blue) - Math.min(red, green, blue) < 24;
-  };
-
-  const enqueue = (index) => {
-    const pixel = index * 4;
-    if (pixels[pixel + 3] === 0 || !isWhiteBackground(pixel)) return;
-    pixels[pixel + 3] = 0;
-    queue[tail++] = index;
-  };
-
-  for (let x = 0; x < frame.width; x++) {
-    enqueue(x);
-    enqueue((frame.height - 1) * frame.width + x);
-  }
-  for (let y = 1; y < frame.height - 1; y++) {
-    enqueue(y * frame.width);
-    enqueue(y * frame.width + frame.width - 1);
-  }
-
-  while (head < tail) {
-    const index = queue[head++];
-    const x = index % frame.width;
-    const y = Math.floor(index / frame.width);
-    if (x > 0) enqueue(index - 1);
-    if (x + 1 < frame.width) enqueue(index + 1);
-    if (y > 0) enqueue(index - frame.width);
-    if (y + 1 < frame.height) enqueue(index + frame.width);
-  }
-
-  ctx.putImageData(imageData, 0, 0);
-}
+const BETAL_SCALE = 0.58;   // ~70 world px tall, a little taller than Rakti
 
 export class EnemySpriteSheet {
   constructor() {
-    this.loaded = false;
-    this.frames = { walk: [], attack: [], hurt: [], fallen: null };
-    this.sheet = new Image();
-    this.sheet.onload = () => this.prepareFrames();
-    this.sheet.src = 'assets/anims/sentinel_enemy_sheet.jpeg';
-    if (this.sheet.complete && this.sheet.naturalWidth > 0) this.prepareFrames();
-  }
-
-  prepareFrames() {
-    if (this.loaded || !this.sheet.naturalWidth) return;
-
-    const extract = ({ x, y, width, height }) => {
-      const frame = document.createElement('canvas');
-      frame.width = width;
-      frame.height = height;
-      const ctx = frame.getContext('2d', { willReadFrequently: true });
-      ctx.drawImage(this.sheet, x, y, width, height, 0, 0, width, height);
-      makeTransparentBackground(frame);
-      return frame;
-    };
-
-    this.frames.walk = ENEMY_FRAMES.walk.map(extract);
-    this.frames.attack = ENEMY_FRAMES.attack.map(extract);
-    this.frames.hurt = ENEMY_FRAMES.hurt.map(extract);
-    this.frames.fallen = extract(ENEMY_FRAMES.fallen);
-    this.loaded = true;
-  }
-
-  render(ctx, enemy, { width = 66, height = 82 } = {}) {
-    if (!this.loaded) return false;
-
-    let frame;
-    let drawWidth = width;
-    let drawHeight = height;
-    if (enemy.dead) {
-      frame = this.frames.fallen;
-      drawWidth = width * 1.18;
-      drawHeight = height * 0.43;
-    } else if ((enemy.hurtTimer || 0) > 0) {
-      const hurtElapsed = Math.max(0, 0.3 - enemy.hurtTimer);
-      frame = this.frames.hurt[Math.min(this.frames.hurt.length - 1, Math.floor(hurtElapsed * 10))];
-    } else if (enemy.attacking || enemy.isAttacking) {
-      const timer = enemy.attackAnimTimer || 0;
-      const duration = enemy.attackAnimDuration || 0.72;
-      const progress = Math.min(0.999, timer / duration);
-      frame = this.frames.attack[Math.floor(progress * this.frames.attack.length)];
-    } else if (enemy.isMoving) {
-      frame = this.frames.walk[Math.floor((enemy.animTime || 0) * 9) % this.frames.walk.length];
-    } else {
-      frame = this.frames.walk[0];
+    this.frames = {};
+    for (const [name, m] of Object.entries(BETAL_FRAMES)) {
+      this.frames[name] = Array.from({ length: m.count }, (_, i) => {
+        const img = new Image();
+        img.src = `assets/anims/betal/${name}_${i}.png`;
+        return img;
+      });
     }
+  }
 
-    if (!frame) return false;
+  get loaded() {
+    return this.frames.walk[0].complete && this.frames.walk[0].naturalWidth > 0;
+  }
+
+  /** `height` (optional) scales him relative to the default 82 used by older levels. */
+  render(ctx, enemy, { height = 82 } = {}) {
+    if (!this.loaded) return false;
+    let set, index;
+    if (enemy.dead) {
+      set = 'death';
+      index = enemy.deathTimer === undefined ? 3 : Math.min(3, Math.floor(enemy.deathTimer / 0.13));
+    } else if ((enemy.hurtTimer || 0) > 0) {
+      set = 'hurt';
+      index = enemy.hurtTimer > 0.15 ? 0 : 1;
+    } else if (enemy.attacking || enemy.isAttacking) {
+      const progress = Math.min(0.999, (enemy.attackAnimTimer || 0) / (enemy.attackAnimDuration || 0.72));
+      set = 'attack';
+      index = Math.floor(progress * 6);
+    } else {
+      set = 'walk';
+      index = enemy.isMoving ? Math.floor((enemy.animTime || 0) * 9) % 6 : 0;
+    }
+    const img = this.frames[set][index];
+    if (!img || !img.complete || img.naturalWidth === 0) return false;
+    const m = BETAL_FRAMES[set];
+    const s = BETAL_SCALE * (height / 82);
 
     ctx.save();
     ctx.translate(Math.round(enemy.x), Math.round(enemy.y));
     if (enemy.facing === 'left') ctx.scale(-1, 1);
-    ctx.drawImage(frame, -drawWidth / 2, -drawHeight, drawWidth, drawHeight);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    if ((enemy.hitFlash || 0) > 0) ctx.filter = 'brightness(1.9) saturate(0.6)';
+    if (enemy.fadeAlpha !== undefined) ctx.globalAlpha = enemy.fadeAlpha;
+    ctx.drawImage(img, -m.anchorX * s, -m.anchorY * s, m.frameW * s, m.frameH * s);
     ctx.restore();
     return true;
   }

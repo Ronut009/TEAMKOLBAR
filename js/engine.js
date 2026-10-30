@@ -229,6 +229,7 @@ export class Engine {
     if (this.isGameStarted || this.isLoading) return;
     this.prologueComplete = false;   // a new game always starts with the wake-up
     this.level1.checkpointIndex = -1;
+    this.level1.abilityGranted = false;
     this.beginLoadingTransition(1);
   }
 
@@ -451,7 +452,11 @@ export class Engine {
         // LEVEL 1: Lever Interaction
         else if (nearby.type === 'lever' && !this.level.lever.activated) {
           this.level.pullLever();
-          this.openDialogue("You pull the ancient mechanism. Deep tremors reverberate through the temple as the sacred stone pillar rises from the depths!");
+          if (this.level.leverMessage) {
+            this.openDialogue(this.level.leverMessage, 'kali', '⚜ THE GOLDEN BRIDGES ⚜');
+          } else {
+            this.openDialogue("You pull the ancient mechanism. Deep tremors reverberate through the temple as the sacred stone pillar rises from the depths!");
+          }
         }
         // LEVEL 2: Chest Interaction (Obtain Sanctum Key)
         else if (nearby.type === 'chest' && !this.level.chest.opened) {
@@ -516,6 +521,20 @@ export class Engine {
     this.player.screenX = (this.player.x - this.camX) * this.zoom;
     this.player.update(dt, this.level, this.dialogueActive);
     this.level.update(this.player.x, this.player.y, dt, this.player.isDivine, this.player);
+
+    // Levels can ask for a story dialogue (e.g. Level 1: Kali grants her form near the lever tower)
+    if (this.level.pendingDialogue && !this.dialogueActive) {
+      const d = this.level.pendingDialogue;
+      this.level.pendingDialogue = null;
+      this.openDialogue(d.text, d.speaker || 'kali', d.title);
+      if (d.flash) {
+        const flash = document.getElementById('divineFlash');
+        if (flash) {
+          flash.classList.add('active');
+          setTimeout(() => flash.classList.remove('active'), 250);
+        }
+      }
+    }
 
     // The prologue ends once the outfit change has finished (the HUD then fades in).
     if (this.currentLevelIndex === 1 && !this.prologueComplete && this.level.idolBlessed && !this.player.isCivilian) {
@@ -631,11 +650,12 @@ export class Engine {
     this.hudEl.classList.toggle('prologue-hidden', Boolean(this.player.isCivilian));
 
     const hpRatio = Math.max(0, Math.min(1, this.player.hp / this.player.maxHp));
-    const hurtPortrait = this.player.hp < 10;
+    // Medallion portrait: bruised version below half health
+    const hurtPortrait = this.player.hp < this.player.maxHp / 2;
     if (this.hudPortraitArt && hurtPortrait !== this.isHurtPortrait) {
       this.hudPortraitArt.src = hurtPortrait
-        ? 'assets/ui/hud/combat-frame-hurt.png'
-        : 'assets/ui/hud/combat-frame-normal.png';
+        ? 'assets/ui/hud/rakti_medallion_hurt.png'
+        : 'assets/ui/hud/rakti_medallion.png';
       this.hudPortraitArt.alt = hurtPortrait
         ? 'Rakti, hurt'
         : 'Rakti at full health';

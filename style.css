@@ -750,94 +750,49 @@ html, body {
   .loading-sigil { animation-duration: 32s, 2.6s; }
 }
 
-/* Small, separated medallion-and-bars HUD. */
+/* Combat HUD: medallion on the left, long health bar, shorter X-ability bar below it,
+   talwar under the medallion. Fills sit under the ornate frames; channel boxes are measured
+   from the frame art (assets/ui/hud/hp_bar.png 900x149, ability_bar.png 900x129). */
 .sands-hud {
-  top: 14px;
-  left: 16px;
-  display: flex;
-  width: min(438px, calc(100vw - 26px));
-  align-items: flex-start;
-  gap: 2px;
+  top: 12px;
+  left: 14px;
+  width: 410px;
+  height: 140px;
   padding: 0;
-  overflow: visible;
   border: 0;
-  border-radius: 0;
   background: none;
   box-shadow: none;
-  backdrop-filter: none;
+  --hud-scale: 1;
+  transform: scale(var(--hud-scale));
+  transform-origin: top left;
 }
+
+.sands-hud img { display: block; pointer-events: none; user-select: none; }
 
 .hud-portrait {
-  position: relative;
-  z-index: 2;
-  width: 98px;
-  height: 98px;
-  flex: 0 0 98px;
-  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.65));
-}
-
-.hud-portrait-window {
   position: absolute;
-  top: 23%;
-  left: 23%;
-  width: 54%;
-  height: 54%;
-  overflow: hidden;
-  border-radius: 50%;
-  background: #24150f;
-  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.8);
-}
-
-.hud-portrait-art {
-  position: absolute;
-  top: -76%;
-  left: -63%;
-  display: block;
-  width: 804%;
-  max-width: none;
+  z-index: 3;
+  top: 0;
+  left: 0;
+  width: 92px;
   height: auto;
-  pointer-events: none;
-}
-
-.hud-portrait-frame {
-  position: absolute;
-  z-index: 2;
-  inset: 0;
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  pointer-events: none;
-  -webkit-mask-image: radial-gradient(circle at 50% 50%, transparent 0 26%, #000 28%);
-  mask-image: radial-gradient(circle at 50% 50%, transparent 0 26%, #000 28%);
-}
-
-.hud-readout {
-  display: flex;
-  min-width: 0;
-  flex: 1 1 auto;
-  flex-direction: column;
-  gap: 0;
-  padding-top: 8px;
+  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.7));
+  transition: filter 0.3s ease;
 }
 
 .hud-bar {
-  position: relative;
-  width: 100%;
-  height: 43px;
-  overflow: hidden;
-  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.46));
+  position: absolute;
+  z-index: 2;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.6));
 }
+.health-bar  { top: 16px; left: 80px; width: 318px; }
+.ability-bar { top: 66px; left: 86px; width: 236px; }
 
 .hud-bar-art {
-  position: absolute;
-  inset: 0;
-  display: block;
+  position: relative;
+  z-index: 2;
   width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center;
-  pointer-events: none;
+  height: auto;
 }
 
 .meter-track {
@@ -848,92 +803,75 @@ html, body {
   margin: 0;
   padding: 0;
   border: 0;
-  border-radius: 4px;
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.9);
 }
 
 .health-track {
-  top: 26%;
-  left: 16%;
-  width: 68%;
-  height: 31%;
-  background: #210e12;
+  left: 15.8%;
+  width: 77.6%;
+  top: 41%;
+  height: 27%;
+  background: linear-gradient(180deg, #1a0709, #2c0d12);
 }
 
 .divine-track {
-  top: 25%;
-  left: 13%;
-  width: 74%;
-  height: 32%;
-  background: #08161b;
+  left: 13.4%;
+  width: 73.3%;
+  top: 31%;
+  height: 37.5%;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #04131a, #0a2129);
   transition: opacity 0.2s ease;
 }
-
-.divine-track.locked { opacity: 0.72; }
+.divine-track.locked { opacity: 0.45; }
 
 .health-fill,
 .divine-fill {
   display: block;
   width: 100%;
   height: 100%;
-  border-radius: inherit;
-  transition: width 0.14s linear;
+  transition: width 0.18s linear;
 }
 
 .health-fill {
-  background: linear-gradient(180deg, #ffad77 0%, #e84c49 31%, #a51e33 100%);
-  box-shadow: 0 0 7px rgba(226, 61, 61, 0.55), inset 0 1px rgba(255, 231, 194, 0.42);
+  background: linear-gradient(180deg, #ff9a7a 0%, #e23c45 38%, #8e1426 100%);
+  box-shadow: 0 0 8px rgba(226, 61, 61, 0.6), inset 0 1px rgba(255, 228, 200, 0.5);
 }
 
 .divine-fill {
-  background: linear-gradient(180deg, #a7edfa 0%, #31aeda 35%, #17639f 100%);
-  box-shadow: 0 0 7px rgba(74, 182, 244, 0.5), inset 0 1px rgba(233, 246, 255, 0.48);
+  border-radius: 999px;
+  background: linear-gradient(180deg, #c8fff4 0%, #3fd6c4 38%, #0f7f86 100%);
+  box-shadow: 0 0 8px rgba(70, 230, 210, 0.55), inset 0 1px rgba(240, 255, 252, 0.6);
 }
-
-.divine-track.active .divine-fill,
 .sands-hud.divine-mode .divine-fill {
-  box-shadow: 0 0 10px rgba(86, 194, 255, 0.76), inset 0 1px rgba(245, 251, 255, 0.64);
+  background: linear-gradient(180deg, #fff6c9 0%, #ffd24a 40%, #c8861a 100%);
+  box-shadow: 0 0 12px rgba(255, 210, 90, 0.8), inset 0 1px rgba(255, 252, 235, 0.7);
 }
+.sands-hud.divine-mode .hud-portrait { filter: drop-shadow(0 0 10px rgba(255, 205, 90, 0.85)); }
 
 .health-value {
   position: absolute;
   top: 50%;
-  right: 2%;
+  right: 3%;
   color: #fff2da;
   font: 700 8px 'Cinzel', serif;
-  letter-spacing: 0.4px;
-  text-shadow: 0 1px 3px #080705, 0 0 6px rgba(0, 0, 0, 0.9);
+  letter-spacing: 0.5px;
+  text-shadow: 0 1px 2px #080705, 0 0 5px rgba(0, 0, 0, 0.9);
   transform: translateY(-50%);
   white-space: nowrap;
 }
 
 .hud-weapon {
-  display: flex;
-  width: 112px;
-  height: 52px;
-  align-items: center;
-  justify-content: center;
-  margin-top: -3px;
-  margin-left: 0;
-  align-self: center;
-  filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.68));
-}
-
-.hud-weapon img {
-  display: block;
-  width: 108px;
-  height: 50px;
-  object-fit: contain;
+  position: absolute;
+  z-index: 4;
+  top: 106px;
+  left: 4px;
+  width: 128px;
+  height: auto;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.7));
 }
 
 @media (max-width: 600px) {
-  .sands-hud { top: 8px; left: 8px; width: calc(100vw - 16px); gap: 1px; }
-  .hud-portrait { width: clamp(72px, 22vw, 88px); height: clamp(72px, 22vw, 88px); flex-basis: clamp(72px, 22vw, 88px); }
-  .hud-readout { padding-top: 5px; }
-  .hud-bar { height: clamp(32px, 10vw, 39px); }
-  .hud-weapon { width: 80px; height: 40px; margin-left: 0; }
-  .hud-weapon img { width: 78px; height: 38px; }
-  .health-value { font-size: 6px; }
+  .sands-hud { top: 6px; left: 6px; --hud-scale: 0.72; }
 }
 
 /* Level 1 prologue: no HUD while Rakti is in her sari; it fades in after Maa Kali's blessing. */

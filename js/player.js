@@ -431,7 +431,7 @@ export class Player {
     this.transFrame = 0;
     this.transTimer = 0;
     this.vx = 0;
-    this.vy = -30;
+    this.vy = this.isGrounded ? 0 : -30;
     this.speed = this.divineSpeed;
     this.canDoubleJump = false;
 
@@ -723,8 +723,9 @@ export class Player {
       this.vx = 0;
       this.isMoving = false;
       this.transTimer += dt;
+      // Gentle bob in mid-air only; on the ground she stays planted (the drift used to leave her floating)
       this.vy = Math.sin(this.transTimer * 9.0) * -12;
-      this.y += this.vy * dt;
+      if (!this.isGrounded) this.y += this.vy * dt;
 
       if (this.transTimer >= this.transFrameDuration) {
         this.transTimer = 0;
@@ -733,6 +734,7 @@ export class Player {
           // Finished transformation: Manifest Divine Kali!
           this.isTransforming = false;
           this.isDivine = true;
+          if (this.isGrounded) this.vy = 0;
           this.divineTimer = this.divineDuration;
           this.hoverFrame = 0;
           this.hoverTimer = 0;
@@ -816,16 +818,11 @@ export class Player {
       }
     }
 
-    // 2. Divine Transformation (Key X or Key E) - only enabled once unlocked via Sacred Lotus
-    const wantsTransform = Input.isPressed('KeyX') || Input.isPressed('x') || Input.isPressed('KeyE') || Input.isPressed('e');
-    if (wantsTransform && !dialogueActive) {
+    // 2. Divine Transformation: [X] only. (E used to transform too, so closing a dialogue with E
+    //    could accidentally trigger Kali form.)
+    if ((Input.isPressed('KeyX') || Input.isPressed('x')) && !dialogueActive) {
       if (!this.isDivine && !this.isTransforming && this.hasDivineUnlocked && !this.isCivilian) {
-        const isX = Input.isPressed('KeyX') || Input.isPressed('x');
-        const nearby = level?.getNearbyInteractable?.(this.x, this.y);
-        // [X] always transforms; [E] transforms when not standing at an interactable prompt
-        if (isX || !nearby) {
-          this.triggerDivineTransformation();
-        }
+        this.triggerDivineTransformation();
       }
     }
 

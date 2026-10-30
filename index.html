@@ -19,32 +19,23 @@
   <!-- Divine Transformation Fullscreen Flash Effect -->
   <div class="divine-flash" id="divineFlash"></div>
 
-  <!-- Compact separated HUD: Rakti's medallion beside HP and X meters. -->
+  <!-- Combat HUD: Rakti's medallion, health bar, X-ability bar and her talwar (layout from the HUD sketch) -->
   <div class="sands-hud menu-hidden" id="hud" aria-label="Combat HUD">
-    <div class="hud-portrait" aria-label="Rakti portrait">
-      <div class="hud-portrait-window">
-        <img class="hud-portrait-art" id="hudPortraitArt" src="assets/ui/hud/combat-frame-normal.png" alt="Rakti at full health" draggable="false">
+    <img class="hud-portrait" id="hudPortraitArt" src="assets/ui/hud/rakti_medallion.png" alt="Rakti" draggable="false">
+    <div class="hud-bar health-bar" aria-label="Health">
+      <div class="meter-track health-track" id="healthTrack" role="progressbar" aria-label="Rakti's health" aria-valuemin="0" aria-valuemax="20" aria-valuenow="20">
+        <span class="health-fill" id="healthBarFill"></span>
+        <span class="health-value" id="hpNum">20 / 20</span>
       </div>
-      <img class="hud-portrait-frame" src="assets/ui/hud/portrait-orb-frame.png" alt="" draggable="false">
+      <img class="hud-bar-art" src="assets/ui/hud/hp_bar.png" alt="" draggable="false">
     </div>
-    <div class="hud-readout">
-      <div class="hud-bar health-bar" aria-label="Health">
-        <img class="hud-bar-art" src="assets/ui/hud/health-bar-ornament.png" alt="" draggable="false">
-        <div class="meter-track health-track" id="healthTrack" role="progressbar" aria-label="Rakti's health" aria-valuemin="0" aria-valuemax="20" aria-valuenow="20">
-          <span class="health-fill" id="healthBarFill"></span>
-          <span class="health-value" id="hpNum">20 / 20</span>
-        </div>
+    <div class="hud-bar ability-bar" aria-label="X ability">
+      <div class="meter-track divine-track" id="divineTrack" role="progressbar" aria-label="X ability duration" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <span class="divine-fill" id="divineBarFill"></span>
       </div>
-      <div class="hud-bar ability-bar" aria-label="X ability">
-        <img class="hud-bar-art" src="assets/ui/hud/x-ability-bar-ornament.png" alt="" draggable="false">
-        <div class="meter-track divine-track" id="divineTrack" role="progressbar" aria-label="X ability duration" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-          <span class="divine-fill" id="divineBarFill"></span>
-        </div>
-      </div>
-      <div class="hud-weapon" aria-label="Equipped weapon: Guardian Talwar">
-        <img src="assets/weapons/guardian-talwar.png" alt="Guardian Talwar" draggable="false">
-      </div>
+      <img class="hud-bar-art" src="assets/ui/hud/ability_bar.png" alt="" draggable="false">
     </div>
+    <img class="hud-weapon" src="assets/ui/hud/talwar.png" alt="Equipped weapon: Guardian Talwar" draggable="false">
   </div>
 
   <!-- Kill Notification Toast Banner -->
