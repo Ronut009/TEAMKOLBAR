@@ -8,6 +8,120 @@
 
 import { Input } from './input.js';
 
+// ---------------------------------------------------------------------------
+// Rakti sprite skins. Each skin is a folder of frames with the same file names
+// (run_0.png ... kali_revert_5.png). To go back to the previous art, set
+// DEFAULT_RAKTI_SKIN to 'v1', or open the game with ?skin=v1 to compare.
+// metrics: every frame of a set shares one canvas; (anchorX, anchorY) is the
+// point between her feet in that canvas. scale converts frame pixels to world pixels.
+// ---------------------------------------------------------------------------
+const V1_MAIN = { frameW: 290, frameH: 260, anchorX: 152, anchorY: 258 };
+// Ladder transitions and jump frames used by v1 and v2 (6-frame mantle sheets)
+const SIX_FRAME_LADDER = {
+  mantleUp: { frames: [0, 1, 2, 3, 4, 5], duration: 0.4, fromOffset: 18 },   // over the top ledge
+  mountDown: { frames: [5, 4, 3, 2], duration: 0.26, fromOffset: -10 },      // lower onto the ladder from the top
+  jumpFrames: { rise: 1, riseLate: 1, apex: 2, fall: 3, land: 4 }
+};
+export const RAKTI_SKINS = {
+  // 30 Oct, first green-and-gold design (chibi proportions)
+  v1: {
+    folder: 'assets/anims/rakti',
+    scale: 0.24,
+    descendLoop: [0, 1, 2, 1],                      // descend 0-2 climb down
+    stepOff: { anim: 'descend', frames: [3, 4, 5] }, // descend 3-5 step off at the bottom
+    ...SIX_FRAME_LADDER,
+    metrics: {
+      run: V1_MAIN, runBack: V1_MAIN, attack: V1_MAIN, jump: V1_MAIN,
+      climb: V1_MAIN, mantle: V1_MAIN, descend: V1_MAIN,
+      idle:          { frameW: 136, frameH: 258, anchorX: 76, anchorY: 256 },
+      kaliTrans:     { frameW: 194, frameH: 228, anchorX: 90, anchorY: 226 },
+      kaliHoverIdle: { frameW: 182, frameH: 227, anchorX: 88, anchorY: 225 },
+      kaliHoverMove: { frameW: 178, frameH: 203, anchorX: 80, anchorY: 201 },
+      kaliRevert:    { frameW: 181, frameH: 175, anchorX: 91, anchorY: 172 }
+    }
+  },
+  // 30 Oct evening, taller and more detailed design
+  v2: {
+    folder: 'assets/anims/rakti_v2',
+    scale: 0.23,
+    descendLoop: [0, 1, 2, 3, 4, 5],                // all six frames climb down
+    stepOff: { anim: 'mantle', frames: [4, 5] },    // crouch -> stand at the bottom
+    ...SIX_FRAME_LADDER,
+    metrics: {
+      run: { frameW: 223, frameH: 201, anchorX: 160, anchorY: 199 },
+      runBack: { frameW: 168, frameH: 244, anchorX: 79, anchorY: 242 },
+      attack: { frameW: 271, frameH: 196, anchorX: 126, anchorY: 194 },
+      jump: { frameW: 175, frameH: 178, anchorX: 101, anchorY: 158 },
+      climb: { frameW: 157, frameH: 306, anchorX: 76, anchorY: 304 },
+      mantle: { frameW: 228, frameH: 283, anchorX: 126, anchorY: 281 },
+      descend: { frameW: 150, frameH: 263, anchorX: 84, anchorY: 261 },
+      idle: { frameW: 144, frameH: 283, anchorX: 89, anchorY: 281 },
+      kaliTrans: { frameW: 184, frameH: 288, anchorX: 91, anchorY: 285 },
+      kaliHoverMove: { frameW: 226, frameH: 286, anchorX: 104, anchorY: 284 },
+      kaliRevert: { frameW: 158, frameH: 296, anchorX: 79, anchorY: 290 },
+      kaliHoverIdle: { frameW: 191, frameH: 285, anchorX: 87, anchorY: 283 }
+    }
+  },
+  // 30 Oct night, aligned sheets: sheathed-talwar run, 12-frame ledge climb, Kali stands then hovers
+  v3: {
+    folder: 'assets/anims/rakti_v3',
+    scale: 0.23,
+    frameCounts: { mantle: 12 },
+    descendLoop: [0, 1, 2, 1],                      // descend 0-2 climb down
+    stepOff: { anim: 'descend', frames: [3, 4, 5] }, // descend 3-5 crouch -> stand at the bottom
+    mantleUp: { frames: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], duration: 0.6, fromOffset: 18 },
+    mountDown: { frames: [11, 10, 9, 8, 7, 6], duration: 0.32, fromOffset: -10 },
+    jumpFrames: { rise: 1, riseLate: 2, apex: 3, fall: 4, land: 5 },
+    metrics: {
+      run: { frameW: 150, frameH: 273, anchorX: 84, anchorY: 271 },
+      runBack: { frameW: 129, frameH: 284, anchorX: 66, anchorY: 282 },
+      attack: { frameW: 218, frameH: 289, anchorX: 81, anchorY: 287 },
+      jump: { frameW: 171, frameH: 253, anchorX: 92, anchorY: 222 },
+      climb: { frameW: 127, frameH: 319, anchorX: 70, anchorY: 317 },
+      mantle: { frameW: 175, frameH: 319, anchorX: 107, anchorY: 317 },
+      descend: { frameW: 139, frameH: 288, anchorX: 74, anchorY: 286 },
+      idle: { frameW: 144, frameH: 283, anchorX: 89, anchorY: 281 },
+      kaliTrans: { frameW: 160, frameH: 290, anchorX: 82, anchorY: 287 },
+      kaliRevert: { frameW: 157, frameH: 294, anchorX: 81, anchorY: 288 },
+      kaliHoverIdle: { frameW: 143, frameH: 280, anchorX: 70, anchorY: 278 },
+      kaliHoverMove: { frameW: 179, frameH: 258, anchorX: 85, anchorY: 256 }
+    }
+  }
+};
+export const DEFAULT_RAKTI_SKIN = 'v3';
+
+// Level 1 prologue frames: Rakti in her everyday sari, before Maa Kali's blessing.
+// They are the same for every skin and end in the v3 battle outfit.
+const PROLOGUE_SPRITES = {
+  folder: 'assets/anims/rakti_prologue',
+  scale: 0.23,
+  metrics: {
+    wake: { frameW: 207, frameH: 282, anchorX: 101, anchorY: 280 },     // 0 unconscious ... 3 dazed ... 5 standing
+    walk: { frameW: 151, frameH: 272, anchorX: 76, anchorY: 270 },     // 6-frame walk
+    outfit: { frameW: 146, frameH: 284, anchorX: 86, anchorY: 281 }  // sari -> golden aura -> battle outfit with talwar
+  }
+};
+// Seconds each frame is held
+const WAKE_FRAME_TIMES = [1.7, 0.45, 0.45, 0.8, 0.4, 0.45];
+const OUTFIT_FRAME_TIMES = [0.35, 0.32, 0.32, 0.32, 0.32, 0.45];
+function timedFrame(times, t) {
+  let acc = 0;
+  for (let i = 0; i < times.length; i++) {
+    acc += times[i];
+    if (t < acc) return i;
+  }
+  return times.length - 1;
+}
+const sum = (arr) => arr.reduce((a, b) => a + b, 0);
+
+function pickRaktiSkin() {
+  try {
+    const requested = new URLSearchParams(window.location.search).get('skin');
+    if (requested && RAKTI_SKINS[requested]) return requested;
+  } catch (e) { /* not in a browser */ }
+  return DEFAULT_RAKTI_SKIN;
+}
+
 export class Player {
   constructor(startX = 160, startY = 368) {
     this.x = startX;
@@ -44,18 +158,9 @@ export class Player {
     this.spriteHeight = 80;
     this.footOffsetY = 274 / 280;
 
-    // Rakti's frames live in assets/anims/rakti/. Each frame set shares one canvas; (anchorX, anchorY)
-    // is the point between her feet. All sets were normalised to the same head size, so one scale
-    // converts sheet pixels to world pixels for every set.
-    this.spriteScale = 0.24;
-    this.spriteMetrics = {
-      main:          { frameW: 290, frameH: 260, anchorX: 152, anchorY: 258 }, // run/attack/jump/climb/mantle/descend/runback
-      idle:          { frameW: 136, frameH: 258, anchorX: 76,  anchorY: 256 },
-      kaliTransform: { frameW: 194, frameH: 228, anchorX: 90,  anchorY: 226 },
-      kaliHover:     { frameW: 182, frameH: 227, anchorX: 88,  anchorY: 225 },
-      kaliMove:      { frameW: 178, frameH: 203, anchorX: 80,  anchorY: 201 },
-      kaliRevert:    { frameW: 181, frameH: 175, anchorX: 91,  anchorY: 172 }
-    };
+    // Active sprite skin (see RAKTI_SKINS at the top of this file)
+    this.skinName = pickRaktiSkin();
+    this.skin = RAKTI_SKINS[this.skinName];
     // Maa Kali floats this many world pixels above the ground.
     this.kaliHoverLift = 5;
 
@@ -63,6 +168,15 @@ export class Player {
     this.idleFrame = 0;
     this.idleTimer = 0;
     this.idleFrameDuration = 0.16;
+
+    // Level 1 prologue: sari outfit (walk only, no jump / attack / abilities)
+    this.isCivilian = false;
+    this.isWaking = false;
+    this.wakeTimer = 0;
+    this.isChangingOutfit = false;
+    this.outfitTimer = 0;
+    this.walkSpeed = 125;
+    this.walkFrameDuration = 0.13;
 
     // Kali -> Rakti return animation (6 frames)
     this.isReverting = false;
@@ -140,9 +254,9 @@ export class Player {
   }
 
   loadAnimations() {
-    const frames = (name, count = 6) => Array.from({ length: count }, (_, i) => {
+    const frames = (name, count = this.skin.frameCounts?.[name] ?? 6) => Array.from({ length: count }, (_, i) => {
       const img = new Image();
-      img.src = `assets/anims/rakti/${name}_${i}.png`;
+      img.src = `${this.skin.folder}/${name}_${i}.png`;
       return img;
     });
 
@@ -152,14 +266,22 @@ export class Player {
       attack: frames('attack'),      // 6-frame talwar combo
       jump: frames('jump'),          // 0 crouch, 1 rise, 2 tuck, 3 fall, 4-5 landing crouch
       climb: frames('climb'),        // ladder climb up (back view)
-      descend: frames('descend'),    // 0-2 ladder climb down, 3-5 step off at the bottom
-      mantle: frames('mantle'),      // 0-1 hang, 2 pull up, 3-5 over the top ledge
+      descend: frames('descend'),    // ladder climb down (frames per skin.descendLoop)
+      mantle: frames('mantle'),      // hang -> pull up -> over the top ledge -> stand (6 or 12 frames)
       idle: frames('idle'),          // 6-frame standing breath, sword sheathed
       kaliTrans: frames('kali_transform'), // Rakti -> golden aura -> Maa Kali
       kaliHoverIdle: frames('kali_hover'), // Maa Kali hovering in place
       kaliHoverMove: frames('kali_move'),  // Maa Kali gliding
       kaliRevert: frames('kali_revert')    // Maa Kali -> aura -> Rakti
     };
+    const prologueFrames = (name) => Array.from({ length: 6 }, (_, i) => {
+      const img = new Image();
+      img.src = `${PROLOGUE_SPRITES.folder}/${name}_${i}.png`;
+      return img;
+    });
+    this.anims.wake = prologueFrames('wake');
+    this.anims.walk = prologueFrames('walk');
+    this.anims.outfit = prologueFrames('outfit');
   }
 
   /**
@@ -171,6 +293,36 @@ export class Player {
     if (target.lastSwingHitId === this.attackId) return false;
     target.lastSwingHitId = this.attackId;
     return true;
+  }
+
+  /** Back to the normal battle-outfit state (used on every level load). */
+  resetPrologueState() {
+    this.isCivilian = false;
+    this.isWaking = false;
+    this.isChangingOutfit = false;
+    this.wakeTimer = 0;
+    this.outfitTimer = 0;
+  }
+
+  /** Level 1 start: unconscious in her sari, then she gets up. Input is locked until she stands. */
+  beginWakeUp() {
+    this.isCivilian = true;
+    this.isWaking = true;
+    this.wakeTimer = 0;
+    this.facing = 'right';
+    this.vx = 0;
+    this.vy = 0;
+    this.isGrounded = true;
+    this.particles = [];
+  }
+
+  /** At Maa Kali's idol: sari -> golden aura -> battle outfit. */
+  startOutfitChange() {
+    if (!this.isCivilian || this.isWaking || this.isChangingOutfit) return;
+    this.isChangingOutfit = true;
+    this.outfitTimer = 0;
+    this.vx = 0;
+    this.isMoving = false;
   }
 
   startClimbTransition(anim, frames, duration, fromOffset = 0, toOffset = 0) {
@@ -350,6 +502,50 @@ export class Player {
     if (this.invulnerableTimer > 0) this.invulnerableTimer -= dt;
     if (this.ladderCooldown > 0) this.ladderCooldown -= dt;
 
+    // Level 1 prologue cutscene animations lock all input.
+    if (this.isWaking || this.isChangingOutfit) {
+      this.vx = 0;
+      this.isMoving = false;
+      if (this.isWaking) {
+        this.wakeTimer += dt;
+        if (this.wakeTimer >= sum(WAKE_FRAME_TIMES)) this.isWaking = false;
+      } else {
+        const before = timedFrame(OUTFIT_FRAME_TIMES, this.outfitTimer);
+        this.outfitTimer += dt;
+        const after = timedFrame(OUTFIT_FRAME_TIMES, this.outfitTimer);
+        if (before < 2 && after >= 2) {
+          // the sari dissolves into gold: flash + burst
+          const flash = document.getElementById('divineFlash');
+          if (flash) {
+            flash.classList.add('active');
+            setTimeout(() => flash.classList.remove('active'), 250);
+          }
+          for (let i = 0; i < 28; i++) {
+            const a = (i / 28) * Math.PI * 2;
+            this.particles.push({
+              x: this.x, y: this.y - 34,
+              vx: Math.cos(a) * (60 + Math.random() * 70), vy: Math.sin(a) * (60 + Math.random() * 70),
+              life: 0.7, maxLife: 0.7, size: 2.5 + Math.random() * 2, color: i % 2 ? '#ffd700' : '#ffffff'
+            });
+          }
+        }
+        if (Math.random() < 0.6) {
+          this.particles.push({
+            x: this.x + (Math.random() - 0.5) * 30, y: this.y - 10 - Math.random() * 60,
+            vx: (Math.random() - 0.5) * 20, vy: -20 - Math.random() * 40,
+            life: 0.5, maxLife: 0.5, size: 2 + Math.random() * 2, color: Math.random() > 0.3 ? '#ffd700' : '#7ff0c8'
+          });
+        }
+        if (this.outfitTimer >= sum(OUTFIT_FRAME_TIMES)) {
+          this.isChangingOutfit = false;
+          this.isCivilian = false;   // battle outfit from here on
+          this.idleFrame = 0;
+        }
+      }
+      this.updateParticles(dt);
+      return;
+    }
+
     // Ladder mantle / step-off animations briefly lock movement.
     if (this.climbTransition) {
       this.climbTransition.time += dt;
@@ -370,7 +566,7 @@ export class Player {
     if (Input.isDown('right') || Input.isDown('KeyD') || Input.isDown('ArrowRight')) moveDir += 1;
 
     // Check Ladder Climbing (Level 2 Ladders)
-    if (level && level.ladders) {
+    if (level && level.ladders && !this.isCivilian) {
       const isUp = Input.isDown('up') || Input.isDown('KeyW') || Input.isDown('ArrowUp');
       const isDown = Input.isDown('down') || Input.isDown('KeyS') || Input.isDown('ArrowDown');
       const spacePressed = Input.isPressed('jump') || Input.isPressed('Space');
@@ -401,7 +597,8 @@ export class Player {
             this.currentPlatform = null;
             this.climbDir = 'down';
             this.climbFrame = 0;
-            this.startClimbTransition('mantle', [5, 4, 3, 2], 0.26, -10, 0);
+            const md = this.skin.mountDown;
+            this.startClimbTransition('mantle', md.frames, md.duration, md.fromOffset, 0);
           }
         } else if (atBottomLedge) {
           // Standing at bottom: mount ladder if pressing Up (W)
@@ -476,7 +673,8 @@ export class Player {
               this.isGrounded = true;
               this.vy = 0;
               this.ladderCooldown = 0.35; // Prevents infinite re-grab loop
-              this.startClimbTransition('mantle', [0, 1, 2, 3, 4, 5], 0.4, 18, 0);
+              const mu = this.skin.mantleUp;
+              this.startClimbTransition('mantle', mu.frames, mu.duration, mu.fromOffset, 0);
             }
           } else if (climbMove > 0) {
             this.climbDir = 'down';
@@ -495,7 +693,7 @@ export class Player {
               this.isGrounded = true;
               this.vy = 0;
               this.ladderCooldown = 0.3;
-              this.startClimbTransition('descend', [3, 4, 5], 0.2, 0, 0);
+              this.startClimbTransition(this.skin.stepOff.anim, this.skin.stepOff.frames, 0.24, 0, 0);
             }
           } else {
             this.vy = 0;
@@ -590,12 +788,14 @@ export class Player {
     }
 
     // 1. Attack on Left Click or Right Click Parry / Deflection Strike
-    if (Input.isPressed('attack') || Input.isPressed('parry')) {
+    if (!this.isCivilian && (Input.isPressed('attack') || Input.isPressed('parry'))) {
       if (typeof window !== 'undefined' && (Input.isPressed('MouseLeft') || Input.isPressed('MouseRight'))) {
-        const screenCenterX = window.innerWidth / 2;
-        if (Input.mouseX > screenCenterX + 20) {
+        // engine.js sets screenX each frame; near map edges the camera stops following,
+        // so the screen centre is not where Rakti is.
+        const raktiScreenX = Number.isFinite(this.screenX) ? this.screenX : window.innerWidth / 2;
+        if (Input.mouseX > raktiScreenX + 6) {
           this.facing = 'right';
-        } else if (Input.mouseX < screenCenterX - 20) {
+        } else if (Input.mouseX < raktiScreenX - 6) {
           this.facing = 'left';
         }
       }
@@ -619,7 +819,7 @@ export class Player {
     // 2. Divine Transformation (Key X or Key E) - only enabled once unlocked via Sacred Lotus
     const wantsTransform = Input.isPressed('KeyX') || Input.isPressed('x') || Input.isPressed('KeyE') || Input.isPressed('e');
     if (wantsTransform && !dialogueActive) {
-      if (!this.isDivine && !this.isTransforming && this.hasDivineUnlocked) {
+      if (!this.isDivine && !this.isTransforming && this.hasDivineUnlocked && !this.isCivilian) {
         const isX = Input.isPressed('KeyX') || Input.isPressed('x');
         const nearby = level?.getNearbyInteractable?.(this.x, this.y);
         // [X] always transforms; [E] transforms when not standing at an interactable prompt
@@ -672,14 +872,14 @@ export class Player {
     else if (moveDir > 0) this.facing = 'right';
 
     // Running is Rakti's default pace. Keep the Divine form's existing speed bonus.
-    const formSpeed = this.isDivine ? this.divineSpeed : this.baseSpeed;
+    const formSpeed = this.isCivilian ? this.walkSpeed : (this.isDivine ? this.divineSpeed : this.baseSpeed);
     this.speed = formSpeed;
 
     const targetVx = moveDir * this.speed;
     if (this.isMoving) {
       this.vx = this.approach(this.vx, targetVx, this.acceleration * dt);
       this.runTimer += dt;
-      if (this.runTimer >= this.runFrameDuration) {
+      if (this.runTimer >= (this.isCivilian ? this.walkFrameDuration : this.runFrameDuration)) {
         this.runTimer = 0;
         this.runFrame = (this.runFrame + 1) % 6;
       }
@@ -698,7 +898,7 @@ export class Player {
     const jumpPressed = Input.isPressed('jump') || Input.isPressed('Space') || Input.isPressed('KeyW') || Input.isPressed('ArrowUp');
     const isDownHeld = Input.isDown('down') || Input.isDown('KeyS') || Input.isDown('ArrowDown');
 
-    if (jumpPressed) {
+    if (jumpPressed && !this.isCivilian) {   // no jumping in the sari
       this.jumpBufferTimer = this.jumpBufferMax;
     }
 
@@ -738,7 +938,8 @@ export class Player {
     this.x += this.vx * dt;
     this.y += this.vy * dt;
 
-    this.x = Math.max(16, Math.min(this.x, level.width - 16));
+    // Levels can extend left of x=0 (Level 1 prologue uses negative x)
+    this.x = Math.max((level.minX || 0) + 16, Math.min(this.x, level.width - 16));
     this.x = level.resolvePitWallCollision(this.x, this.y);
 
     if (this.vy >= 0) {
@@ -966,20 +1167,20 @@ export class Player {
     const lift = this.kaliHoverLift;
     if (this.isTransforming) {
       const progress = Math.min(1, (this.transFrame + this.transTimer / this.transFrameDuration) / 6);
-      this.drawFrame(ctx, this.anims.kaliTrans[this.transFrame], 'kaliTransform', -lift * progress);
+      this.drawFrame(ctx, 'kaliTrans', this.transFrame, -lift * progress);
     } else if (this.isReverting) {
       const progress = Math.min(1, (this.revertFrame + this.revertTimer / this.revertFrameDuration) / 6);
-      this.drawFrame(ctx, this.anims.kaliRevert[this.revertFrame], 'kaliRevert', -lift * (1 - progress));
+      this.drawFrame(ctx, 'kaliRevert', this.revertFrame, -lift * (1 - progress));
     } else if (this.isDivine) {
       const bob = this.isMoving ? 0 : Math.sin(this.animTime * 3.5) * 2.5;
       if (this.isMoving) {
-        this.drawFrame(ctx, this.anims.kaliHoverMove[this.hoverFrame], 'kaliMove', -lift);
+        this.drawFrame(ctx, 'kaliHoverMove', this.hoverFrame, -lift);
       } else {
-        this.drawFrame(ctx, this.anims.kaliHoverIdle[this.hoverFrame], 'kaliHover', -lift + bob);
+        this.drawFrame(ctx, 'kaliHoverIdle', this.hoverFrame, -lift + bob);
       }
     } else {
       const frame = this.getMortalFrame();
-      this.drawFrame(ctx, frame.img, frame.set || 'main', frame.offsetY || 0);
+      this.drawFrame(ctx, frame.set, frame.index, frame.offsetY || 0);
     }
 
     ctx.restore();
@@ -990,39 +1191,49 @@ export class Player {
     ctx.restore();
   }
 
+  /** Which frame set + index to draw for the mortal form this frame. */
   getMortalFrame() {
-    const a = this.anims;
+    if (this.isWaking) return { set: 'wake', index: timedFrame(WAKE_FRAME_TIMES, this.wakeTimer) };
+    if (this.isChangingOutfit) return { set: 'outfit', index: timedFrame(OUTFIT_FRAME_TIMES, this.outfitTimer) };
+    if (this.isCivilian) {
+      if (this.isMoving) return { set: 'walk', index: this.runFrame % 6 };
+      return { set: 'wake', index: 5 };   // standing in the sari
+    }
     const t = this.climbTransition;
     if (t) {
       const progress = Math.min(1, t.time / t.duration);
-      const index = Math.min(t.frames.length - 1, Math.floor(progress * t.frames.length));
-      return {
-        img: a[t.anim][t.frames[index]],
-        offsetY: t.fromOffset + (t.toOffset - t.fromOffset) * progress
-      };
+      const i = Math.min(t.frames.length - 1, Math.floor(progress * t.frames.length));
+      return { set: t.anim, index: t.frames[i], offsetY: t.fromOffset + (t.toOffset - t.fromOffset) * progress };
     }
     if (this.isClimbing) {
-      if (this.climbDir === 'down') return { img: a.descend[[0, 1, 2, 1][this.climbFrame % 4]] };
-      return { img: a.climb[this.climbFrame % 6] };
+      if (this.climbDir === 'down') {
+        const loop = this.skin.descendLoop;
+        return { set: 'descend', index: loop[this.climbFrame % loop.length] };
+      }
+      return { set: 'climb', index: this.climbFrame % 6 };
     }
     // Level exits fade the player out; show her running into the doorway.
-    if (this.doorwayFade < 1) return { img: a.runBack[Math.floor(this.animTime / 0.09) % 6] };
-    if (this.isAttacking) return { img: a.attack[this.attackFrame] || a.attack[0] };
+    if (this.doorwayFade < 1) return { set: 'runBack', index: Math.floor(this.animTime / 0.09) % 6 };
+    if (this.isAttacking) return { set: 'attack', index: Math.min(5, this.attackFrame) };
     if (!this.isGrounded) {
-      if (this.vy < -120) return { img: a.jump[1] };
-      if (this.vy <= 120) return { img: a.jump[2] };
-      return { img: a.jump[3] };
+      const j = this.skin.jumpFrames;
+      if (this.vy < -250) return { set: 'jump', index: j.rise };
+      if (this.vy < -120) return { set: 'jump', index: j.riseLate };
+      if (this.vy <= 120) return { set: 'jump', index: j.apex };
+      return { set: 'jump', index: j.fall };
     }
-    if (this.landingTimer > 0) return { img: a.jump[4] };
-    if (this.isMoving) return { img: a.run[this.runFrame] };
-    return { img: a.idle[this.idleFrame], set: 'idle' };
+    if (this.landingTimer > 0) return { set: 'jump', index: this.skin.jumpFrames.land };
+    if (this.isMoving) return { set: 'run', index: this.runFrame };
+    return { set: 'idle', index: this.idleFrame };
   }
 
-  /** Draws one frame with its set's foot anchor at the current origin (already translated/flipped). */
-  drawFrame(ctx, img, setName, offsetY = 0) {
+  /** Draws frame `index` of `setName` with its foot anchor at the current origin (already translated/flipped). */
+  drawFrame(ctx, setName, index, offsetY = 0) {
+    const img = this.anims[setName]?.[index];
     if (!img || !img.complete || img.naturalWidth === 0) return;
-    const m = this.spriteMetrics[setName];
-    const s = this.spriteScale;
+    const prologueMetrics = PROLOGUE_SPRITES.metrics[setName];
+    const m = prologueMetrics || this.skin.metrics[setName];
+    const s = prologueMetrics ? PROLOGUE_SPRITES.scale : this.skin.scale;
     // The art is high-resolution, so smooth downscaling keeps it clean.
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';

@@ -935,3 +935,7 @@ html, body {
   .hud-weapon img { width: 78px; height: 38px; }
   .health-value { font-size: 6px; }
 }
+
+/* Level 1 prologue: no HUD while Rakti is in her sari; it fades in after Maa Kali's blessing. */
+.sands-hud { transition: opacity 0.8s ease, visibility 0.8s; }
+.sands-hud.prologue-hidden { opacity: 0; visibility: hidden; transition: none; }

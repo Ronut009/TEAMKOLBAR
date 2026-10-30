@@ -93,6 +93,10 @@ export class Engine {
     this.loadingTimer = 0;
     this.loadingTargetIndex = null;
     this.isGameStarted = false;
+    // Level 1 prologue (wake-up, idol, outfit change) plays once per new game; deaths after it
+    // respawn Rakti in her battle outfit at the start of the temple.
+    this.prologueComplete = false;
+    this.cameraSnap = false;
 
     this.startGameButton?.addEventListener('click', (event) => {
       event.preventDefault();
@@ -177,8 +181,9 @@ export class Engine {
       this.player.y = 145;
       this.player.hasDivineUnlocked = true; // Divine power persists into Level 2
     } else {
-      // Start in Level 1: Sunken courtyard
-      this.player.x = 160;
+      // Level 1: the prologue (portal room -> idol) unless it has already been played
+      this.level1.idolBlessed = this.prologueComplete;
+      this.player.x = this.prologueComplete ? 160 : this.level1.prologue.wakeX;
       this.player.y = 368;
       this.player.hasDivineUnlocked = false; // Strictly requires lotus interaction in Round 1
     }
@@ -201,7 +206,15 @@ export class Engine {
     if (this.deathScreen) {
       this.deathScreen.classList.remove('active');
     }
-    this.player.spawnPoof(20);
+    this.player.resetPrologueState();
+    if (index === 1 && !this.prologueComplete) {
+      // Rakti lies unconscious in her sari; the screen fades in as she wakes.
+      this.player.beginWakeUp();
+      this.level1.screenFade = 1;
+    } else {
+      this.player.spawnPoof(20);
+    }
+    this.cameraSnap = true;
 
     if (index === 4) {
       // The arena's final chapter starts in the divine form used by its combat balance.
@@ -209,10 +222,12 @@ export class Engine {
       this.player.hasDivineUnlocked = true;
       this.player.triggerDivineTransformation();
     }
+    this.updateHUD();
   }
 
   startJourney() {
     if (this.isGameStarted || this.isLoading) return;
+    this.prologueComplete = false;   // a new game always starts with the wake-up
     this.beginLoadingTransition(1);
   }
 
@@ -373,8 +388,9 @@ export class Engine {
       }
     }
 
-    // 1. Check nearby inspection points
-    const nearby = this.level.getNearbyInteractable(this.player.x, this.player.y);
+    // 1. Check nearby inspection points (none while a cutscene animation plays)
+    const inCutscene = this.player.isWaking || this.player.isChangingOutfit;
+    const nearby = inCutscene ? null : this.level.getNearbyInteractable(this.player.x, this.player.y);
     this.currentInteractable = nearby;
 
     if (this.interactPrompt) {
@@ -410,8 +426,14 @@ export class Engine {
       if (this.dialogueActive) {
         this.closeDialogue();
       } else if (nearby) {
+        // LEVEL 1 PROLOGUE: touching Maa Kali's idol changes Rakti into her battle outfit
+        if (nearby.type === 'kali_idol') {
+          this.level.idolBlessed = true;
+          this.level.idolGlow = 1.8;
+          this.player.startOutfitChange();
+        }
         // LEVEL 1: Sacred Lotus Awakening (Unlocks X ability - Taught by Maa Kali)
-        if (nearby.type === 'lotus_awakening' || nearby.id === 'sacred_lotus') {
+        else if (nearby.type === 'lotus_awakening' || nearby.id === 'sacred_lotus') {
           this.player.hasDivineUnlocked = true;
           this.openDialogue(nearby.text, 'kali', nearby.title || '⚜ DIVINE AWAKENING: MAA KALI ⚜');
           const flash = document.getElementById('divineFlash');
@@ -484,8 +506,15 @@ export class Engine {
     }
 
     // 3. Update player and level (passes player for enemy & hazard collision)
+    // Rakti's on-screen x (CSS pixels) so mouse-aimed attacks face the cursor correctly.
+    this.player.screenX = (this.player.x - this.camX) * this.zoom;
     this.player.update(dt, this.level, this.dialogueActive);
     this.level.update(this.player.x, this.player.y, dt, this.player.isDivine, this.player);
+
+    // The prologue ends once the outfit change has finished (the HUD then fades in).
+    if (this.currentLevelIndex === 1 && !this.prologueComplete && this.level.idolBlessed && !this.player.isCivilian) {
+      this.prologueComplete = true;
+    }
 
     // 4. Check Level Complete (Walking into Black Space Doorway)
     if (!this.levelCompleted && this.level.checkLevelComplete(this.player.x, this.player.y)) {
@@ -553,7 +582,9 @@ export class Engine {
   }
 
   updateCamera(dt) {
-    const scaleX = this.canvas.width / this.level.width;
+    // Levels may extend left of x=0 (Level 1's prologue); minX is their left edge.
+    const minX = this.level.minX || 0;
+    const scaleX = this.canvas.width / (this.level.width - minX);
     const scaleY = this.canvas.height / this.level.height;
     this.zoom = Math.max(scaleX, scaleY);
 
@@ -563,12 +594,18 @@ export class Engine {
     let targetX = this.player.x - viewW / 2;
     let targetY = this.player.y - viewH / 2 - 20;
 
-    const maxCamX = Math.max(0, this.level.width - viewW);
+    const maxCamX = Math.max(minX, this.level.width - viewW);
     const maxCamY = Math.max(0, this.level.height - viewH);
 
-    targetX = Math.max(0, Math.min(targetX, maxCamX));
+    targetX = Math.max(minX, Math.min(targetX, maxCamX));
     targetY = Math.max(0, Math.min(targetY, maxCamY));
 
+    if (this.cameraSnap) {
+      // Jump straight to the player after a level load instead of panning across the map.
+      this.camX = targetX;
+      this.camY = targetY;
+      this.cameraSnap = false;
+    }
     const t = 1.0 - Math.exp(-6.5 * dt);
     this.camX += (targetX - this.camX) * t;
     this.camY += (targetY - this.camY) * t;
@@ -583,6 +620,9 @@ export class Engine {
 
   updateHUD() {
     if (!this.hudEl || !this.player) return;
+
+    // No HUD while Rakti is still in her sari (Level 1 prologue); it fades in after the outfit change.
+    this.hudEl.classList.toggle('prologue-hidden', Boolean(this.player.isCivilian));
 
     const hpRatio = Math.max(0, Math.min(1, this.player.hp / this.player.maxHp));
     const hurtPortrait = this.player.hp < 10;
@@ -704,5 +744,13 @@ export class Engine {
     this.player.renderParticles(ctx);
 
     ctx.restore();
+
+    // 5. Fade-from-black overlay (Level 1 wake-up)
+    if (this.level.screenFade > 0) {
+      ctx.save();
+      ctx.fillStyle = `rgba(0, 0, 0, ${Math.min(1, this.level.screenFade)})`;
+      ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+      ctx.restore();
+    }
   }
 }

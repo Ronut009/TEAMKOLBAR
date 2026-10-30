@@ -40,6 +40,9 @@ export class Level {
     // Platform definitions
     // The fall space is increased (x=430 to 690) so MC cannot jump across directly!
     this.platforms = [
+      // 0. Prologue floor (portal room + idol room, negative x)
+      { id: 'prologue_floor', x1: -2200, x2: 0, y: 368, oneWay: false },
+
       // 1. Lower Left Ground (Ends at x=430 at the edge of the widened fall)
       { id: 'floor_left', x1: 0, x2: 430, y: 368, oneWay: false },
 
@@ -98,6 +101,32 @@ export class Level {
     this.pillarWaterSplashes = [];
     this.cameraShake = 0;
     this.isCompleted = false;
+
+    // ------------------------------------------------------------------------
+    // PROLOGUE: two screens to the LEFT of the original temple map (negative x).
+    // Screen 1: the rift portal where Rakti wakes. Screen 2: Maa Kali's idol.
+    // Both images are scaled so their floor line (image y=655) sits on the
+    // temple floor (world y=368); walking right continues into the old map at x=0.
+    // ------------------------------------------------------------------------
+    const proScale = 368 / 655;
+    this.prologue = {
+      scale: proScale,
+      screenW: 1926 * proScale,
+      screenH: 817 * proScale,
+      screens: ['assets/level1/prologue_portal.jpg', 'assets/level1/prologue_idol.jpg'].map((src) => {
+        const img = new Image();
+        img.src = src;
+        return img;
+      })
+    };
+    this.minX = -Math.round(2 * this.prologue.screenW);          // left edge of the playable world
+    this.prologue.wakeX = this.minX + 430 * proScale;              // just right of the portal
+    this.prologue.idolX = this.minX + this.prologue.screenW + 1215 * proScale;
+    this.prologue.idolFaceY = 175 * proScale;
+    this.prologue.idolRange = 95;
+    this.idolBlessed = false;   // set by the engine once Rakti has received Kali's blessing
+    this.idolGlow = 0;          // golden glow on the idol during the blessing
+    this.screenFade = 0;        // 1 = black; fades out as Rakti wakes up
 
     // Sands of Time Guidance Landmarks
     this.interactables = [
@@ -228,6 +257,8 @@ export class Level {
     this.pillar.isRaised = false;
     this.cameraShake = 0;
     this.isCompleted = false;
+    this.idolGlow = 0;
+    this.screenFade = 0;
     this.endSentinel = this.createEndSentinel();
     if (this.bridgeSentries && this.bridgeSentries[0]) {
       this.bridgeSentries[0].x = 438;
@@ -321,6 +352,17 @@ export class Level {
   }
 
   getNearbyInteractable(px, py) {
+    // 0. Prologue: Maa Kali's idol (only before her blessing)
+    if (!this.idolBlessed && Math.abs(px - this.prologue.idolX) <= this.prologue.idolRange && py > 300) {
+      return {
+        type: 'kali_idol',
+        x: this.prologue.idolX,
+        y: 368,
+        prompt: '[E] TOUCH THE IDOL',
+        text: ''
+      };
+    }
+
     // 1. Check Ancient Lever on the RIGHT TOP balcony first (x=785, y=172)
     const distToLever = Math.hypot(px - this.lever.x, py - (this.lever.y - 12));
     if (distToLever <= this.lever.radius) {
@@ -380,6 +422,8 @@ export class Level {
 
   update(playerX, playerY, dt, isDivine = false, player = null) {
     this.animTime += dt;
+    if (this.idolGlow > 0) this.idolGlow = Math.max(0, this.idolGlow - dt * 0.5);
+    if (this.screenFade > 0) this.screenFade = Math.max(0, this.screenFade - dt * 0.55);
 
     // Decay camera shake
     if (this.cameraShake > 0) {
@@ -564,6 +608,9 @@ export class Level {
   renderBackground(ctx, isDivine = false) {
     ctx.save();
 
+    // 0. Prologue screens (left of the temple map)
+    this.renderPrologue(ctx);
+
     // 1. Draw Base Map (Mortal ruins with open chasm)
     if (this.baseMapLoaded) {
       ctx.drawImage(this.baseMapImg, 0, 0, this.width, this.height);
@@ -604,6 +651,32 @@ export class Level {
     this.renderEndSentinel(ctx);
 
     ctx.restore();
+  }
+
+  renderPrologue(ctx) {
+    const p = this.prologue;
+    p.screens.forEach((img, i) => {
+      if (img.complete && img.naturalWidth > 0) {
+        // +1 px overlap hides the seam between screens
+        ctx.drawImage(img, this.minX + i * p.screenW, 0, p.screenW + 1, p.screenH);
+      }
+    });
+
+    // Idol: soft pulse while she can still be touched, a strong golden bloom during the blessing
+    const pulse = this.idolBlessed ? 0 : 0.18 + Math.sin(this.animTime * 2.2) * 0.08;
+    const glow = Math.max(pulse, Math.min(1, this.idolGlow));
+    if (glow > 0.01) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const gx = p.idolX, gy = p.idolFaceY;
+      const g = ctx.createRadialGradient(gx, gy, 4, gx, gy, 120);
+      g.addColorStop(0, `rgba(255, 214, 120, ${0.55 * glow})`);
+      g.addColorStop(0.45, `rgba(120, 200, 255, ${0.22 * glow})`);
+      g.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(gx - 130, gy - 130, 260, 260);
+      ctx.restore();
+    }
   }
 
   /**

@@ -107,7 +107,7 @@ export class InputManager {
   _handleKeyUp(e) {
     const code = e.code;
     this.keysDown.set(code, false);
-    this.keysPressed.set(code, false);
+    // Keep keysPressed: a tap shorter than one frame must still register. update() clears it each frame.
   }
 
   _handleMouseDown(e) {
@@ -133,10 +133,8 @@ export class InputManager {
   _handleMouseUp(e) {
     if (e.button === 0) {
       this.keysDown.set('MouseLeft', false);
-      this.keysPressed.set('MouseLeft', false);
     } else if (e.button === 2) {
       this.keysDown.set('MouseRight', false);
-      this.keysPressed.set('MouseRight', false);
     }
   }
 
