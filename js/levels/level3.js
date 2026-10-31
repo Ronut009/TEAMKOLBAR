@@ -1,11 +1,14 @@
 /**
  * ==========================================================================
- * LEVEL 3: THE JUNGLE (js/levels/level3.js)  - rough playable pass
- * Built like Level 1: a row of wide background screens, a shared floor strip (PlatformArt 'jungle'),
- * data-driven floors / pits / pillars / spikes, Betal swordsmen and a relic + portal at the end.
- *   Home field -> pit crossed on two pillars -> spike trap + Betal -> second pit ->
- *   double spikes + Betal -> WIDE chasm: leap onto the high ledge as Kali [X], cross the golden bridge ->
- *   final stretch (spikes, two Betal). The sealed forest door waits at the end of the map from the start.
+ * LEVEL 3: THE JUNGLE (js/levels/level3.js)
+ * Built like Level 2: the map is cut into short floor chunks (about 450-550 px each) with a pit between
+ * every two, about as long as Level 2 overall. Background screens, a shared floor strip (PlatformArt
+ * 'jungle'), data-driven floors / pits / pillars, Betal swordsmen, a relic and a door at the end.
+ *   Home field -> pit on two pillars -> chunk -> pit with a stepping ledge -> chunk ->
+ *   WIDE chasm: leap onto the high ledge as Kali [X], cross the golden bridge -> chunk ->
+ *   pit on two pillars -> final chunk. The sealed forest door waits at the end of the map from the start.
+ * Hazards (no spike packs of four any more): jungle spikes in packs of two on a timer, and single
+ * jungle vines that rise and sink, and spin at anyone who comes near. Only the sword destroys a vine.
  *   Slay every Betal -> the Forest Heart awakens at the start (an arrow guides Rakti back) -> [E] take it ->
  *   carry it to the door -> [E] offer it -> the door opens -> walk through to Level 4.
  * The old horde level is kept in js/level3.js as a backup.
@@ -28,12 +31,24 @@ const X = (screen, imageX = 0) => screen * (SCREEN_W - FEATHER) + imageX * BG_SC
 const PILLAR_ART = { tall: { src: 'assets/level1/pillar_tall.png', w: 329, h: 735, surface: 10 } };
 const PIT_PILLAR_SCALE = 0.24;
 
-const SPIKE_ART = { frameW: 420, frameH: 200, blockLeft: 30, blockW: 360, surface: 161 };
-const SPIKE_SHEET_COLUMNS = 4;
-const SPIKE_SCALE = 0.5;
-const SPIKE_BLOCK_W = SPIKE_ART.blockW * SPIKE_SCALE;
+// Jungle spikes (assets/level3/jungle_spike.png): 24 frames, 8 per row, each frame two near-identical variants
+// (0/1, 2/3 ...). A pack is two spikes side by side, the second drawn with the partner variant.
+const JSPIKE_ART = { src: 'assets/level3/jungle_spike.png', cw: 230, ch: 390, cols: 8, ground: 387, scale: 0.26 };
+const JSPIKE_HEIGHT = [70, 69, 127, 129, 71, 74, 172, 168, 234, 237, 302, 301, 353, 353, 385, 386, 217, 218, 172, 173, 141, 140, 72, 73];
+const JSPIKE_DORMANT = [0, 1], JSPIKE_WARN = [2, 6], JSPIKE_RISE = [8, 10, 12, 14], JSPIKE_HOLD = [14, 15], JSPIKE_FALL = [16, 18, 20, 22];
+const SPIKE_SPACING = 46;
+const SPIKE_PACK_W = SPIKE_SPACING * 2;
 const SPIKE_CYCLE = 6;
 const SPIKE_DAMAGE = 4;
+// Jungle vines: sheet A (27 frames, 9 per row) rises, sways and sinks; sheet B (19 frames, 10 per row) is the
+// attack: grows (0-5), spins (6-13), settles and sinks (14-18).
+const VINE_A = { src: 'assets/level3/vine_a.png', cw: 206, ch: 281, cols: 9, ground: 278, scale: 0.34 };
+const VINE_B = { src: 'assets/level3/vine_b.png', cw: 372, ch: 331, cols: 10, ground: 328, scale: 0.34 };
+const VINE_NOTICE = 150;       // she is noticed this close (and roughly level with the vine)
+const VINE_HIT = 62;           // the spin reaches this far to either side
+const VINE_SWORD_REACH = 72;
+const VINE_HP = 10;
+const VINE_DAMAGE = 4;
 const PIT_DAMAGE = 3;
 
 const BRIDGE_ART = { src: 'assets/level1/golden_bridge_a.png', w: 1200, h: 193, deckY: 40.6 };
@@ -58,68 +73,80 @@ export class Level3 {
     this.bgB = img('assets/level3/jungle_b.jpg');
     this.screens = [
       { img: this.bgA, mirror: false }, { img: this.bgB, mirror: false },
-      { img: this.bgA, mirror: true }, { img: this.bgB, mirror: true },
-      { img: this.bgA, mirror: false }, { img: this.bgB, mirror: false }
+      { img: this.bgA, mirror: true }, { img: this.bgB, mirror: true }
     ];
     this.platformArt = new PlatformArt('jungle');
     this.pillarImgs = { tall: img(PILLAR_ART.tall.src) };
-    this.spikeSheet = img('assets/level1/spikes/spike-trap-sheet.png');
+    this.spikeSheet = img(JSPIKE_ART.src);
+    this.vineAImg = img(VINE_A.src);
+    this.vineBImg = img(VINE_B.src);
     this.bridgeImg = img(BRIDGE_ART.src);
     this.enemySprites = new EnemySpriteSheet();
     this.heartImg = img(HEART_ART.src);
     this.doorImg = img(DOOR_ART.src);
 
     // ------------------------------------------------------------------ floors & pits
+    // Short floor chunks with a pit between each pair (the same rhythm as Level 2)
+    const END = 4300;
     this.floors = [
-      { x1: 0, x2: X(1) + 500 },                 // home field
-      { x1: X(1) + 870, x2: X(2) + 700 },
-      { x1: X(2) + 1070, x2: X(3) + 800 },
-      { x1: X(4) + 330, x2: X(5) + 1000 }        // final stretch
+      { x1: 0, x2: 560 },                // home field
+      { x1: 930, x2: 1450 },
+      { x1: 1850, x2: 2370 },
+      { x1: 3010, x2: 3470 },
+      { x1: 3850, x2: END }              // final chunk, the door at its far end
     ];
     this.pits = [
-      { x1: X(1) + 500, x2: X(1) + 870 },
-      { x1: X(2) + 700, x2: X(2) + 1070 },
-      { x1: X(3) + 800, x2: X(4) + 330 }         // the wide chasm: Kali only
+      { x1: 560, x2: 930 },              // two pillars
+      { x1: 1450, x2: 1850 },            // one stepping ledge
+      { x1: 2370, x2: 3010 },            // the wide chasm: Kali only
+      { x1: 3470, x2: 3850 }             // two pillars
     ];
     this.pillars = [
-      { art: 'tall', cx: X(1) + 585, top: 335, scale: PIT_PILLAR_SCALE },
-      { art: 'tall', cx: X(1) + 765, top: 305, scale: PIT_PILLAR_SCALE },
-      { art: 'tall', cx: X(2) + 785, top: 335, scale: PIT_PILLAR_SCALE },
-      { art: 'tall', cx: X(2) + 965, top: 305, scale: PIT_PILLAR_SCALE }
+      { art: 'tall', cx: 645, top: 335, scale: PIT_PILLAR_SCALE },
+      { art: 'tall', cx: 825, top: 305, scale: PIT_PILLAR_SCALE },
+      { art: 'tall', cx: 3555, top: 335, scale: PIT_PILLAR_SCALE },
+      { art: 'tall', cx: 3735, top: 305, scale: PIT_PILLAR_SCALE }
     ];
-    // High ledges over the chasm (solid for everybody, but only Kali can jump up to the first)
+    // High ledges: two over the chasm (solid for everybody, but only Kali can jump up to the first) and one
+    // stepping stone in the middle of the second pit
     this.ledges = [
-      { id: 'kali_ledge_a', x1: X(3) + 690, x2: X(3) + 850, y: LEDGE_Y },
-      { id: 'kali_ledge_b', x1: X(4) + 300, x2: X(4) + 460, y: LEDGE_Y }
+      { id: 'step_ledge', x1: 1565, x2: 1735, y: FLOOR_Y - 46 },
+      { id: 'kali_ledge_a', x1: 2260, x2: 2420, y: LEDGE_Y },
+      { id: 'kali_ledge_b', x1: 2980, x2: 3140, y: LEDGE_Y }
     ];
-    // The golden bridge joining them exists (and is drawn) only in Kali form
-    this.bridge = { x1: this.ledges[0].x2 - 4, x2: this.ledges[1].x1 + 4, y: LEDGE_Y };
+    // The golden bridge joining the two Kali ledges exists (and is drawn) only in Kali form
+    this.bridge = { x1: this.ledges[1].x2 - 4, x2: this.ledges[2].x1 + 4, y: LEDGE_Y };
 
-    this.spikes = [
-      { x: X(2) + 250, blocks: 1, phase: 0 },
-      { x: X(3) + 150, blocks: 2, phase: 1.5 },
-      { x: X(4) + 950, blocks: 1, phase: 3 }
-    ];
+    // Jungle spikes: packs of two, x = left edge of the pack (none placed for now)
+    this.spikes = [].map((x, i) => ({ x, phase: i * 1.3 }));
+    // Jungle vines: always one at a time
+    this.vines = [470, 985, 1290, 2110, 3400, 4010].map((x, i) => ({ x, phase: i * 0.9, state: 'hidden', t: 0, wait: 0.6 + (i % 3) * 0.5, hp: VINE_HP, cool: 0, flash: 0, removed: false }));
+    this.fx = [];
 
-    this.checkpoints = [X(1) + 950, X(2) + 1110, X(3) + 740, X(4) + 440];
+    this.checkpoints = [970, 1890, 2310, 3050, 3890];
     this.checkpointIndex = -1;
 
     this.betals = [
-      new Betal(X(1) + 1100, X(1) + 1000, X(1) + 1230),
-      new Betal(X(2) + 540, X(2) + 440, X(2) + 650),
-      new Betal(X(3) + 620, X(3) + 570, X(3) + 740),
-      new Betal(X(4) + 700, X(4) + 600, X(4) + 820),
-      new Betal(X(5) + 150, X(5) + 40, X(5) + 300)
+      new Betal(330, 260, 380),
+      new Betal(1060, 1000, 1120),
+      new Betal(1220, 1160, 1280),
+      new Betal(1380, 1320, 1430),
+      new Betal(2010, 1940, 2080),
+      new Betal(2230, 2160, 2330),
+      new Betal(3160, 3100, 3230),
+      new Betal(3330, 3260, 3420),
+      new Betal(3940, 3880, 4010),
+      new Betal(4080, 4020, 4120)
     ];
 
     // The Forest Heart awakens at the start of the map once every Betal is dead; the door is there from the beginning
     this.relic = { x: 150, collected: false, fly: 0, spawned: false, spawnT: 0 };
     this.clearTimer = 0;
-    this.door = { x: X(5) + 860, opening: false, openT: 0 };
+    this.door = { x: 4150, opening: false, openT: 0 };
     this.px = 0; this.py = FLOOR_Y;
-    this.width = Math.round(X(5) + 1100);
+    this.width = END;
 
-    this.kaliHintX = X(3) + 520;
+    this.kaliHintX = 2190;
     this.kaliHintShown = false;
     this.pendingDialogue = null;
     this.artCache = new Map();
@@ -144,6 +171,8 @@ export class Level3 {
     this.isCompleted = false;
     this.animTime = 0;
     for (const b of this.betals) b.reset();
+    for (const v of this.vines) Object.assign(v, { state: 'hidden', t: 0, wait: 0.6 + (v.phase % 3) * 0.5, hp: VINE_HP, cool: 0, flash: 0, removed: false });
+    this.fx = [];
   }
 
   getRespawnPoint() {
@@ -267,6 +296,12 @@ export class Level3 {
     }
 
     for (const b of this.betals) b.update(dt, player, this, true);
+    this.updateVines(dt, player);
+    for (let i = this.fx.length - 1; i >= 0; i--) {
+      const q = this.fx[i];
+      q.life -= dt; q.x += q.vx * dt; q.y += q.vy * dt; q.vy += 260 * dt;
+      if (q.life <= 0) this.fx.splice(i, 1);
+    }
 
     // Every Betal slain: the Forest Heart awakens at the start of the map
     if (!this.relic.spawned && !this.enemiesLeft) {
@@ -307,7 +342,7 @@ export class Level3 {
     for (const trap of this.spikes) {
       const state = this.spikeState(trap);
       if (!state.harmful) continue;
-      const x1 = trap.x + 6, x2 = trap.x + trap.blocks * SPIKE_BLOCK_W - 6;
+      const x1 = trap.x + 6, x2 = trap.x + SPIKE_PACK_W - 6;
       if (playerX > x1 && playerX < x2 && playerY >= FLOOR_Y - state.reach && playerY <= FLOOR_Y + 6) {
         const away = playerX < (x1 + x2) / 2 ? -1 : 1;
         if (player.invulnerableTimer <= 0) {
@@ -320,15 +355,106 @@ export class Level3 {
 
   spikeState(trap) {
     const t = (this.animTime + trap.phase) % SPIKE_CYCLE;
-    if (t < 2.3) return { frame: Math.floor(t / 0.6) % 2, harmful: false, reach: 0 };
-    if (t < 2.7) return { frame: 2 + Math.min(1, Math.floor((t - 2.3) / 0.2)), harmful: false, reach: 0 };
+    const reachOf = (f) => JSPIKE_HEIGHT[f] * JSPIKE_ART.scale * 0.8;
+    if (t < 2.3) return { frame: JSPIKE_DORMANT[Math.floor(t / 0.6) % 2], harmful: false, reach: 0 };
+    if (t < 2.7) return { frame: JSPIKE_WARN[Math.min(1, Math.floor((t - 2.3) / 0.2))], harmful: false, reach: 0 };
     if (t < 3.2) {
-      const f = Math.min(3, Math.floor((t - 2.7) / 0.125));
-      return { frame: 4 + f, harmful: f >= 2, reach: f >= 3 ? 46 : 30 };
+      const i = Math.min(3, Math.floor((t - 2.7) / 0.125)), frame = JSPIKE_RISE[i];
+      return { frame, harmful: i >= 2, reach: reachOf(frame) };
     }
-    if (t < 5.6) return { frame: 8 + (Math.floor((t - 3.2) / 0.12) % 4), harmful: true, reach: 52 };
-    const f = Math.min(3, Math.floor((t - 5.6) / 0.1));
-    return { frame: 12 + f, harmful: f <= 1, reach: f === 0 ? 40 : 24 };
+    if (t < 5.6) {
+      const frame = JSPIKE_HOLD[Math.floor((t - 3.2) / 0.12) % 2];
+      return { frame, harmful: true, reach: reachOf(frame) };
+    }
+    const i = Math.min(3, Math.floor((t - 5.6) / 0.1)), frame = JSPIKE_FALL[i];
+    return { frame, harmful: i <= 1, reach: reachOf(frame) };
+  }
+
+  // ---------------------------------------------------------------- jungle vines
+  /** Rises, sways and sinks on its own; once Rakti is near it grows, spins to hit her, then sinks and rests. */
+  updateVines(dt, player) {
+    const alive = player && !player.isDead;
+    for (const v of this.vines) {
+      if (v.removed) continue;
+      v.t += dt;
+      v.cool = Math.max(0, v.cool - dt);
+      v.flash = Math.max(0, v.flash - dt);
+      if (v.state === 'dead') { if (v.t > 0.9) v.removed = true; continue; }
+      const dx = alive ? player.x - v.x : 1e9;
+      const onLevel = alive && Math.abs(player.y - FLOOR_Y) < 70;
+
+      // only the sword cuts a vine, and not while it is sunk into the ground
+      if (onLevel && v.state !== 'hidden' && player.isAttacking && Math.abs(dx) < VINE_SWORD_REACH) {
+        const facingIt = dx === 0 || (dx > 0 ? player.facing === 'left' : player.facing !== 'left');
+        if (facingIt && player.claimSwingHit(v)) {
+          v.hp -= player.swordDamage;
+          v.flash = 0.2;
+          this.cameraShake = Math.max(this.cameraShake, 0.2);
+          this.leafBurst(v.x, FLOOR_Y - 40, v.hp <= 0 ? 22 : 8);
+          if (v.hp <= 0) { v.state = 'dead'; v.t = 0; continue; }
+        }
+      }
+
+      if (v.state === 'attack') {
+        const growT = (6 - v.attackFrom) / 14, spinT = 16 / 18, backT = 5 / 10;
+        if (v.t < growT) v.phase2 = 'grow';
+        else if (v.t < growT + spinT) v.phase2 = 'spin';
+        else if (v.t < growT + spinT + backT) v.phase2 = 'back';
+        else { v.state = 'hidden'; v.t = 0; v.wait = 1.4; v.cool = 1.6; v.phase2 = null; continue; }
+        if (v.phase2 === 'spin' && onLevel && Math.abs(dx) < VINE_HIT && player.y >= FLOOR_Y - 95 && player.invulnerableTimer <= 0) {
+          player.takeDamage(VINE_DAMAGE, (dx < 0 ? -1 : 1) * 170, -320);
+          this.cameraShake = Math.max(this.cameraShake, 0.35);
+        }
+        continue;
+      }
+
+      if (alive && v.cool <= 0 && onLevel && Math.abs(dx) < VINE_NOTICE) {
+        v.attackFrom = v.state === 'sway' ? 4 : v.state === 'emerge' ? 2 : 0;
+        v.state = 'attack'; v.t = 0; v.phase2 = 'grow';
+        continue;
+      }
+      if (v.state === 'hidden' && v.t >= v.wait) { v.state = 'emerge'; v.t = 0; }
+      else if (v.state === 'emerge' && v.t >= 10 / 12) { v.state = 'sway'; v.t = 0; }
+      else if (v.state === 'sway' && v.t >= 2.4) { v.state = 'retract'; v.t = 0; }
+      else if (v.state === 'retract' && v.t >= 9 / 12) { v.state = 'hidden'; v.t = 0; v.wait = 1.1 + (v.phase % 3) * 0.4; }
+    }
+  }
+
+  leafBurst(x, y, n) {
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2, sp = 40 + Math.random() * 90;
+      this.fx.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 60, life: 0.6 + Math.random() * 0.4, maxLife: 1, c: Math.random() > 0.4 ? '#4f9a2a' : '#9acd4a' });
+    }
+  }
+
+  vineFrame(v) {
+    const t = v.t;
+    switch (v.state) {
+      case 'hidden': return ['a', 0];
+      case 'emerge': return ['a', Math.min(9, Math.floor(t * 12))];
+      case 'sway': return ['a', 10 + Math.floor(t * 8) % 8];
+      case 'retract': return ['a', 18 + Math.min(8, Math.floor(t * 12))];
+      case 'dead': return ['a', 18 + Math.min(8, Math.floor(t * 10))];
+      default: {
+        const growT = (6 - v.attackFrom) / 14;
+        if (v.phase2 === 'grow') return ['b', v.attackFrom + Math.min(5 - v.attackFrom, Math.floor(t * 14))];
+        if (v.phase2 === 'spin') return ['b', 6 + Math.floor((t - growT) * 18) % 8];
+        return ['b', 14 + Math.min(4, Math.floor((t - growT - 16 / 18) * 10))];
+      }
+    }
+  }
+
+  drawVine(ctx, v) {
+    if (v.removed || !this.inView(v.x - 120, v.x + 120)) return;
+    const [sheet, frame] = this.vineFrame(v);
+    const art = sheet === 'a' ? VINE_A : VINE_B, im = sheet === 'a' ? this.vineAImg : this.vineBImg;
+    const f = this.sheetFrame('vine' + sheet, im, art, frame);
+    if (!f) return;
+    ctx.save();
+    if (v.state === 'dead') ctx.globalAlpha = Math.max(0, 1 - v.t / 0.9);
+    const shake = v.flash > 0 ? Math.sin(v.flash * 140) * 2 : 0;
+    ctx.drawImage(f.c, v.x - f.w / 2 + shake, FLOOR_Y + 3 - art.ground * art.scale, f.w, f.h);
+    ctx.restore();
   }
 
   // ======================================================================== rendering
@@ -409,6 +535,7 @@ export class Level3 {
     // 3. Pillars, hazards, props
     for (const p of this.pillars) this.drawPillar(ctx, p);
     for (const trap of this.spikes) this.drawSpikeTrap(ctx, trap);
+    for (const v of this.vines) this.drawVine(ctx, v);
     this.renderBridge(ctx, isDivine);
     this.renderDoor(ctx);
     this.renderHeart(ctx);
@@ -416,6 +543,12 @@ export class Level3 {
     // 4. Enemies
     for (const b of this.betals) b.render(ctx, this.enemySprites);
     this.renderGuideArrow(ctx);
+    for (const q of this.fx) {
+      ctx.globalAlpha = Math.max(0, q.life / q.maxLife);
+      ctx.fillStyle = q.c;
+      ctx.fillRect(q.x - 1.5, q.y - 1.5, 3, 3);
+    }
+    ctx.globalAlpha = 1;
     ctx.restore();
   }
 
@@ -440,16 +573,12 @@ export class Level3 {
 
   drawSpikeTrap(ctx, trap) {
     const { frame } = this.spikeState(trap);
-    const im = this.spikeSheet, s = SPIKE_SCALE;
-    const w = SPIKE_ART.frameW * s, h = SPIKE_ART.frameH * s;
-    if (!this.inView(trap.x - w, trap.x + trap.blocks * SPIKE_BLOCK_W + w)) return;
-    const sx = (frame % SPIKE_SHEET_COLUMNS) * SPIKE_ART.frameW;
-    const sy = Math.floor(frame / SPIKE_SHEET_COLUMNS) * SPIKE_ART.frameH;
-    const c = this.cachedArt('spike:' + frame, w, h, im.complete && im.naturalWidth > 0,
-      (g) => g.drawImage(im, sx, sy, SPIKE_ART.frameW, SPIKE_ART.frameH, 0, 0, w, h));
-    if (!c) return;
-    for (let b = 0; b < trap.blocks; b++) {
-      ctx.drawImage(c, trap.x + b * SPIKE_BLOCK_W - SPIKE_ART.blockLeft * s, FLOOR_Y - SPIKE_ART.surface * s + 1, w, h);
+    if (!this.inView(trap.x - 60, trap.x + SPIKE_PACK_W + 60)) return;
+    const art = JSPIKE_ART;
+    for (let k = 0; k < 2; k++) {
+      const f = this.sheetFrame('jspike', this.spikeSheet, art, k === 0 ? frame : frame ^ 1);
+      if (!f) return;
+      ctx.drawImage(f.c, trap.x + SPIKE_SPACING * (k + 0.5) - f.w / 2, FLOOR_Y + 3 - art.ground * art.scale, f.w, f.h);
     }
   }
 
