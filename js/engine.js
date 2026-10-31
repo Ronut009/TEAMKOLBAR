@@ -661,12 +661,18 @@ export class Engine {
         : 'Rakti at full health';
       this.isHurtPortrait = hurtPortrait;
     }
-    if (this.healthBarFill) this.healthBarFill.style.width = `${hpRatio * 100}%`;
-    if (this.healthTrack) {
-      this.healthTrack.setAttribute('aria-valuemax', this.player.maxHp);
-      this.healthTrack.setAttribute('aria-valuenow', Math.max(0, Math.ceil(this.player.hp)));
-    }
-    if (this.hpNum) this.hpNum.textContent = `${this.player.hp} / ${this.player.maxHp}`;
+    // HUD writes only happen when a value actually changes (rewriting the DOM every frame forces restyles)
+    const put = (el, key, value, apply) => {
+      if (!el) return;
+      const memo = el.__hudMemo || (el.__hudMemo = {});
+      if (memo[key] === value) return;
+      memo[key] = value;
+      apply(value);
+    };
+    put(this.healthBarFill, 'w', `${(hpRatio * 100).toFixed(1)}%`, v => { this.healthBarFill.style.width = v; });
+    put(this.healthTrack, 'max', String(this.player.maxHp), v => this.healthTrack.setAttribute('aria-valuemax', v));
+    put(this.healthTrack, 'now', String(Math.max(0, Math.ceil(this.player.hp))), v => this.healthTrack.setAttribute('aria-valuenow', v));
+    put(this.hpNum, 'text', `${this.player.hp} / ${this.player.maxHp}`, v => { this.hpNum.textContent = v; });
 
     const divineUnlocked = this.player.hasDivineUnlocked;
     const divineActive = this.player.isDivine || this.player.isTransforming;
@@ -677,15 +683,13 @@ export class Engine {
         : 1;
     const divinePercent = divineUnlocked ? divineRatio * 100 : 0;
 
-    if (this.divineBarFill) this.divineBarFill.style.width = `${divinePercent}%`;
-    if (this.divineTrack) {
-      this.divineTrack.setAttribute('aria-valuenow', Math.round(divinePercent));
-      this.divineTrack.setAttribute('aria-valuetext', !divineUnlocked
-        ? 'X ability locked'
-        : divineActive
-          ? `${this.player.divineTimer.toFixed(1)} seconds remain`
-          : 'X ability ready');
-    }
+    put(this.divineBarFill, 'w', `${divinePercent.toFixed(1)}%`, v => { this.divineBarFill.style.width = v; });
+    put(this.divineTrack, 'now', String(Math.round(divinePercent)), v => this.divineTrack.setAttribute('aria-valuenow', v));
+    put(this.divineTrack, 'text', !divineUnlocked
+      ? 'X ability locked'
+      : divineActive
+        ? `${Math.ceil(this.player.divineTimer)} seconds remain`
+        : 'X ability ready', v => this.divineTrack.setAttribute('aria-valuetext', v));
     if (this.divineMeter) {
       this.divineMeter.classList.toggle('locked', !divineUnlocked);
       this.divineMeter.classList.toggle('active', divineActive);
@@ -695,7 +699,7 @@ export class Engine {
     // Keep combat notifications separate from the minimal persistent HUD.
     if (this.killToast) {
       if (this.level && this.level.killToastTimer > 0) {
-        if (this.killToastText && this.level.killToastText) {
+        if (this.killToastText && this.level.killToastText && this.killToastText.textContent !== this.level.killToastText) {
           this.killToastText.textContent = this.level.killToastText;
         }
         this.killToast.classList.add('active');

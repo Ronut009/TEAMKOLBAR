@@ -38,9 +38,22 @@ const PILLAR_SCALE = 0.21;     // floor pillars
 const PIT_PILLAR_SCALE = 0.24; // pit pillars: tall enough that their base is always below the screen
 const pillarScale = (p) => p.scale || PILLAR_SCALE;
 
-// Spike trap frames (assets/level1/spikes/spike_0..15.png, 420x200; slab 360 px wide at x 30..390,
-// its top face at frame y ~161). 0-1 closed, 2-3 holes open (warning), 4-7 rising, 8-11 up, 12-15 retracting.
+// Shrine towers (screen 4): free-standing tower sprites (1024x1536, transparent) on an open-water background.
+// Image coordinates: arm = the stone ledge either side (Rakti stands on its top), niche = the arched alcove.
+const TOWER_SCALE = 0.30;
+const TOWER_ART = {
+  shrine:     { src: 'assets/level1/tower_shrine.png',      cx: 512, armY: 753, armL: 73, armR: 950, nicheSill: 700, nicheTop: 410 },
+  doorClosed: { src: 'assets/level1/tower_door_closed.png', cx: 512, armY: 720, armL: 69, armR: 955, doorSill: 670, doorTop: 330, doorL: 390, doorR: 633 },
+  doorOpen:   { src: 'assets/level1/tower_door_open.png',   cx: 512, armY: 720, armL: 69, armR: 955, doorSill: 670, doorTop: 330, doorL: 390, doorR: 633 }
+};
+const TOWER_W = 1024, TOWER_H = 1536;
+const TOWER_GAP = 170;          // open water between arm tips, spanned by the golden bridges
+
+// Spike trap frames are a 4x4 sheet of 420x200 transparent spike art. The floor
+// remains the shared temple platform tile, so the trap has no mismatched slab.
+// 0-1 closed, 2-3 warning, 4-7 rising, 8-11 up, 12-15 retracting.
 const SPIKE_ART = { frameW: 420, frameH: 200, blockLeft: 30, blockW: 360, surface: 161 };
+const SPIKE_SHEET_COLUMNS = 4;
 const SPIKE_SCALE = 0.5;                       // one block = 180 world px (just jumpable with a running start)
 const SPIKE_BLOCK_W = SPIKE_ART.blockW * SPIKE_SCALE;
 const SPIKE_CYCLE = 6;                          // seconds: ~3 s down, ~3 s up
@@ -51,7 +64,6 @@ export class Level {
   constructor() {
     this.levelIndex = 1;
     this.minX = 0;
-    this.width = Math.round(X(4) + SCREEN_W);
     this.height = 447;                // view ends at the floor art's bottom edge (360 + 87.6) so the ground meets the screen bottom
     this.deathY = 500;      // falling below this in a pit = respawn at the last checkpoint
     this.pitDamage = PIT_DAMAGE;
@@ -63,14 +75,13 @@ export class Level {
       portal: img('assets/level1/prologue_portal.jpg'),
       idol: img('assets/level1/prologue_idol.jpg'),
       ruins: img('assets/level1/filler_ruins.jpg'),
-      doorClosed: img('assets/level1/shrine_door_closed.jpg'),
-      doorOpen: img('assets/level1/shrine_door_open.jpg')
+      towers: img('assets/level1/towers_bg.jpg')      // open water behind the shrine towers (screens 4-5)
     };
-    this.bgCache = new Map();   // feathered / mirrored versions, built once the images load
+    this.towerImgs = Object.fromEntries(Object.entries(TOWER_ART).map(([k, v]) => [k, img(v.src)]));
 
     this.platformArt = new PlatformArt('temple');
     this.pillarImgs = Object.fromEntries(Object.entries(PILLAR_ART).map(([k, v]) => [k, img(v.src)]));
-    this.spikeFrames = Array.from({ length: 16 }, (_, i) => img(`assets/level1/spikes/spike_${i}.png`));
+    this.spikeSheet = img('assets/level1/spikes/spike-trap-sheet.png');
     this.relicImg = img('assets/level1/relic.png');
     this.columnImg = img('assets/level1/column.png');   // 300x1324, stands over every screen seam
     this.seamColumns = [1, 2, 3, 4].map((n) => X(n) + FEATHER / 2);
@@ -92,11 +103,12 @@ export class Level {
     this.floors = [
       { x1: 0, x2: X(2) + 190 },
       { x1: X(2) + 560, x2: X(3) + 540 },
-      { x1: X(3) + 960, x2: X(4, 505) }     // ends under the lever tower; nothing between the towers
+      { x1: X(3) + 960, x2: X(4) + 300 }    // ends at the lever tower; beyond it only the towers rise from the deep
     ];
     this.pits = [
       { x1: X(2) + 190, x2: X(2) + 560 },
-      { x1: X(3) + 540, x2: X(3) + 960 }
+      { x1: X(3) + 540, x2: X(3) + 960 },
+      { x1: X(4) + 300, x2: X(6) }           // the abyss under the towers
     ];
 
     // Pillars: `top` is where feet stand. Pit pillars use the tall art and sink into the abyss.
@@ -114,37 +126,72 @@ export class Level {
       { x: X(3) + 120, blocks: 2, phase: 1.5 }
     ];
 
-    // Shrine room (screen 4). Positions come straight from the background art.
-    this.ledgeY = Math.round(425 * BG_SCALE);           // niche ledges ~129 px above the floor: only Kali's leap reaches
-    this.doorSillY = Math.round(498 * BG_SCALE);        // door sill ~88 px up: reachable with a jump
-    this.ledges = [
-      { id: 'niche1', x1: X(4, 215), x2: X(4, 498), y: this.ledgeY },
-      { id: 'niche2', x1: X(4, 925), x2: X(4, 1235), y: this.ledgeY },
-      { id: 'door_sill', x1: X(4, 1515), x2: X(4, 1890), y: this.doorSillY }
+    // Shrine room (screen 4): lever tower -> bridge -> relic tower -> bridge -> door tower.
+    // All three arms are ~129 px above the floor, so only Kali's leap reaches the first one.
+    this.ledgeY = 239;
+    const s = TOWER_SCALE, A = TOWER_ART.shrine, D = TOWER_ART.doorClosed;
+    const armHalf = (art) => ({ l: (art.cx - art.armL) * s, r: (art.armR - art.cx) * s });
+    const cx1 = X(4) + 380;            // its left arm overhangs the floor's end, so Kali can leap straight up onto it
+    const cx2 = cx1 + armHalf(A).r + TOWER_GAP + armHalf(A).l;
+    const cx3 = cx2 + armHalf(A).r + TOWER_GAP + armHalf(D).l;
+    this.towers = [
+      { id: 'lever', art: 'shrine', cx: cx1 },
+      { id: 'relic', art: 'shrine', cx: cx2 },
+      { id: 'door', art: 'doorClosed', cx: cx3 }
     ];
-    this.door = { x1: X(4, 1600), x2: X(4, 1830), cx: X(4, 1715) };
+    // world y of an image row of a tower (arm tops line up at ledgeY)
+    this.towerY = (art, imgY) => this.ledgeY - (art.armY - imgY) * s;
+    this.ledges = this.towers.map((t) => {
+      const h = armHalf(TOWER_ART[t.art]);
+      return { id: 'tower_' + t.id, x1: t.cx - h.l + 6, x2: t.cx + h.r - 6, y: this.ledgeY };
+    });
+    this.doorSillY = this.ledgeY;
+    this.door = { x1: cx3 + (D.doorL - D.cx) * s, x2: cx3 + (D.doorR - D.cx) * s, cx: cx3,
+      midY: this.towerY(D, (D.doorTop + D.doorSill) / 2) };
+    this.width = Math.round(cx3 + armHalf(D).r + 150);
 
-    this.lever = { x: X(4, 360), y: this.ledgeY, activated: false, pullTime: 0 };
+    // the lever stands in the lever tower's niche, at Rakti's chest height
+    this.lever = { x: cx1, y: this.towerY(A, A.nicheSill), activated: false, pullTime: 0 };
     this.leverMessage = "The lever locks into place and threads of gold spin out between the towers. These bridges are woven from my light, Rakti. Only in my form [X] will they bear your weight.";
     this.leverImgs = [0, 1, 2].map((i) => img(`assets/level1/lever_${i}.png`));   // idle, moving, pulled
 
     // Golden bridges between the towers: spun out by the lever, solid only in Kali form
-    this.bridgeImg = img('assets/level1/golden_bridge.png');
+    // Each bridge art is drawn at its true proportions, scaled to span its gap (deckY = walking rail, image px)
+    this.bridgeArt = [
+      { img: img('assets/level1/golden_bridge_a.png'), w: 1200, h: 193, deckY: 40.6 },
+      { img: img('assets/level1/golden_bridge_b.png'), w: 1200, h: 197, deckY: 45.8 }
+    ];
+    // bridges run arm tip to arm tip, overlapping each tip a little so they look anchored
     this.bridges = [
-      { x1: X(4, 498) - 4, x2: X(4, 925) + 4, y: this.ledgeY },
-      { x1: X(4, 1235) - 4, x2: X(4, 1515) + 6, y: this.doorSillY }
+      { x1: this.ledges[0].x2 - 4, x2: this.ledges[1].x1 + 4, y: this.ledgeY },
+      { x1: this.ledges[1].x2 - 4, x2: this.ledges[2].x1 + 4, y: this.ledgeY }
     ];
     this.bridgeGrow = 0;
+    // Golden orbs that sweep along the bridges: they exist only in Kali form, like the bridges themselves.
+    // They float at chest height, so Rakti has to hop over them. Touching one costs 2 HP and knocks her back.
+    this.bridgeSentries = [
+      { bridge: 0, t: 0.25, dir: 1, speed: 105, phase: 0 },
+      { bridge: 0, t: 0.8, dir: -1, speed: 135, phase: 2.4 },
+      { bridge: 1, t: 0.5, dir: 1, speed: 95, phase: 1.1 }
+    ];
+    this.sentryStart = this.bridgeSentries.map(o => ({ ...o }));
+
+    // Art is pre-scaled once to the size it appears on screen (see cachedArt), so each frame is a cheap 1:1 copy
+    this.artCache = new Map();
+    this.artScale = 0;
 
     // Kali grants her form [X] when Rakti nears the lever tower (kept across deaths until a New Game)
     this.abilityGrantX = X(4) - 30;
     this.abilityGranted = false;
     this.pendingDialogue = null;
 
-    this.relic = { x: X(4, 1088), baseY: this.ledgeY, collected: false, fly: 0, fromX: 0, fromY: 0 };
-    this.shrineW = 60;
-    this.relicW = 34;
-    this.doorOpen = 0;          // 0 closed .. 1 open (background crossfade)
+    // The shrine sits on the relic tower's niche sill, centred in the arch; the relic floats above it
+    this.relic = { x: cx2, baseY: this.ledgeY, collected: false, fly: 0, fromX: 0, fromY: 0 };
+    this.shrineSillY = this.towerY(A, A.nicheSill);
+    this.shrineW = 40;
+    this.relicW = 26;
+    this.relicFloatY = this.shrineSillY - this.shrineW * (216 / 220) - 19;
+    this.doorOpen = 0;          // 0 closed .. 1 open (door tower crossfade)
     this.doorOpenDelay = 0;
 
     // Checkpoints: pit falls and deaths after the prologue respawn here
@@ -155,8 +202,8 @@ export class Level {
     this.betals = [
       new Betal(X(2) + 150, X(2) + 60, X(2) + 182),
       new Betal(X(2) + 640, X(2) + 572, X(2) + 690),
-      new Betal(X(4, 440), X(4, 232), X(4, 488), this.ledgeY),      // lever tower
-      new Betal(X(4, 1170), X(4, 940), X(4, 1226), this.ledgeY)     // relic tower
+      new Betal(cx1 + 70, this.ledges[0].x1 + 12, this.ledges[0].x2 - 12, this.ledgeY),   // lever tower
+      new Betal(cx2 + 50, this.ledges[1].x1 + 12, this.ledges[1].x2 - 12, this.ledgeY)    // relic tower
     ];
     this.firstBetalShown = false;
     this.checkpointIndex = -1;
@@ -174,6 +221,7 @@ export class Level {
     this.lever.activated = false;
     this.lever.pullTime = 0;
     this.bridgeGrow = 0;
+    this.bridgeSentries.forEach((o, i) => Object.assign(o, this.sentryStart[i]));
     this.pendingDialogue = null;
     this.firstBetalShown = false;
     this.relic.collected = false;
@@ -268,7 +316,7 @@ export class Level {
     if (!this.idolBlessed && Math.abs(px - this.prologue.idolX) <= this.prologue.idolRange && py > 300) {
       return { type: 'kali_idol', x: this.prologue.idolX, y: FLOOR_Y, prompt: '[E] TOUCH THE IDOL', text: '' };
     }
-    if (Math.abs(px - this.lever.x) < 40 && Math.abs(py - this.lever.y) < 12) {
+    if (Math.abs(px - this.lever.x) < 40 && Math.abs(py - this.ledgeY) < 12) {
       return {
         type: 'lever', x: this.lever.x, y: this.lever.y, activated: this.lever.activated,
         prompt: this.lever.activated ? '[E] LEVER (ENGAGED)' : '[E] PULL LEVER',
@@ -298,7 +346,7 @@ export class Level {
 
   checkLevelComplete(px, py) {
     if (this.isCompleted || this.doorOpen < 0.95) return false;
-    if (px > this.door.cx - 40 && px < this.door.cx + 40 && Math.abs(py - this.doorSillY) < 6) {
+    if (Math.abs(px - this.door.cx) < 26 && Math.abs(py - this.doorSillY) < 6) {
       this.isCompleted = true;
       return true;
     }
@@ -322,6 +370,23 @@ export class Level {
         if (this.bridgeGrow >= 1) {
           this.killToastText = '⚜ THE GOLDEN BRIDGES AWAKEN ⚜';
           this.killToastTimer = 2.4;
+        }
+      }
+    }
+
+    // Bridge orbs patrol while the bridges are out and Rakti is in Kali form
+    if (this.bridgeGrow >= 1 && isDivine) {
+      for (const o of this.bridgeSentries) {
+        const b = this.bridges[o.bridge], margin = 14 / (b.x2 - b.x1);
+        o.t += (o.speed * o.dir * dt) / (b.x2 - b.x1);
+        if (o.t > 1 - margin) { o.t = 1 - margin; o.dir = -1; }
+        if (o.t < margin) { o.t = margin; o.dir = 1; }
+        o.phase += dt * 4.5;
+        if (player && !player.isDead) {
+          const p = this.sentryPos(o);
+          if (Math.abs(playerX - p.x) < 15 && Math.abs((playerY - 28) - p.y) < 18) {
+            player.takeDamage(2, Math.sign(playerX - p.x || 1) * 125, -165);
+          }
         }
       }
     }
@@ -404,50 +469,89 @@ export class Level {
   }
 
   // ======================================================================== rendering
-  /** Background with the left FEATHER_PX image-px faded in, so neighbouring screens blend instead of hard seams. */
-  screenCanvas(key, image, { mirror = false, feather = true } = {}) {
-    if (this.bgCache.has(key)) return this.bgCache.get(key);
-    if (!image.complete || image.naturalWidth === 0) return null;
-    const c = document.createElement('canvas');
-    c.width = image.naturalWidth;
-    c.height = image.naturalHeight;
+  /** World px -> device px of the current camera, rounded to 1/4 steps. When it changes, cached art is rebuilt. */
+  updateArtScale(ctx) {
+    const a = ctx.getTransform().a || 1;
+    const k = Math.max(1, Math.min(4, Math.ceil(a * 4) / 4));
+    if (k !== this.artScale) { this.artScale = k; this.artCache.clear(); }
+  }
+
+  /** Returns a canvas holding `paint` drawn at w x h world px, rendered once at device resolution.
+   *  Big sources (2x backgrounds, 735 px pillars, the 1324 px column) would otherwise be shrunk with
+   *  high-quality filtering on every frame, which is what made the pit before the shrine stutter. */
+  cachedArt(key, w, h, ready, paint) {
+    let c = this.artCache.get(key);
+    if (c) return c;
+    if (!ready) return null;
+    const k = this.artScale || 1;
+    c = document.createElement('canvas');
+    c.width = Math.max(1, Math.ceil(w * k));
+    c.height = Math.max(1, Math.ceil(h * k));
     const g = c.getContext('2d');
-    if (mirror) { g.translate(c.width, 0); g.scale(-1, 1); }
-    g.drawImage(image, 0, 0);
-    g.setTransform(1, 0, 0, 1, 0, 0);
-    if (feather) {
-      // One full-size fill: destination-in clears everything the fill does not cover.
-      g.globalCompositeOperation = 'destination-in';
-      const grad = g.createLinearGradient(0, 0, c.width, 0);
-      grad.addColorStop(0, 'rgba(0,0,0,0)');
-      grad.addColorStop(FEATHER_PX / c.width, 'rgba(0,0,0,1)');
-      grad.addColorStop(1, 'rgba(0,0,0,1)');
-      g.fillStyle = grad;
-      g.fillRect(0, 0, c.width, c.height);
-    }
-    this.bgCache.set(key, c);
+    g.imageSmoothingEnabled = true;
+    g.imageSmoothingQuality = 'high';
+    g.scale(c.width / w, c.height / h);
+    paint(g);
+    this.artCache.set(key, c);
     return c;
   }
 
-  drawScreen(ctx, canvas, screen, alpha = 1) {
+  /** Background screen with the left FEATHER world px faded in, so neighbouring screens blend instead of hard seams. */
+  screenCanvas(key, image, { mirror = false, feather = true } = {}) {
+    const ready = image.complete && image.naturalWidth > 0;
+    return this.cachedArt('scr:' + key, SCREEN_W, SCREEN_H, ready, (g) => {
+      g.save();
+      if (mirror) { g.translate(SCREEN_W, 0); g.scale(-1, 1); }
+      g.drawImage(image, 0, 0, SCREEN_W, SCREEN_H);
+      g.restore();
+      if (feather) {
+        // One full-size fill: destination-in clears everything the fill does not cover.
+        g.globalCompositeOperation = 'destination-in';
+        const grad = g.createLinearGradient(0, 0, SCREEN_W, 0);
+        grad.addColorStop(0, 'rgba(0,0,0,0)');
+        grad.addColorStop(FEATHER / SCREEN_W, 'rgba(0,0,0,1)');
+        grad.addColorStop(1, 'rgba(0,0,0,1)');
+        g.fillStyle = grad;
+        g.fillRect(0, 0, SCREEN_W, SCREEN_H);
+      }
+    });
+  }
+
+  drawScreen(ctx, canvas, screen, alpha = 1, atX = null) {
     if (!canvas) return;
+    const x = atX ?? X(screen);
+    if (!this.inView(x, x + SCREEN_W + 1)) return;
     ctx.save();
     ctx.globalAlpha = alpha;
-    ctx.drawImage(canvas, X(screen), 0, SCREEN_W + 1, SCREEN_H);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'low';   // the cache is already at screen resolution
+    ctx.drawImage(canvas, x, 0, SCREEN_W + 1, SCREEN_H);
     ctx.restore();
   }
 
+  /** True when world span [x1, x2] overlaps the camera view (skips art that is off screen). */
+  inView(x1, x2) {
+    const v = this.view;
+    return !v || (x2 >= v.x1 && x1 <= v.x2);
+  }
+
   renderBackground(ctx, isDivine = false) {
+    this.updateArtScale(ctx);
+    // visible world span (inverse of the camera transform), with a margin
+    const t = ctx.getTransform(), cw = ctx.canvas.width;
+    this.view = t.a ? { x1: -t.e / t.a - 60, x2: (cw - t.e) / t.a + 60 } : null;
     ctx.save();
     // 1. Screens
     this.drawScreen(ctx, this.screenCanvas('portal', this.bg.portal, { feather: false }), 0);
     this.drawScreen(ctx, this.screenCanvas('idol', this.bg.idol), 1);
     this.drawScreen(ctx, this.screenCanvas('ruins', this.bg.ruins), 2);
     this.drawScreen(ctx, this.screenCanvas('ruins_m', this.bg.ruins, { mirror: true }), 3);
-    this.drawScreen(ctx, this.screenCanvas('door_closed', this.bg.doorClosed), 4);
-    if (this.doorOpen > 0) this.drawScreen(ctx, this.screenCanvas('door_open', this.bg.doorOpen), 4, this.doorOpen);
+    this.drawScreen(ctx, this.screenCanvas('towers', this.bg.towers), 4);
+    // mirrored copy butted edge to edge: the seam is a perfect reflection, so it needs no feather
+    this.drawScreen(ctx, this.screenCanvas('towers_m', this.bg.towers, { mirror: true, feather: false }), 4, 1, X(4) + SCREEN_W - 1);
 
     this.renderIdolGlow(ctx);
+    this.renderTowers(ctx);
     this.renderPits(ctx);
 
 
@@ -455,7 +559,7 @@ export class Level {
     ctx.save();
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
-    for (const f of this.floors) this.platformArt.draw(ctx, f.x1, f.x2, FLOOR_Y);
+    for (const f of this.floors) if (this.inView(f.x1, f.x2)) this.platformArt.draw(ctx, f.x1, f.x2, FLOOR_Y);
     ctx.restore();
 
     // 4. Pillars, seam columns and spike traps
@@ -465,6 +569,7 @@ export class Level {
 
     // 5. Shrine room props
     this.renderBridges(ctx, isDivine);
+    this.renderBridgeSentries(ctx, isDivine);
     this.renderLever(ctx);
     this.renderShrineAndRelic(ctx);
     this.renderDoorGlow(ctx);
@@ -477,13 +582,11 @@ export class Level {
   /** Big carved columns standing on the floor over each background seam. */
   renderSeamColumns(ctx) {
     const im = this.columnImg;
-    if (!im.complete || im.naturalWidth === 0) return;
-    const w = 84, h = w * (1324 / 300);
-    ctx.save();
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
-    for (const cx of this.seamColumns) ctx.drawImage(im, cx - w / 2, FLOOR_Y + 3 - h, w, h);
-    ctx.restore();
+    // Tall enough that the capital runs off the top of the screen: the column holds up the "ceiling"
+    const h = FLOOR_Y + 3 + 14, w = h * (300 / 1324);
+    const c = this.cachedArt('column', w, h, im.complete && im.naturalWidth > 0, (g) => g.drawImage(im, 0, 0, w, h));
+    if (!c) return;
+    for (const cx of this.seamColumns) if (this.inView(cx - w / 2, cx + w / 2)) ctx.drawImage(c, cx - w / 2, FLOOR_Y + 3 - h, w, h);
   }
 
   renderIdolGlow(ctx) {
@@ -515,33 +618,37 @@ export class Level {
   drawPillar(ctx, p) {
     const art = PILLAR_ART[p.art];
     const im = this.pillarImgs[p.art];
-    if (!im.complete || im.naturalWidth === 0) return;
     const sc = pillarScale(p);
     const w = art.w * sc, h = art.h * sc;
+    if (!this.inView(p.cx - w / 2, p.cx + w / 2)) return;
+    const c = this.cachedArt(`pillar:${p.art}:${sc}`, w, h, im.complete && im.naturalWidth > 0, (g) => g.drawImage(im, 0, 0, w, h));
+    if (!c) return;
     const top = p.top - art.surface * sc;
     ctx.save();
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
     if (p.art === 'medium') {
       // only the part above the floor's bottom edge is visible while it rises
       ctx.beginPath();
       ctx.rect(p.cx - w, 0, w * 2, FLOOR_Y + 2);
       ctx.clip();
     }
-    ctx.drawImage(im, p.cx - w / 2, top, w, h);
+    ctx.drawImage(c, p.cx - w / 2, top, w, h);
     ctx.restore();
   }
 
   drawSpikeTrap(ctx, trap) {
     const { frame } = this.spikeState(trap);
-    const im = this.spikeFrames[frame];
-    if (!im.complete || im.naturalWidth === 0) return;
+    const im = this.spikeSheet;
     const s = SPIKE_SCALE;
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
+    const w = SPIKE_ART.frameW * s, h = SPIKE_ART.frameH * s;
+    if (!this.inView(trap.x - w, trap.x + trap.blocks * SPIKE_BLOCK_W + w)) return;
+    const sx = (frame % SPIKE_SHEET_COLUMNS) * SPIKE_ART.frameW;
+    const sy = Math.floor(frame / SPIKE_SHEET_COLUMNS) * SPIKE_ART.frameH;
+    const c = this.cachedArt('spike:' + frame, w, h, im.complete && im.naturalWidth > 0,
+      (g) => g.drawImage(im, sx, sy, SPIKE_ART.frameW, SPIKE_ART.frameH, 0, 0, w, h));
+    if (!c) return;
     for (let b = 0; b < trap.blocks; b++) {
       const bx = trap.x + b * SPIKE_BLOCK_W;
-      ctx.drawImage(im, bx - SPIKE_ART.blockLeft * s, FLOOR_Y - SPIKE_ART.surface * s + 1, SPIKE_ART.frameW * s, SPIKE_ART.frameH * s);
+      ctx.drawImage(c, bx - SPIKE_ART.blockLeft * s, FLOOR_Y - SPIKE_ART.surface * s + 1, w, h);
     }
   }
 
@@ -552,13 +659,14 @@ export class Level {
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
     if (sh.complete && sh.naturalWidth > 0) {
-      ctx.drawImage(sh, this.relic.x - this.shrineW / 2, this.ledgeY - shrineH + 2, this.shrineW, shrineH);
+      const c = this.cachedArt('shrine', this.shrineW, shrineH, true, (g) => g.drawImage(sh, 0, 0, this.shrineW, shrineH));
+      ctx.drawImage(c, this.relic.x - this.shrineW / 2, this.shrineSillY - shrineH + 1, this.shrineW, shrineH);
     }
     ctx.restore();
     if (!rl.complete || rl.naturalWidth === 0) return;
     const relicH = this.relicW * (181 / 176);
     let rx = this.relic.x;
-    let ry = this.ledgeY - shrineH - relicH / 2 - 6 + Math.sin(this.animTime * 2.4) * 2.5;
+    let ry = this.relicFloatY + Math.sin(this.animTime * 2.4) * 2;
     let alpha = 1, size = 1;
     if (this.relic.collected) {
       const t = this.relic.fly;
@@ -586,79 +694,196 @@ export class Level {
     ctx.restore();
   }
 
+  /** The three free-standing towers. Their bases sink into the dark abyss (renderPits draws over them).
+   *  The door tower crossfades from its closed to its open art as the door opens. */
+  renderTowers(ctx) {
+    const s = TOWER_SCALE, w = TOWER_W * s, h = TOWER_H * s;
+    for (const t of this.towers) {
+      if (!this.inView(t.cx - w / 2, t.cx + w / 2)) continue;
+      const draw = (key, alpha) => {
+        const art = TOWER_ART[key], im = this.towerImgs[key];
+        const c = this.cachedArt('tower:' + key, w, h, im.complete && im.naturalWidth > 0, (g) => g.drawImage(im, 0, 0, w, h));
+        if (!c) return;
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.drawImage(c, t.cx - art.cx * s, this.ledgeY - art.armY * s, w, h);
+        ctx.restore();
+      };
+      if (t.art === 'doorClosed') {
+        if (this.doorOpen < 1) draw('doorClosed', 1);
+        if (this.doorOpen > 0) draw('doorOpen', this.doorOpen);
+      } else {
+        draw(t.art, 1);
+      }
+    }
+  }
+
   renderDoorGlow(ctx) {
-    if (this.doorOpen <= 0) return;
-    const cx = this.door.cx, cy = this.doorSillY - 50;
+    const cx = this.door.cx, cy = this.door.midY;
+    const D = TOWER_ART.doorClosed, s = TOWER_SCALE;
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    const pulse = 0.25 + Math.sin(this.animTime * 3) * 0.08;
-    const g = ctx.createRadialGradient(cx, cy, 6, cx, cy, 90);
-    g.addColorStop(0, `rgba(120, 255, 250, ${pulse * this.doorOpen})`);
+    if (this.doorOpen <= 0) {
+      // sealed: the sun-seals breathe faintly, brighter once the relic is free to claim
+      const p = (this.lever.activated ? 0.16 : 0.08) + Math.sin(this.animTime * 2) * 0.04;
+      const g = ctx.createRadialGradient(cx, cy, 4, cx, cy, 50);
+      g.addColorStop(0, `rgba(255, 210, 120, ${p})`);
+      g.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(cx - 52, cy - 52, 104, 104);
+      ctx.restore();
+      return;
+    }
+    const o = this.doorOpen;
+    const pulse = 0.3 + Math.sin(this.animTime * 3) * 0.08;
+    const g = ctx.createRadialGradient(cx, cy, 6, cx, cy, 95);
+    g.addColorStop(0, `rgba(120, 255, 250, ${pulse * o})`);
+    g.addColorStop(0.5, `rgba(60, 170, 255, ${0.12 * o})`);
     g.addColorStop(1, 'rgba(0, 0, 0, 0)');
     ctx.fillStyle = g;
-    ctx.fillRect(cx - 95, cy - 95, 190, 190);
+    ctx.fillRect(cx - 100, cy - 100, 200, 200);
+    // motes drawn into the portal
+    const top = this.towerY(D, D.doorTop + 30), bottom = this.towerY(D, D.doorSill);
+    for (let i = 0; i < 14; i++) {
+      const k = (this.animTime * 0.35 + i / 14) % 1;
+      const a = i * 2.39 + this.animTime * 0.6;
+      const r = (1 - k) * 44;
+      const x = cx + Math.cos(a) * r * 0.8, y = cy + Math.sin(a) * r * 0.9;
+      if (y < top - 20 || y > bottom + 10) continue;
+      ctx.fillStyle = `rgba(190, 255, 255, ${0.7 * o * Math.sin(k * Math.PI)})`;
+      ctx.fillRect(x - 1, y - 1, 2, 2);
+    }
     ctx.restore();
   }
 
-  /** Lever art: 0 idle (tilted left), 1 mid-pull (upright), 2 pulled (tilted right). Hub sits on the ledge. */
+  /** Lever art: 0 idle (tilted left), 1 mid-pull (upright), 2 pulled (tilted right). Hub sits on the ledge.
+   *  Until it is pulled it pulses with a golden halo, a light shaft and orbiting sparks so it is easy to spot. */
   renderLever(ctx) {
     const t = this.lever.pullTime;
     const frame = !this.lever.activated ? 0 : (t < 0.18 ? 1 : 2);
     const im = this.leverImgs[frame];
     if (!im.complete || im.naturalWidth === 0) return;
-    const h = 30, w = h * (200 / 149);
+    const h = 38, w = h * (200 / 149);     // fits the niche (~53 px wide)
+    const lx = this.lever.x, ly = this.lever.y, cy = ly - h * 0.45;
+    if (!this.inView(lx - 60, lx + 60)) return;
+    const pulse = 0.5 + 0.5 * Math.sin(this.animTime * 3.2);
+    const leverArt = this.cachedArt('lever:' + frame, w, h, true, (g) => g.drawImage(im, 0, 0, w, h));
+    const dx = lx - w * 0.4979, dy = ly - h + 1;
     ctx.save();
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
     if (!this.lever.activated) {
-      // soft pulse so the player spots it
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
-      const g = ctx.createRadialGradient(this.lever.x, this.lever.y - 14, 2, this.lever.x, this.lever.y - 14, 26);
-      g.addColorStop(0, `rgba(90, 240, 230, ${0.22 + Math.sin(this.animTime * 3) * 0.08})`);
+      // light shaft from above
+      const shaft = ctx.createLinearGradient(0, ly - 120, 0, ly);
+      shaft.addColorStop(0, 'rgba(255, 220, 120, 0)');
+      shaft.addColorStop(1, `rgba(255, 220, 120, ${0.18 + 0.1 * pulse})`);
+      ctx.fillStyle = shaft;
+      ctx.beginPath();
+      ctx.moveTo(lx - 8, ly - 120); ctx.lineTo(lx + 8, ly - 120); ctx.lineTo(lx + 26, ly); ctx.lineTo(lx - 26, ly);
+      ctx.fill();
+      // halo
+      const g = ctx.createRadialGradient(lx, cy, 2, lx, cy, 44);
+      g.addColorStop(0, `rgba(255, 215, 110, ${0.6 + 0.3 * pulse})`);
+      g.addColorStop(0.5, `rgba(90, 240, 230, ${0.18 + 0.1 * pulse})`);
       g.addColorStop(1, 'rgba(0, 0, 0, 0)');
       ctx.fillStyle = g;
-      ctx.fillRect(this.lever.x - 28, this.lever.y - 42, 56, 56);
+      ctx.fillRect(lx - 46, cy - 46, 92, 92);
+      // orbiting sparks
+      for (let i = 0; i < 6; i++) {
+        const a = this.animTime * 1.8 + (i * Math.PI * 2) / 6;
+        const sx = lx + Math.cos(a) * 24, sy = cy + Math.sin(a) * 12;
+        ctx.fillStyle = i % 2 ? 'rgba(255, 230, 140, 0.9)' : 'rgba(140, 255, 245, 0.9)';
+        ctx.fillRect(sx - 1, sy - 1, 2.2, 2.2);
+      }
+      // golden outline glow (blurred once into the cache, faded in and out here)
+      const pad = 10;
+      const glow = this.cachedArt('leverGlow', w + pad * 2, h + pad * 2, true, (gg) => {
+        gg.shadowColor = 'rgba(255, 210, 100, 1)';
+        gg.shadowBlur = 12;
+        gg.drawImage(im, pad, pad, w, h);
+        gg.drawImage(im, pad, pad, w, h);
+      });
+      ctx.globalAlpha = 0.45 + 0.55 * pulse;
+      ctx.drawImage(glow, dx - pad, dy - pad, w + pad * 2, h + pad * 2);
       ctx.restore();
     }
-    ctx.drawImage(im, this.lever.x - w * 0.4979, this.lever.y - h + 1, w, h);
+    ctx.drawImage(leverArt, dx, dy, w, h);
+    if (!this.lever.activated) {
+      // bobbing golden marker above the lever
+      const my = ly - h - 16 + Math.sin(this.animTime * 4) * 3;
+      ctx.fillStyle = `rgba(255, 214, 110, ${0.75 + 0.25 * pulse})`;
+      ctx.strokeStyle = 'rgba(90, 50, 10, 0.9)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(lx - 6, my - 5); ctx.lineTo(lx + 6, my - 5); ctx.lineTo(lx, my + 3); ctx.closePath();
+      ctx.fill(); ctx.stroke();
+    }
     ctx.restore();
   }
 
-  /** Golden bridges: 3-slice art (end caps kept, middle stretched), growing out after the lever is pulled.
-   *  Faint and ghostly to mortal eyes; bright and solid in Kali form. */
+  /** Golden bridges grow out after the lever is pulled; each art is scaled uniformly to its gap
+   *  (no squashing). They can only be seen - and stood on - in Kali form. */
   renderBridges(ctx, isDivine) {
-    const im = this.bridgeImg;
-    if (this.bridgeGrow <= 0 || !im.complete || im.naturalWidth === 0) return;
-    const H = 26, s = H / 136, deck = 24.1 * s, capSrc = 48, capW = capSrc * s;
-    const alpha = isDivine ? 1 : 0.32 + Math.sin(this.animTime * 2.4) * 0.06;
-    ctx.save();
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
-    for (const b of this.bridges) {
-      const len = (b.x2 - b.x1) * this.bridgeGrow;
-      const top = b.y - deck;
+    if (this.bridgeGrow <= 0 || !isDivine) return;
+    this.bridges.forEach((b, i) => {
+      const art = this.bridgeArt[i % this.bridgeArt.length];
+      const span = b.x2 - b.x1;
+      if (!this.inView(b.x1, b.x2)) return;
+      const s = span / art.w, H = art.h * s;
+      const c = this.cachedArt('bridge:' + i, span, H, art.img.complete && art.img.naturalWidth > 0,
+        (g) => g.drawImage(art.img, 0, 0, span, H));
+      if (!c) return;
+      const top = b.y - art.deckY * s;
+      const len = span * this.bridgeGrow;
       ctx.save();
       ctx.beginPath();
-      ctx.rect(b.x1 - 2, top - 20, len + 4, H + 40);
+      ctx.rect(b.x1 - 2, top - 30, len + 4, H + 60);
       ctx.clip();
-      if (isDivine) {
-        ctx.save();
-        ctx.globalCompositeOperation = 'lighter';
-        const g = ctx.createLinearGradient(0, top - 14, 0, top + H + 6);
-        g.addColorStop(0, 'rgba(0,0,0,0)');
-        g.addColorStop(0.45, 'rgba(255, 210, 110, 0.22)');
-        g.addColorStop(1, 'rgba(0,0,0,0)');
-        ctx.fillStyle = g;
-        ctx.fillRect(b.x1, top - 14, b.x2 - b.x1, H + 20);
-        ctx.restore();
-      }
-      ctx.globalAlpha = alpha;
-      const midW = (b.x2 - b.x1) - 2 * capW;
-      ctx.drawImage(im, 0, 0, capSrc, 136, b.x1, top, capW, H);
-      ctx.drawImage(im, capSrc, 0, 540 - 2 * capSrc, 136, b.x1 + capW, top, midW, H);
-      ctx.drawImage(im, 540 - capSrc, 0, capSrc, 136, b.x2 - capW, top, capW, H);
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const g = ctx.createLinearGradient(0, top - 16, 0, top + H + 8);
+      g.addColorStop(0, 'rgba(0,0,0,0)');
+      g.addColorStop(0.45, 'rgba(255, 210, 110, 0.22)');
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(b.x1, top - 16, span, H + 24);
       ctx.restore();
+      ctx.drawImage(c, b.x1, top, span, H);
+      ctx.restore();
+    });
+  }
+
+  sentryPos(o) {
+    const b = this.bridges[o.bridge];
+    return { x: b.x1 + (b.x2 - b.x1) * o.t, y: b.y - 26 + Math.sin(o.phase) * 5 };
+  }
+
+  /** The bridge orbs from the original temple level: a hot golden core with a spinning ring. */
+  renderBridgeSentries(ctx, isDivine) {
+    if (!isDivine || this.bridgeGrow < 1) return;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (const o of this.bridgeSentries) {
+      const { x, y } = this.sentryPos(o);
+      if (!this.inView(x - 20, x + 20)) continue;
+      const pulse = 0.72 + Math.sin(o.phase * 1.7) * 0.18;
+      const glow = ctx.createRadialGradient(x, y, 2, x, y, 20);
+      glow.addColorStop(0, `rgba(255, 247, 202, ${0.9 * pulse})`);
+      glow.addColorStop(0.32, `rgba(255, 190, 61, ${0.65 * pulse})`);
+      glow.addColorStop(1, 'rgba(255, 122, 34, 0)');
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(x, y, 20, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = `rgba(255, 230, 145, ${0.72 * pulse})`;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(x, y, 9, o.phase, o.phase + Math.PI * 1.55);
+      ctx.stroke();
+      ctx.fillStyle = '#fff5d1';
+      ctx.beginPath();
+      ctx.arc(x, y, 4, 0, Math.PI * 2);
+      ctx.fill();
     }
     ctx.restore();
   }
