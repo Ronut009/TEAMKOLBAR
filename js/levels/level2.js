@@ -10,8 +10,9 @@
  *   1-2             - a chasm of floating rocks: [Q] turns them into stone platforms
  *   2 dunes (mirror)- tower 2: a second archer and a second boulder. When he falls a ladder
  *                     unfurls and the Sun Key floats over the tower top
- *   3 dunes         - a quicksand pit crossed on five crumbling slabs, then two Betal guard the sun door
- *   4 the sun door  - the key opens it (closed -> open art) and Rakti walks into the hall
+ *   3-4 dunes       - a long run past the tower, then a quicksand pit crossed on three crumbling slabs;
+ *                     three Betal guard the sun door
+ *   5 the sun door  - the key opens it (closed -> open art) and Rakti walks into the hall
  * The hall (two screens, in its own stretch of the world; the camera is limited to it):
  *   the shrine holds the Trishul -> an archer on the hall's tower (only the Trishul reaches him)
  *   -> a horde of 3 Betal and 2 archers -> the end door opens into a portal -> Level 3.
@@ -36,8 +37,8 @@ const BG_Y = FLOOR_Y - 930 * BG_SCALE;      // ~-74: lifted so the door sills (i
 const FEATHER_PX = 240;
 const FEATHER = FEATHER_PX * BG_SCALE;
 const X = (screen, imageX = 0) => screen * (SCREEN_W - FEATHER) + imageX * BG_SCALE;
-const OUT_W = Math.round(X(4) + SCREEN_W);  // outside ends at the right edge of the door screen
-const ROOM_X = 3800;                        // the hall sits in its own stretch of the world
+const OUT_W = Math.round(X(5) + SCREEN_W);  // outside ends at the right edge of the door screen
+const ROOM_X = 4500;                        // the hall sits in its own stretch of the world
 const RX = (screen, imageX = 0) => ROOM_X + X(screen, imageX);
 const ROOM_END = Math.round(RX(1) + SCREEN_W);
 const BGY = (imageY) => BG_Y + imageY * BG_SCALE;
@@ -67,8 +68,8 @@ const CHASM_PILLAR_SCALE = 0.33;   // full pillar art, its stepped base standing
 // Every gap is a sunken sand pit: its surface sits below the floor, pillar bases stand in it, and
 // whoever drops in sinks (pit damage, back to the last checkpoint).
 const SAND_Y = 404;
-// Quicksand fills every pit. Rakti can stand in it, but she wades at QS_SLOW of her speed and sinks:
-// QS_SINK px/s standing still, QS_SINK_MOVING while wading. Deeper means weaker jumps; at QS_MAX she is
+// Quicksand fills every pit except those marked sand: false. Rakti wades at QS_SLOW of her speed and sinks:
+// QS_SINK px/s standing still, QS_SINK_MOVING while wading. She cannot jump out of it: at QS_MAX she is
 // swallowed (pit damage, back to the checkpoint). Kali's form floats on it.
 const QS_SLOW = 0.3;
 const QS_SINK = 120;          // swallowed in about half a second
@@ -154,17 +155,17 @@ export class Level2 {
     this.portal = { x: X(0, 185), y: BGY(505) + PORTAL_DY, top: BGY(217) + PORTAL_DY, spawnX: 112 };
     this.floors = [
       { x1: 0, x2: 250, area: 'out' },
-      { x1: 700, x2: 1480, area: 'out' },
-      { x1: 1800, x2: 2270, area: 'out' },
-      { x1: 2735, x2: OUT_W, area: 'out' },
+      { x1: 690, x2: 1480, area: 'out' },     // starts under the seam column's base, never inside the pit
+      { x1: 2045, x2: 2856, area: 'out' },
+      { x1: 3411, x2: OUT_W, area: 'out' },
       { x1: ROOM_X, x2: ROOM_X + 250, area: 'room' },
-      { x1: ROOM_X + 700, x2: ROOM_END, area: 'room' }
+      { x1: ROOM_X + 690, x2: ROOM_END, area: 'room' }
     ];
     this.pits = [
-      { x1: 250, x2: 700, area: 'out' },                     // first steps: small -> medium -> tall
-      { x1: 1480, x2: 1800, area: 'out' },                   // floating rocks ([Q] platforms)
-      { x1: 2270, x2: 2735, area: 'out' },                   // five crumbling slabs
-      { x1: ROOM_X + 250, x2: ROOM_X + 700, area: 'room' }   // the hall's broken floor
+      { x1: 250, x2: 690, area: 'out' },                     // first steps: small -> medium -> tall
+      { x1: 1480, x2: 2045, area: 'out', sand: false },      // floating rocks ([Q] platforms): a bare chasm
+      { x1: 2856, x2: 3411, area: 'out' },                   // three crumbling slabs
+      { x1: ROOM_X + 250, x2: ROOM_X + 690, area: 'room' }   // the hall's broken floor
     ];
     // Every pillar stands in a chasm with gaps between, so it is a jump, never a speed bump.
     // `top` is where feet stand; the bases sink into the chasm's shadow.
@@ -183,7 +184,7 @@ export class Level2 {
       p.area = p.cx >= ROOM_X ? 'room' : 'out';
     }
     // Tall carved columns over every seam between two background screens, so the join can't be seen
-    this.seamColumns = [X(1), X(2), X(3), X(4)].map((x) => ({ cx: x + FEATHER / 2, area: 'out' }))
+    this.seamColumns = [X(1), X(2), X(3), X(4), X(5)].map((x) => ({ cx: x + FEATHER / 2, area: 'out' }))
       .concat([{ cx: RX(1) + FEATHER / 2, area: 'room' }]);
     // Loose boulders lying around the towers: only one at each tower answers to [Q]
     // (sheet: 'ball' or 'slab' rock art, s = scale, flip = mirrored, dim = further back)
@@ -198,12 +199,12 @@ export class Level2 {
       { sheet: 'ball', x: x + 78, s: 0.12, dim: 0.15, flip: true },
       { sheet: 'ball', x: x - 74, s: 0.12, dim: 0.2 }
     ];
-    this.decoys = [...pile(1005), ...pile(1925)];
+    this.decoys = [...pile(1005), ...pile(2170)];
 
     // Towers: two outside, one in the hall. Archers stand on their roofs.
     this.towers = [
       { id: 'T1', cx: 1185, area: 'out' },
-      { id: 'T2', cx: 2185, area: 'out' },
+      { id: 'T2', cx: 2430, area: 'out' },
       { id: 'T3', cx: ROOM_X + 1080, area: 'room' }
     ];
     const roofHalf = ((TOWER.roofR - TOWER.roofL) / 2) * TOWER_SCALE - 8;
@@ -232,25 +233,24 @@ export class Level2 {
     const ballCY = FLOOR_Y + 2 - (BALL.bottom - BALL.anchorY) * BALL.scale;
     this.balls = [
       { id: 'ball1', x: 1005, y: ballCY, target: 'A', state: 'idle', t: 0 },
-      { id: 'ball2', x: 1925, y: ballCY, target: 'B', state: 'idle', t: 0 }   // well clear of the chasm edge
+      { id: 'ball2', x: 2170, y: ballCY, target: 'B', state: 'idle', t: 0 }   // well clear of the chasm edge
     ];
     this.slabs = [
-      { cx: 1545, top: 336 },
-      { cx: 1640, top: 306 },
-      { cx: 1735, top: 326 }
+      { cx: 1608, top: 336 },
+      { cx: 1763, top: 306 },
+      { cx: 1918, top: 326 }
     ].map((s, i) => ({ ...s, state: 'raw', t: 0, delay: 0, phase: i * 1.7 }));
-    // The second chasm is crossed on crumbling slabs: each one drops shortly after Rakti lands on it
+    // The second chasm is crossed on crumbling slabs: each one drops shortly after Rakti lands on it.
+    // The gaps are wide enough that no jump clears two slabs at once.
     this.fallers = [
-      { cx: 2330, top: 336 },
-      { cx: 2418, top: 314 },
-      { cx: 2506, top: 330 },
-      { cx: 2594, top: 310 },
-      { cx: 2682, top: 328 }
+      { cx: 2981, top: 334 },
+      { cx: 3133, top: 312 },
+      { cx: 3286, top: 330 }
     ].map((f, i) => ({ ...f, phase: i * 1.3, state: 'idle', t: 0, dy: 0, vy: 0, alpha: 1 }));
 
     // Sun Key over tower 2, the sun door, the hall door
     this.key = { x: this.towers[1].cx, y: TOWER_ROOF_Y - 32, shown: 0, taken: false, fly: 0, fromX: 0, fromY: 0 };
-    this.door1 = { cx: X(4, 1457), x1: X(4, 1390), x2: X(4, 1525), midY: BGY(620), anim: 0 };
+    this.door1 = { cx: X(5, 1457), x1: X(5, 1390), x2: X(5, 1525), midY: BGY(620), anim: 0 };
     this.door2 = { cx: RX(1, 1450), x1: RX(1, 1345), x2: RX(1, 1555), midY: BGY(610), anim: 0 };
 
     // The hall: shrine with the Trishul
@@ -261,9 +261,9 @@ export class Level2 {
     // Betal: four on the way to the sun door, three in the hall's horde
     const outside = [
       new Betal(1380, 1240, 1460, FLOOR_Y),     // past tower 1, before the floating rocks
-      new Betal(3040, 2990, 3110, FLOOR_Y),     // three guard the sun door
-      new Betal(2860, 2700, 2980, FLOOR_Y),     // two guarding the sun door
-      new Betal(3230, 3060, 3340, FLOOR_Y)
+      new Betal(3716, 3666, 3786, FLOOR_Y),     // three guard the sun door
+      new Betal(3560, 3450, 3660, FLOOR_Y),
+      new Betal(3906, 3736, 4016, FLOOR_Y)
     ];
     const horde = [
       new Betal(ROOM_X + 900, ROOM_X + 760, ROOM_X + 990, FLOOR_Y),
@@ -278,7 +278,7 @@ export class Level2 {
     this.checkpoints = [
       { x: this.portal.spawnX, area: 'out' },
       { x: 1300, area: 'out' },
-      { x: 2060, area: 'out' },
+      { x: 2305, area: 'out' },
       { x: ROOM_X + 150, area: 'room' },
       { x: ROOM_X + 840, area: 'room' }
     ];
@@ -342,6 +342,7 @@ export class Level2 {
     this.particles = [];
     this.qsDepth = 0;
     this.qsWasIn = false;
+    this.rockFade = p.qUnlocked ? 1 : 0;   // the boulders only show once Kali has taught [Q]
     this.setArea(p.inRoom ? 'room' : 'out');
 
     for (const [id, a] of Object.entries(this.archers)) {
@@ -398,7 +399,7 @@ export class Level2 {
     for (const t of this.towers) if (t.area === this.area) list.push({ id: 'roof', x1: t.roof.x1, x2: t.roof.x2, y: t.roof.y, oneWay: true });
     // quicksand: its surface drops under Rakti as she sinks (qsDepth), so she sinks with it
     for (const pit of this.pits) {
-      if (pit.area === this.area) list.push({ id: 'quicksand', pit, x1: pit.x1, x2: pit.x2, y: SAND_Y + this.qsDepth, oneWay: false });
+      if (pit.area === this.area && pit.sand !== false) list.push({ id: 'quicksand', pit, x1: pit.x1, x2: pit.x2, y: SAND_Y + this.qsDepth, oneWay: false });
     }
     if (this.area === 'out') {
       for (const s of this.slabs) if (s.state === 'solid') list.push({ id: 'slab', ...this.slabBox(s), oneWay: true });
@@ -740,6 +741,7 @@ export class Level2 {
 
     // ---------------------------------------------------- outside
     if (this.area === 'out') {
+      if (p.qUnlocked && this.rockFade < 1) this.rockFade = Math.min(1, this.rockFade + dt * 1.5);
       // Kali teaches [Q] as Rakti nears the first tower
       if (!p.qUnlocked && playerX >= 790) {
         p.qUnlocked = true;
@@ -753,7 +755,7 @@ export class Level2 {
       // archers on the two towers: they shoot once Rakti comes near
       const A = this.archers.A, Bq = this.archers.B;
       A.dormant = !(playerX > 700 && playerX < A.x + 560);
-      Bq.dormant = !(playerX > 1795 && playerX < Bq.x + 560);   // not while she is still crossing the floating rocks
+      Bq.dormant = !(playerX > 2040 && playerX < Bq.x + 560);   // not while she is still crossing the floating rocks
       if (!talking) for (const id of ['A', 'B']) this.updateArcher(this.archers[id], dt, player);
 
       // boulders: forming -> flying in an arc onto the tower top -> falling away
@@ -904,18 +906,17 @@ export class Level2 {
   updateQuicksand(dt, px, py, isDivine, player) {
     // drifting grains over every pit
     for (const pit of this.pits) {
-      if (pit.area === this.area && Math.random() < dt * 6) {
+      if (pit.area === this.area && pit.sand !== false && Math.random() < dt * 6) {
         this.particles.push({ x: pit.x1 + Math.random() * (pit.x2 - pit.x1), y: SAND_Y + 2, vx: (Math.random() - 0.5) * 14, vy: -6,
           life: 1.2, maxLife: 1.2, size: 1.5, color: Math.random() > 0.5 ? '#ffd890' : '#b8702e', g: 0 });
       }
     }
     if (!player || player.isDead) { this.qsDepth = 0; return; }
     // in the sand: inside a pit, at or below its surface, and not on the way up out of it
-    const pit = this.pits.find((q) => q.area === this.area && px >= q.x1 && px <= q.x2);
-    const inSand = Boolean(pit) && py >= SAND_Y - 3 && player.vy >= 0 && !player.isClimbing;
+    const pit = this.pits.find((q) => q.area === this.area && q.sand !== false && px >= q.x1 && px <= q.x2);
+    // once she is in, a jump (vy < 0) is cancelled below: there is no leaping out of the sand
+    const inSand = Boolean(pit) && py >= SAND_Y - 3 && (player.vy >= 0 || this.qsWasIn) && !player.isClimbing;
     if (!inSand) {
-      // a jump out of the sand is weaker the deeper she was
-      if (this.qsWasIn && player.vy < 0) player.vy *= 1 - 0.55 * Math.min(1, this.qsDepth / QS_MAX);
       // she keeps her depth until she is clear of the surface (so a short hop lands back where she was)
       if (py < SAND_Y - 6) this.qsDepth = 0;
       else if (this.qsDepth > 0 && py > SAND_Y + this.qsDepth + 4) this.qsDepth = Math.max(0, py - SAND_Y);
@@ -927,7 +928,7 @@ export class Level2 {
       this.burst(px, SAND_Y - 2, 18, ['#dca15c', '#c3823f', '#ffe1a8'], 100, 0.6);
       this.cameraShake = Math.max(this.cameraShake, 0.15);
       this.qsLastX = px;
-      if (!this.progress.said.quicksand) this.toast('⚠ QUICKSAND - KEEP MOVING, JUMP OUT ⚠', 2.4);
+      if (!this.progress.said.quicksand) this.toast('⚠ QUICKSAND - THERE IS NO ESCAPE ⚠', 2.4);
       this.progress.said.quicksand = true;
     }
     this.qsWasIn = true;
@@ -1139,8 +1140,9 @@ export class Level2 {
       this.drawScreen(ctx, this.screenCanvas('filler', this.bg.filler), X(1));
       this.drawScreen(ctx, this.screenCanvas('filler_m', this.bg.filler, { mirror: true }), X(2));
       this.drawScreen(ctx, this.screenCanvas('filler', this.bg.filler), X(3));
-      this.drawScreen(ctx, this.screenCanvas('door_closed', this.bg.doorClosed), X(4));
-      if (this.door1.anim > 0) this.drawScreen(ctx, this.screenCanvas('door_open', this.bg.doorOpen), X(4), this.door1.anim);
+      this.drawScreen(ctx, this.screenCanvas('filler_m', this.bg.filler, { mirror: true }), X(4));
+      this.drawScreen(ctx, this.screenCanvas('door_closed', this.bg.doorClosed), X(5));
+      if (this.door1.anim > 0) this.drawScreen(ctx, this.screenCanvas('door_open', this.bg.doorOpen), X(5), this.door1.anim);
       this.renderPortalGlow(ctx);
       this.renderDoorGlow(ctx, this.door1, this.progress.keyTaken, false);
     } else {
@@ -1226,6 +1228,7 @@ export class Level2 {
     for (const pit of this.pits) {
       if (pit.area !== this.area || !this.inView(pit.x1, pit.x2)) continue;
       const x1 = pit.x1 - 2, x2 = pit.x2 + 2;
+      if (pit.sand === false) { this.drawChasm(ctx, x1, x2); continue; }
       ctx.save();
       ctx.beginPath();
       ctx.rect(x1, top - 12, x2 - x1, SCREEN_H - top + 60);
@@ -1260,6 +1263,29 @@ export class Level2 {
       }
       ctx.restore();
     }
+  }
+
+  /** A bare chasm (no quicksand): the floor ends and the dark falls away below it. */
+  drawChasm(ctx, x1, x2) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x1, FLOOR_Y, x2 - x1, SCREEN_H + 60 - FLOOR_Y);
+    ctx.clip();
+    const fall = ctx.createLinearGradient(0, FLOOR_Y, 0, SCREEN_H + 20);
+    fall.addColorStop(0, 'rgba(60, 26, 8, 0.15)');
+    fall.addColorStop(0.35, 'rgba(34, 14, 4, 0.8)');
+    fall.addColorStop(1, 'rgba(14, 6, 2, 1)');
+    ctx.fillStyle = fall;
+    ctx.fillRect(x1, FLOOR_Y, x2 - x1, SCREEN_H + 60 - FLOOR_Y);
+    const side = ctx.createLinearGradient(x1, 0, x2, 0);
+    const e = Math.min(0.45, 26 / (x2 - x1));
+    side.addColorStop(0, 'rgba(50, 20, 6, 0.55)');
+    side.addColorStop(e, 'rgba(50, 20, 6, 0)');
+    side.addColorStop(1 - e, 'rgba(50, 20, 6, 0)');
+    side.addColorStop(1, 'rgba(50, 20, 6, 0.55)');
+    ctx.fillStyle = side;
+    ctx.fillRect(x1, FLOOR_Y, x2 - x1, SCREEN_H + 60 - FLOOR_Y);
+    ctx.restore();
   }
 
   /** The rift in the start screen: a slow pulse, flaring while Rakti steps out of it. */
@@ -1365,13 +1391,14 @@ export class Level2 {
   drawDecoy(ctx, d) {
     const art = d.sheet === 'ball' ? BALL : SLAB, sheet = d.sheet === 'ball' ? this.ballSheet : this.slabSheet;
     const w = art.frameW * d.s, h = art.frameH * d.s;
-    if (!this.inView(d.x - w, d.x + w)) return;
+    if (this.rockFade <= 0 || !this.inView(d.x - w, d.x + w)) return;
     const c = this.cachedArt(`decoy:${d.sheet}:${d.s}`, w, h, ready(sheet),
       (g) => g.drawImage(sheet, 0, 0, art.frameW, art.frameH, 0, 0, w, h));
     if (!c) return;
     // rock frame 0 sits with its lowest pixel on the floor
     const bottom = d.sheet === 'ball' ? BALL.bottom : 232;
     ctx.save();
+    ctx.globalAlpha = this.rockFade;
     ctx.translate(d.x, FLOOR_Y + 3 - bottom * d.s);
     if (d.flip) ctx.scale(-1, 1);
     ctx.drawImage(c, -art.anchorX * d.s, 0, w, h);
@@ -1385,7 +1412,7 @@ export class Level2 {
         g.fillRect(0, 0, w, h);
       });
       ctx.save();
-      ctx.globalAlpha = d.dim;
+      ctx.globalAlpha = d.dim * this.rockFade;
       ctx.translate(d.x, FLOOR_Y + 3 - bottom * d.s);
       if (d.flip) ctx.scale(-1, 1);
       ctx.drawImage(sh, -art.anchorX * d.s, 0, w, h);
@@ -1438,7 +1465,7 @@ export class Level2 {
   }
 
   drawBall(ctx, b) {
-    if (b.state === 'gone') return;
+    if (b.state === 'gone' || (b.state === 'idle' && this.rockFade <= 0)) return;
     const k = BALL.scale, w = BALL.frameW * k, h = BALL.frameH * k;
     if (!this.inView(b.x - w, b.x + w)) return;
     let frame = 0, glow = 0;
@@ -1469,6 +1496,7 @@ export class Level2 {
     ctx.save();
     ctx.translate(b.x, b.y);
     if (b.spin) ctx.rotate(b.spin);
+    ctx.globalAlpha = b.state === 'idle' ? this.rockFade : 1;
     if (b.state === 'falling') ctx.globalAlpha = Math.max(0, 1 - Math.max(0, b.t - 0.9) / 0.5);
     ctx.drawImage(c, -BALL.anchorX * k, -BALL.anchorY * k, w, h);
     if (glow > 0) {
