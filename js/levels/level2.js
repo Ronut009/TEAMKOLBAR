@@ -153,30 +153,30 @@ export class Level2 {
     // the rift in the start screen (measured: blue swirl at image x 107-263, rows 217-792)
     this.portal = { x: X(0, 185), y: BGY(505) + PORTAL_DY, top: BGY(217) + PORTAL_DY, spawnX: 112 };
     this.floors = [
-      { x1: 0, x2: 330, area: 'out' },
-      { x1: 680, x2: 1480, area: 'out' },
+      { x1: 0, x2: 250, area: 'out' },
+      { x1: 700, x2: 1480, area: 'out' },
       { x1: 1800, x2: 2270, area: 'out' },
       { x1: 2735, x2: OUT_W, area: 'out' },
-      { x1: ROOM_X, x2: ROOM_X + 300, area: 'room' },
-      { x1: ROOM_X + 640, x2: ROOM_END, area: 'room' }
+      { x1: ROOM_X, x2: ROOM_X + 250, area: 'room' },
+      { x1: ROOM_X + 700, x2: ROOM_END, area: 'room' }
     ];
     this.pits = [
-      { x1: 330, x2: 680, area: 'out' },                     // first steps: small -> medium -> tall
+      { x1: 250, x2: 700, area: 'out' },                     // first steps: small -> medium -> tall
       { x1: 1480, x2: 1800, area: 'out' },                   // floating rocks ([Q] platforms)
       { x1: 2270, x2: 2735, area: 'out' },                   // five crumbling slabs
-      { x1: ROOM_X + 300, x2: ROOM_X + 640, area: 'room' }   // the hall's broken floor
+      { x1: ROOM_X + 250, x2: ROOM_X + 700, area: 'room' }   // the hall's broken floor
     ];
     // Every pillar stands in a chasm with gaps between, so it is a jump, never a speed bump.
     // `top` is where feet stand; the bases sink into the chasm's shadow.
     // Stepping piers: stacked courses of the same carved mudbrick as the floor, rising out of the quicksand
     // like broken pieces of the old causeway. w = width, top = where feet stand.
     this.pillars = [
-      { pier: true, cx: 400, top: 345, w: 72 },
-      { pier: true, cx: 495, top: 322, w: 72 },
-      { pier: true, cx: 590, top: 300, w: 72 },
-      { pier: true, cx: ROOM_X + 375, top: 344, w: 72 },
-      { pier: true, cx: ROOM_X + 470, top: 296, w: 72 },
-      { pier: true, cx: ROOM_X + 565, top: 320, w: 72 }
+      { pier: true, cx: 330, top: 345, w: 72 },
+      { pier: true, cx: 475, top: 322, w: 72 },
+      { pier: true, cx: 620, top: 300, w: 72 },
+      { pier: true, cx: ROOM_X + 330, top: 344, w: 72 },
+      { pier: true, cx: ROOM_X + 475, top: 300, w: 72 },
+      { pier: true, cx: ROOM_X + 620, top: 322, w: 72 }
     ];
     for (const p of this.pillars) {
       p.half = p.w / 2 - 4;
