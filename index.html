@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Rakti: The Last Guardian</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="css/style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Marcellus&family=Press+Start+2P&display=swap" rel="stylesheet">
@@ -35,7 +35,8 @@
       </div>
       <img class="hud-bar-art" src="assets/ui/hud/ability_bar.png" alt="" draggable="false">
     </div>
-    <img class="hud-weapon" src="assets/ui/hud/talwar.png" alt="Equipped weapon: Guardian Talwar" draggable="false">
+    <img class="hud-weapon" id="hudWeapon" src="assets/ui/hud/talwar.png" alt="Equipped weapon: Guardian Talwar" draggable="false">
+    <div class="hud-weapon-keys" id="hudWeaponKeys" data-weapon="sword" aria-hidden="true"><span class="k-sword">[1] TALWAR</span><span class="k-trishul">[2] TRISHUL</span></div>
   </div>
 
   <!-- Kill Notification Toast Banner -->
@@ -113,7 +114,10 @@
   <section class="loading-screen" id="loadingScreen" aria-label="Loading next level" aria-hidden="true">
     <div class="loading-aura" aria-hidden="true"></div>
     <img class="loading-sigil" src="assets/title/kali-loading-sigil.png" alt="">
-    <p class="loading-label">LOADING<span class="loading-dots" aria-hidden="true">...</span></p>
+    <div class="loading-text">
+      <p class="loading-label"><span class="loading-rule" aria-hidden="true"></span>Loading<span class="loading-rule" aria-hidden="true"></span></p>
+      <p class="loading-level" id="loadingLevel"></p>
+    </div>
   </section>
 
   <script type="module" src="js/main.js"></script>

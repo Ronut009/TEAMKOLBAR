@@ -5,10 +5,10 @@
  * ==========================================================================
  */
 
-import { Level } from './level1.js';   // js/level.js = previous single-screen Level 1 (backup)
-import { Player } from './player.js';
-import { Engine } from './engine.js';
-import { Input } from './input.js';
+import { Level } from './levels/level1.js';
+import { Player } from './entities/player.js';
+import { Engine } from './core/engine.js';
+import { Input } from './core/input.js';
 
 window.addEventListener('DOMContentLoaded', () => {
   const canvas = document.getElementById('gameCanvas');

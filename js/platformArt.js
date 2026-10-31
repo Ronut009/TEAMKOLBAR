@@ -20,6 +20,15 @@ export const PLATFORM_STYLES = {
     capLeft: 489,      // image columns [0, 489) = left end cap
     capRight: 1756     // image columns [1756, end) = right end cap; [489, 1756) tiles seamlessly
   },
+  // Level 2 desert slab: sandstone top, mudbrick frieze with turquoise inlays (1085 x 184; made from
+  // assets/level2/desert_mudbrick_platform.png as left cap | one 543 px module that tiles | right cap)
+  desert: {
+    src: 'assets/level2/sprites/mudbrick_platform.png',
+    surfaceY: 20,
+    scale: 0.48,       // ~79 world px thick, like the temple slab
+    capLeft: 345,
+    capRight: 752
+  },
   // Level 3 jungle slab: moss-topped carved brick with hanging roots (960 x 187, middle is made to tile)
   jungle: {
     src: 'assets/level3/jungle_platform.png',

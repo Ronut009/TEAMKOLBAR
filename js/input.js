@@ -48,6 +48,9 @@ export class InputManager {
       two: ['Digit2', 'Numpad2'],
       three: ['Digit3', 'Numpad3'],
       four: ['Digit4', 'Numpad4'],
+      // Weapons (once Rakti has the Trishul): [1] talwar, [2] Trishul
+      weapon1: ['Digit1', 'Numpad1'],
+      weapon2: ['Digit2', 'Numpad2'],
       space: ['Space'],
       enter: ['Enter']
     };

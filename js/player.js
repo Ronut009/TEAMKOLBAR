@@ -101,6 +101,34 @@ const PROLOGUE_SPRITES = {
     outfit: { frameW: 146, frameH: 284, anchorX: 86, anchorY: 281 }  // sari -> golden aura -> battle outfit with talwar
   }
 };
+// Level 2 ability frames (same green-and-gold design as v3, drawn at the v3 scale for every skin):
+// qcast = Kali's earth-shaping cast [Q]; tthrow / tcatch = throwing and catching the Trishul.
+const ABILITY_SPRITES = {
+  folder: 'assets/anims/rakti_v3',
+  scale: 0.23,
+  metrics: {
+    qcast: { frameW: 267, frameH: 293, anchorX: 94, anchorY: 290, count: 10 },
+    tthrow: { frameW: 422, frameH: 253, anchorX: 144, anchorY: 250, count: 5 },
+    tcatch: { frameW: 302, frameH: 293, anchorX: 104, anchorY: 289, count: 4 }
+  }
+};
+const CAST_FRAME_TIME = 0.075;                       // 10 frames = 0.75 s
+const CAST_RELEASE_FRAME = 7;                         // the stone answers when the green burst leaves her hand
+const THROW_FRAME_TIMES = [0.05, 0.08, 0.06, 0.09, 0.12];   // ready, wind-up, thrust, release, follow-through
+const THROW_RELEASE_FRAME = 3;
+const CATCH_TIME = 0.26;
+
+// Trishul: a thrown weapon that flies at the nearest enemy in front of Rakti and returns to her hand.
+export const TRISHUL = {
+  damage: 6,
+  speed: 640,
+  returnSpeed: 720,
+  range: 380,          // world px before it turns back
+  aimRange: 560,       // auto-aim reach
+  aimCone: 1.45,       // radians from horizontal (~83 deg), so archers on towers can be hit from right below
+  length: 52           // drawn length in world px
+};
+
 // Seconds each frame is held
 const WAKE_FRAME_TIMES = [1.7, 0.45, 0.45, 0.8, 0.4, 0.45];
 const OUTFIT_FRAME_TIMES = [0.35, 0.32, 0.32, 0.32, 0.32, 0.45];
@@ -251,6 +279,53 @@ export class Player {
     this.climbFrameDuration = 0.11;
     this.climbDir = 'up';
     this.ladderCooldown = 0; // Cooldown timer after dismounting or jumping off a ladder
+
+    // Weapons: the talwar [1] and, from Level 2's sun shrine on, the Trishul [2]
+    this.hasTrishul = false;
+    this.weapon = 'sword';
+    this.trishul = null;          // the thrown Trishul while it is away from her hand
+    this.throwAnim = null;        // { t, released }
+    this.catchTimer = 0;
+    this.trishulImg = new Image();
+    this.trishulImg.src = 'assets/weapons/trishul_throw.png';   // 240 x 60, points right
+
+    // Kali's [Q] cast (Level 2): a short locked animation; the level reacts at the release frame
+    this.isCasting = false;
+    this.castTimer = 0;
+    this.castCallback = null;
+
+    // Levels can freeze her briefly (portal arrival, walking through a door) and fade her in or out
+    this.inputLocked = false;
+    this.spawnAlpha = 1;
+  }
+
+  /** Trishul back in hand, nothing in flight (level loads). */
+  resetWeapons() {
+    this.trishul = null;
+    this.throwAnim = null;
+    this.catchTimer = 0;
+    this.isCasting = false;
+    this.castCallback = null;
+    if (!this.hasTrishul) this.weapon = 'sword';
+  }
+
+  /** [Q]: plays Kali's cast; `onRelease` runs when the green burst leaves her hand. Returns false if she is busy. */
+  startCast(onRelease, faceX = null) {
+    if (this.isCasting || this.isTransforming || this.isReverting || this.isClimbing || this.isDead) return false;
+    if (faceX !== null) this.facing = faceX < this.x ? 'left' : 'right';
+    this.isCasting = true;
+    this.castTimer = 0;
+    this.castCallback = onRelease;
+    this.isAttacking = false;
+    this.throwAnim = null;
+    this.vx = 0;
+    if (this.isDivine) {
+      // Kali herself needs no gesture: the stone answers at once
+      this.isCasting = false;
+      onRelease?.();
+      this.castCallback = null;
+    }
+    return true;
   }
 
   loadAnimations() {
@@ -282,6 +357,13 @@ export class Player {
     this.anims.wake = prologueFrames('wake');
     this.anims.walk = prologueFrames('walk');
     this.anims.outfit = prologueFrames('outfit');
+    for (const [name, m] of Object.entries(ABILITY_SPRITES.metrics)) {
+      this.anims[name] = Array.from({ length: m.count }, (_, i) => {
+        const img = new Image();
+        img.src = `${ABILITY_SPRITES.folder}/${name}_${i}.png`;
+        return img;
+      });
+    }
   }
 
   /**
@@ -493,6 +575,7 @@ export class Player {
 
   update(dt, level, dialogueActive = false) {
     this.animTime += dt;
+    this.dialogueOpen = dialogueActive;   // levels pause their enemies while Kali is speaking
     this.divinePulse += dt * 4.0;
 
     if (this.dropThroughTimer > 0) this.dropThroughTimer -= dt;
@@ -711,10 +794,47 @@ export class Player {
       }
     }
 
-    if (dialogueActive) {
+    if (dialogueActive || this.inputLocked) {
       this.vx = 0;
       this.isMoving = false;
       this.updateParticles(dt);
+      return;
+    }
+
+    // 0. Kali's [Q] cast: she stands still while the green energy gathers, then the level reacts
+    if (this.isCasting) {
+      this.vx = 0;
+      this.isMoving = false;
+      const before = Math.floor(this.castTimer / CAST_FRAME_TIME);
+      this.castTimer += dt;
+      const after = Math.floor(this.castTimer / CAST_FRAME_TIME);
+      if (before < CAST_RELEASE_FRAME && after >= CAST_RELEASE_FRAME && this.castCallback) {
+        const cb = this.castCallback;
+        this.castCallback = null;
+        cb();
+      }
+      if (after >= 5 && Math.random() < 0.7) {
+        const dir = this.facing === 'left' ? -1 : 1;
+        this.particles.push({
+          x: this.x + dir * (16 + Math.random() * 14), y: this.y - 40 + (Math.random() - 0.5) * 16,
+          vx: dir * (30 + Math.random() * 60), vy: (Math.random() - 0.5) * 40,
+          life: 0.4, maxLife: 0.4, size: 2 + Math.random() * 2, color: Math.random() > 0.4 ? '#b8ffcf' : '#ffe9a0'
+        });
+      }
+      if (this.castTimer >= CAST_FRAME_TIME * 10) {
+        this.isCasting = false;
+        this.castCallback?.();
+        this.castCallback = null;
+      }
+      if (!this.isGrounded) {
+        this.vy += this.gravity * dt;
+        const prevY = this.y;
+        this.y += this.vy * dt;
+        const landed = level.checkPlatformLanding(prevY, this.y, this.x, false, this.isDivine);
+        if (landed) { this.y = landed.y; this.vy = 0; this.isGrounded = true; this.currentPlatform = landed; }
+      }
+      this.updateParticles(dt);
+      this.updateTrishul(dt, level);
       return;
     }
 
@@ -789,6 +909,12 @@ export class Player {
       return;
     }
 
+    // 1a. Weapon choice: [1] talwar, [2] Trishul (once she has it)
+    if (this.hasTrishul && !this.isCivilian) {
+      if (Input.isPressed('weapon1')) this.weapon = 'sword';
+      if (Input.isPressed('weapon2')) this.weapon = 'trishul';
+    }
+
     // 1. Attack on Left Click or Right Click Parry / Deflection Strike
     if (!this.isCivilian && (Input.isPressed('attack') || Input.isPressed('parry'))) {
       if (typeof window !== 'undefined' && (Input.isPressed('MouseLeft') || Input.isPressed('MouseRight'))) {
@@ -801,7 +927,19 @@ export class Player {
           this.facing = 'left';
         }
       }
-      this.triggerAttack();
+      if (this.weapon === 'trishul' && this.hasTrishul) this.triggerThrow(level);
+      else this.triggerAttack();
+    }
+
+    // 1b. Trishul throw animation: the weapon leaves her hand on the release frame
+    if (this.throwAnim) {
+      const ta = this.throwAnim;
+      ta.t += dt;
+      if (!ta.released && timedFrame(THROW_FRAME_TIMES, ta.t) >= THROW_RELEASE_FRAME) {
+        ta.released = true;
+        this.releaseTrishul(level);
+      }
+      if (ta.t >= sum(THROW_FRAME_TIMES)) this.throwAnim = null;
     }
 
     if (this.isAttacking) {
@@ -863,6 +1001,8 @@ export class Player {
     moveDir = 0;
     if (Input.isDown('left') || Input.isDown('KeyA') || Input.isDown('ArrowLeft')) moveDir -= 1;
     if (Input.isDown('right') || Input.isDown('KeyD') || Input.isDown('ArrowRight')) moveDir += 1;
+    if (this.throwAnim && this.isGrounded) moveDir = 0;   // she plants her feet to throw
+    if (moveDir !== 0 || !this.isGrounded) this.catchTimer = 0;
 
     this.isMoving = (moveDir !== 0);
     if (moveDir < 0) this.facing = 'left';
@@ -983,6 +1123,158 @@ export class Player {
 
     this.updateParticles(dt);
     this.updateSlashes(dt);
+    this.updateTrishul(dt, level);
+  }
+
+  // ==========================================================================
+  // TRISHUL (thrown weapon)
+  // ==========================================================================
+
+  triggerThrow(level) {
+    if (this.trishul || this.throwAnim || this.isCasting) return;
+    this.isAttacking = false;
+    this.catchTimer = 0;
+    if (this.isDivine || this.isClimbing) {
+      this.releaseTrishul(level);   // Kali's hover frames have no throw pose: it simply flies
+      return;
+    }
+    this.throwAnim = { t: 0, released: false };
+  }
+
+  /** Enemies the Trishul can hit. Levels may provide getDamageables(); otherwise their
+   *  betals / archers / enemies lists are used, so it works in any level built the usual way. */
+  trishulTargets(level) {
+    if (!level) return [];
+    const list = level.getDamageables ? level.getDamageables()
+      : [...(level.betals || []), ...(level.archers || []), ...(level.enemies || [])];
+    return list.filter((e) => e && !e.dead && e.alive !== false && !e.hidden && !e.removed);
+  }
+
+  releaseTrishul(level) {
+    const dir = this.facing === 'left' ? -1 : 1;
+    const sx = this.x + dir * 18, sy = this.y - 40;
+    let angle = dir > 0 ? 0 : Math.PI;
+    // Auto-aim: the nearest enemy in front, within reach and within the cone (towers included)
+    let best = null, bestScore = Infinity;
+    for (const e of this.trishulTargets(level)) {
+      const tx = e.x, ty = e.y - (e.hitHeight ?? 64) * 0.55;
+      const dx = tx - sx, dy = ty - sy;
+      if (dx * dir <= 4) continue;
+      const d = Math.hypot(dx, dy);
+      const tilt = Math.atan2(Math.abs(dy), Math.abs(dx));
+      if (d > TRISHUL.aimRange || tilt > TRISHUL.aimCone) continue;
+      const score = d * (1 + tilt);
+      if (score < bestScore) { bestScore = score; best = { tx, ty }; }
+    }
+    if (best) angle = Math.atan2(best.ty - sy, best.tx - sx);
+    this.trishul = {
+      x: sx, y: sy, vx: Math.cos(angle) * TRISHUL.speed, vy: Math.sin(angle) * TRISHUL.speed,
+      state: 'out', dist: 0, t: 0, hit: new Set(), trail: []
+    };
+    for (let i = 0; i < 8; i++) {
+      this.particles.push({
+        x: sx, y: sy, vx: Math.cos(angle) * (60 + Math.random() * 80) + (Math.random() - 0.5) * 40,
+        vy: Math.sin(angle) * (60 + Math.random() * 80) + (Math.random() - 0.5) * 40,
+        life: 0.3, maxLife: 0.3, size: 2 + Math.random() * 1.5, color: i % 2 ? '#9ff6ff' : '#ffe39a'
+      });
+    }
+  }
+
+  updateTrishul(dt, level) {
+    if (this.catchTimer > 0) this.catchTimer -= dt;
+    const tr = this.trishul;
+    if (!tr) return;
+    tr.t += dt;
+    if (tr.state === 'out') {
+      tr.x += tr.vx * dt;
+      tr.y += tr.vy * dt;
+      tr.dist += TRISHUL.speed * dt;
+      const minX = (level?.minX || 0) - 40, maxX = (level?.width ?? 99999) + 40;
+      if (tr.dist >= TRISHUL.range || tr.x < minX || tr.x > maxX || tr.y < -60 || tr.y > (level?.deathY ?? 600)) {
+        tr.state = 'back';
+        tr.t = 0;
+      }
+    } else {
+      const hx = this.x, hy = this.y - 38;
+      const dx = hx - tr.x, dy = hy - tr.y, d = Math.hypot(dx, dy);
+      if (d < 22 || tr.t > 3 || this.isDead) {
+        this.trishul = null;
+        if (this.isGrounded && !this.isMoving && !this.isAttacking && !this.throwAnim && !this.isDivine && !this.isCasting) {
+          this.catchTimer = CATCH_TIME;
+        }
+        for (let i = 0; i < 6; i++) {
+          this.particles.push({
+            x: hx, y: hy, vx: (Math.random() - 0.5) * 80, vy: (Math.random() - 0.5) * 80,
+            life: 0.25, maxLife: 0.25, size: 2, color: '#ffe39a'
+          });
+        }
+        return;
+      }
+      const sp = TRISHUL.returnSpeed + tr.t * 240;
+      tr.vx = (dx / d) * sp;
+      tr.vy = (dy / d) * sp;
+      tr.x += tr.vx * dt;
+      tr.y += tr.vy * dt;
+    }
+    tr.trail.push({ x: tr.x, y: tr.y });
+    if (tr.trail.length > 10) tr.trail.shift();
+
+    // Hits: each enemy at most once per throw; the first hit turns it back toward her hand
+    for (const e of this.trishulTargets(level)) {
+      if (tr.hit.has(e)) continue;
+      const hw = (e.hitHalfW ?? 16) + 8, hh = e.hitHeight ?? 64;
+      if (Math.abs(tr.x - e.x) > hw || tr.y < e.y - hh - 6 || tr.y > e.y + 6) continue;
+      tr.hit.add(e);
+      if (e.takeHit) {
+        e.takeHit(TRISHUL.damage, this.x, level);
+      } else if (e.takeDamage) {
+        const killed = e.takeDamage(TRISHUL.damage, this.x);
+        if (killed && level?.registerKill) level.registerKill(e);
+      }
+      if (level) level.cameraShake = Math.max(level.cameraShake || 0, 0.3);
+      for (let i = 0; i < 12; i++) {
+        const a = Math.random() * Math.PI * 2;
+        this.particles.push({
+          x: tr.x, y: tr.y, vx: Math.cos(a) * (50 + Math.random() * 90), vy: Math.sin(a) * (50 + Math.random() * 90),
+          life: 0.35, maxLife: 0.35, size: 2 + Math.random() * 2, color: i % 3 ? '#9ff6ff' : '#ffffff'
+        });
+      }
+      if (tr.state === 'out') { tr.state = 'back'; tr.t = 0; }
+    }
+  }
+
+  renderTrishul(ctx) {
+    const tr = this.trishul;
+    if (!tr) return;
+    const ang = Math.atan2(tr.vy, tr.vx) + (tr.state === 'back' ? Math.PI : 0);
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const n = tr.trail.length;
+    for (let i = 0; i < n; i++) {
+      const p = tr.trail[i], k = (i + 1) / n;
+      ctx.globalAlpha = 0.45 * k;
+      ctx.fillStyle = i % 2 ? '#7ff3ff' : '#ffe39a';
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 1 + 2.4 * k, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    const g = ctx.createRadialGradient(tr.x, tr.y, 1, tr.x, tr.y, 22);
+    g.addColorStop(0, 'rgba(170, 250, 255, 0.55)');
+    g.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(tr.x - 22, tr.y - 22, 44, 44);
+    ctx.restore();
+    const im = this.trishulImg;
+    if (!im.complete || im.naturalWidth === 0) return;
+    const L = TRISHUL.length, H = L * (im.naturalHeight / im.naturalWidth);
+    ctx.save();
+    ctx.translate(tr.x, tr.y);
+    ctx.rotate(ang);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(im, -L * 0.6, -H / 2, L, H);
+    ctx.restore();
   }
 
   approach(curr, target, step) {
@@ -1028,7 +1320,7 @@ export class Player {
 
   getLevelSpawn(level = null) {
     switch (level?.levelIndex) {
-      case 2: return { x: 90, y: 145 };
+      case 2: return level.getRespawnPoint ? level.getRespawnPoint() : { x: 90, y: 145 };
       case 3: return level.getRespawnPoint ? level.getRespawnPoint() : { x: 90, y: 108 };
       case 4: return { x: 320, y: 480 };
       default: return { x: 180, y: 368 };
@@ -1090,9 +1382,10 @@ export class Player {
   // ==========================================================================
 
   renderShadow(ctx) {
-    if (this.isGrounded) {
+    const fade = Math.max(0, Math.min(1, this.spawnAlpha ?? 1));
+    if (this.isGrounded && fade > 0.02) {
       ctx.save();
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.48)';
+      ctx.fillStyle = `rgba(0, 0, 0, ${0.48 * fade})`;
       ctx.beginPath();
       const sw = this.isDivine ? 17 : 13;
       const sh = this.isDivine ? 5 : 3.5;
@@ -1148,7 +1441,7 @@ export class Player {
 
     ctx.save();
     if (this.doorwayFade !== undefined) {
-      ctx.globalAlpha = Math.max(0, Math.min(1.0, this.doorwayFade));
+      ctx.globalAlpha = Math.max(0, Math.min(1.0, this.doorwayFade)) * Math.max(0, Math.min(1, this.spawnAlpha ?? 1));
     }
     if (this.invulnerableTimer > 0 && Math.floor(this.invulnerableTimer * 14) % 2 === 0) {
       ctx.globalAlpha = 0.35;
@@ -1191,6 +1484,9 @@ export class Player {
     this.renderSlashes(ctx);
 
     ctx.restore();
+
+    // 4. The thrown Trishul (world space)
+    this.renderTrishul(ctx);
   }
 
   /** Which frame set + index to draw for the mortal form this frame. */
@@ -1216,6 +1512,9 @@ export class Player {
     }
     // Level exits fade the player out; show her running into the doorway.
     if (this.doorwayFade < 1) return { set: 'runBack', index: Math.floor(this.animTime / 0.09) % 6 };
+    if (this.isCasting) return { set: 'qcast', index: Math.min(9, Math.floor(this.castTimer / CAST_FRAME_TIME)) };
+    if (this.throwAnim) return { set: 'tthrow', index: timedFrame(THROW_FRAME_TIMES, this.throwAnim.t) };
+    if (this.catchTimer > 0) return { set: 'tcatch', index: Math.min(3, Math.floor((1 - this.catchTimer / CATCH_TIME) * 4)) };
     if (this.isAttacking) return { set: 'attack', index: Math.min(5, this.attackFrame) };
     if (!this.isGrounded) {
       const j = this.skin.jumpFrames;
@@ -1234,8 +1533,9 @@ export class Player {
     const img = this.anims[setName]?.[index];
     if (!img || !img.complete || img.naturalWidth === 0) return;
     const prologueMetrics = PROLOGUE_SPRITES.metrics[setName];
-    const m = prologueMetrics || this.skin.metrics[setName];
-    const s = prologueMetrics ? PROLOGUE_SPRITES.scale : this.skin.scale;
+    const abilityMetrics = ABILITY_SPRITES.metrics[setName];
+    const m = prologueMetrics || abilityMetrics || this.skin.metrics[setName];
+    const s = prologueMetrics ? PROLOGUE_SPRITES.scale : (abilityMetrics ? ABILITY_SPRITES.scale : this.skin.scale);
     // The art is high-resolution, so smooth downscaling keeps it clean.
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';

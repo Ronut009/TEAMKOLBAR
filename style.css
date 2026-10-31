@@ -870,6 +870,27 @@ html, body {
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.7));
 }
 
+/* Trishul icon (wider spear than the talwar) and the [1] / [2] weapon hint under it */
+.hud-weapon { transition: opacity 0.15s ease; }
+.hud-weapon.trishul { width: 132px; top: 102px; }
+.hud-weapon.away { opacity: 0.35; }
+.hud-weapon-keys {
+  position: absolute;
+  z-index: 4;
+  top: 136px;
+  left: 10px;
+  display: none;
+  gap: 8px;
+  font: 700 8px 'Cinzel', serif;
+  letter-spacing: 0.6px;
+  color: rgba(255, 242, 218, 0.55);
+  text-shadow: 0 1px 2px #080705, 0 0 4px rgba(0, 0, 0, 0.9);
+  white-space: nowrap;
+}
+.hud-weapon-keys.show { display: flex; }
+.hud-weapon-keys[data-weapon="sword"] .k-sword,
+.hud-weapon-keys[data-weapon="trishul"] .k-trishul { color: #ffd98a; }
+
 @media (max-width: 600px) {
   .sands-hud { top: 6px; left: 6px; --hud-scale: 0.72; }
 }

@@ -20,8 +20,8 @@ export class Arrow {
     this.vy = 0;
     this.speed = 220; // Homing flight speed
     this.angle = Math.PI; // In radians, initially facing left
-    this.life = 6.2;
-    this.maxLife = 6.2;
+    this.life = 5.0;      // homing arrows give up after 5 s
+    this.maxLife = 5.0;
     this.damage = 2; // Reduced arrow damage
     this.width = 44;
     this.height = 8;
@@ -228,8 +228,20 @@ export class Arrow {
 }
 
 export class Archer {
-  constructor(x, y, id = 'archer') {
+  /**
+   * `art` (optional) describes an anchored frame set instead of the legacy 96 x 116 box:
+   * { frameW, frameH, anchorX, anchorY, scale, handX, handY, barY, height }.
+   * Level 2's desert archers use it; levels that pass nothing keep the old look.
+   */
+  constructor(x, y, id = 'archer', art = null) {
     this.id = id;
+    this.art = art;
+    this.handX = art?.handX ?? 24;        // bow hand, in front of the feet
+    this.handY = art?.handY ?? -66;       // bow hand height above the feet
+    this.barY = art?.barY ?? -124;
+    this.hitHeight = art?.height ?? 100;  // used by the Trishul's hit test
+    this.hitHalfW = 18;
+    this.dormant = false;                 // a dormant archer keeps watch but does not shoot
     this.x = x;
     this.y = y;
     this.startX = x;
@@ -262,7 +274,7 @@ export class Archer {
     this.hitParticles = [];
 
     // Attached Arrow Object (synchronized with bow hand)
-    this.attachedArrow = new Arrow(this.x - 24, this.y - 66, this);
+    this.attachedArrow = new Arrow(this.x - this.handX, this.y + this.handY, this);
     this.arrows = [];
 
     // Removal & replacement lifecycle
@@ -273,7 +285,7 @@ export class Archer {
   }
 
   attachNewArrow() {
-    this.attachedArrow = new Arrow(this.x - 24, this.y - 66, this);
+    this.attachedArrow = new Arrow(this.x - this.handX, this.y + this.handY, this);
     return this.attachedArrow;
   }
 
@@ -306,6 +318,14 @@ export class Archer {
       return true; // Killed
     }
     return false;
+  }
+
+  /** Damage from a thrown weapon (Trishul). Returns true if it killed the archer. */
+  takeHit(damage, fromX, level = null) {
+    if (this.crushOnly || !this.alive) return false;
+    const killed = this.takeDamage(damage, fromX);
+    if (killed && level?.registerKill) level.registerKill(this);
+    return killed;
   }
 
   spawnHitSparks() {
@@ -400,10 +420,10 @@ export class Archer {
     }
 
     // 4. Alive Archer State Machine
-    this.cooldownTimer -= dt;
+    if (!this.dormant) this.cooldownTimer -= dt;
     this.animTimer += dt;
 
-    if (this.state === 'idle') {
+    if (this.state === 'idle' && !this.dormant) {
       if (this.cooldownTimer <= 0.8) {
         this.state = 'aim';
         this.frame = 0;
@@ -425,7 +445,7 @@ export class Archer {
           // Release arrow at frame 4!
           let targetAngle = (this.facing === 'left') ? Math.PI : 0;
           if (player) {
-            targetAngle = Math.atan2((player.y - 25) - (this.y - 66), player.x - this.x);
+            targetAngle = Math.atan2((player.y - 25) - (this.y + this.handY), player.x - this.x);
           }
           this.releaseAttachedArrow(targetAngle);
         }
@@ -434,8 +454,8 @@ export class Archer {
 
     // Synchronize attached arrow with bow hand
     if (this.attachedArrow) {
-      const pullOffset = this.frame * 2.0;
-      this.attachedArrow.attachTo(this, -24 + pullOffset, -66);
+      const pullOffset = this.frame * 2.0 * (this.art ? 0.5 : 1);
+      this.attachedArrow.attachTo(this, -this.handX + pullOffset, this.handY);
     }
 
     // Update active flying arrows
@@ -451,7 +471,7 @@ export class Archer {
 
     ctx.save();
     const bx = this.x;
-    const by = this.y - 124;
+    const by = this.y + this.barY;
     const bw = 48;
     const bh = 5;
 
@@ -501,9 +521,7 @@ export class Archer {
       ctx.translate(ax, ay);
       const dir = (this.facing === 'left') ? -1 : 1;
       ctx.scale(dir, 1);
-      if (dieImg && dieImg.complete) {
-        ctx.drawImage(dieImg, -48, -110, 96, 116);
-      }
+      if (dieImg && dieImg.complete) this.drawSprite(ctx, dieImg);
       ctx.restore();
 
       // Crumbling dust indicator
@@ -511,7 +529,7 @@ export class Archer {
       ctx.globalCompositeOperation = 'lighter';
       ctx.fillStyle = `rgba(180, 150, 110, ${0.4 * this.fadeAlpha})`;
       ctx.beginPath();
-      ctx.arc(ax, ay - 8, 26, 0, Math.PI * 2);
+      ctx.arc(ax, ay - 8, this.art ? 16 : 26, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
 
@@ -543,9 +561,7 @@ export class Archer {
     const dir = (this.facing === 'left') ? -1 : 1;
     ctx.scale(dir, 1);
 
-    if (frameImg && frameImg.complete) {
-      ctx.drawImage(frameImg, -48, -110, 96, 116);
-    }
+    if (frameImg && frameImg.complete) this.drawSprite(ctx, frameImg);
     ctx.restore();
 
     // 3. Render Hit Sparks when slashed by sword
@@ -576,6 +592,18 @@ export class Archer {
     ctx.restore();
   }
 
+  /** Frame drawn with its feet at the current origin (already translated and flipped). */
+  drawSprite(ctx, img) {
+    const a = this.art;
+    if (!a) {
+      ctx.drawImage(img, -48, -110, 96, 116);
+      return;
+    }
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(img, -a.anchorX * a.scale, -a.anchorY * a.scale, a.frameW * a.scale, a.frameH * a.scale);
+  }
+
   reset() {
     this.x = this.startX;
     this.y = this.startY;
@@ -591,7 +619,7 @@ export class Archer {
     this.hurtTimer = 0.0;
     this.hitParticles = [];
     this.arrows = [];
-    this.attachedArrow = new Arrow(this.x - 24, this.y - 66, this);
+    this.attachedArrow = new Arrow(this.x - this.handX, this.y + this.handY, this);
     this.canBeRemoved = false;
     this.deathTimer = 0;
     this.fadeAlpha = 1.0;

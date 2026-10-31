@@ -57,22 +57,7 @@ export class Betal {
     if (alive && player.isAttacking && Math.abs(dx) < 58 && closeVertically) {
       const facingHim = dx === 0 || (dx > 0 ? player.facing === 'left' : player.facing !== 'left');
       if (facingHim && player.claimSwingHit(this)) {
-        this.hp -= player.swordDamage;
-        this.hitFlash = 0.18;
-        this.hurtTimer = 0.3;
-        this.x = this.clampX(this.x + (dx > 0 ? -10 : 10));
-        if (this.isAttacking && this.attackAnimTimer < this.attackHitAt) this.isAttacking = false;  // stagger cancels the swing
-        if (level) level.cameraShake = Math.max(level.cameraShake || 0, 0.25);
-        if (this.hp <= 0) {
-          this.dead = true;
-          this.isAttacking = false;
-          this.isMoving = false;
-          if (level) {
-            level.killToastText = '⚔ BETAL SLAIN';
-            level.killToastTimer = 1.6;
-          }
-          return;
-        }
+        if (this.takeHit(player.swordDamage, player.x, level)) return;
       }
     }
 
@@ -122,6 +107,29 @@ export class Betal {
     this.x = this.clampX(nx);
     this.facing = this.patrolDir < 0 ? 'left' : 'right';
     this.isMoving = true;
+  }
+
+  /** Damage from any source (sword swing, thrown Trishul). Returns true if it killed him. */
+  takeHit(damage, fromX, level = null) {
+    if (this.dead || this.hidden) return false;
+    this.hp -= damage;
+    this.hitFlash = 0.18;
+    this.hurtTimer = 0.3;
+    this.x = this.clampX(this.x + (fromX > this.x ? -10 : 10));
+    if (this.isAttacking && this.attackAnimTimer < this.attackHitAt) this.isAttacking = false;  // stagger cancels the swing
+    if (level) level.cameraShake = Math.max(level.cameraShake || 0, 0.25);
+    if (this.hp <= 0) {
+      this.dead = true;
+      this.isAttacking = false;
+      this.isMoving = false;
+      if (level) {
+        level.killToastText = '⚔ BETAL SLAIN';
+        level.killToastTimer = 1.6;
+        level.registerKill?.(this);
+      }
+      return true;
+    }
+    return false;
   }
 
   clampX(x) {

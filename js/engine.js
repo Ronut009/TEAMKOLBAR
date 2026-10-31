@@ -7,7 +7,7 @@
  */
 
 import { Input } from './input.js';
-import { Level2 } from './level2.js';
+import { Level2 } from './level2_v2.js';   // js/level2.js = previous desert-catacombs Level 2 (backup)
 import { Level3 } from './level3_v2.js';
 import { Level4, L4_CONFIG } from './level4.js';
 
@@ -43,6 +43,8 @@ export class Engine {
     // Cached DOM elements
     this.hudEl = document.getElementById('hud');
     this.hudPortraitArt = document.getElementById('hudPortraitArt');
+    this.hudWeapon = document.getElementById('hudWeapon');
+    this.hudWeaponKeys = document.getElementById('hudWeaponKeys');
     this.hpNum = document.getElementById('hpNum');
     this.healthTrack = document.getElementById('healthTrack');
     this.healthBarFill = document.getElementById('healthBarFill');
@@ -177,9 +179,10 @@ export class Engine {
       this.player.y = spawn.y;
       this.player.hasDivineUnlocked = true;
     } else if (index === 2) {
-      // Start Level 2 on the high left ledge shown in the new map art.
-      this.player.x = 90;
-      this.player.y = 145;
+      // Level 2 (sun wastes): the portal at the start, or the last checkpoint
+      const spawn = this.level2.getRespawnPoint ? this.level2.getRespawnPoint() : { x: 90, y: 145 };
+      this.player.x = spawn.x;
+      this.player.y = spawn.y;
       this.player.hasDivineUnlocked = true; // Divine power persists into Level 2
     } else {
       // Level 1: the prologue (portal room -> idol) unless it has already been played
@@ -203,6 +206,13 @@ export class Engine {
     this.player.climbTransition = null;
     this.player.doorwayFade = 1.0;
     this.player.currentPlatform = null;
+    // A level whose intro is still to play (Level 2: stepping out of the portal) shows Rakti itself
+    const introHidden = Boolean(this.level.introPending);
+    this.player.inputLocked = introHidden;
+    this.player.spawnAlpha = introHidden ? 0 : 1;
+    // The Trishul is found in Level 2's sun shrine and kept from then on
+    this.player.hasTrishul = index >= 3 || Boolean(this.level.playerHasTrishul?.());
+    this.player.resetWeapons();
     this.playerDying = false;
     if (this.deathScreen) {
       this.deathScreen.classList.remove('active');
@@ -236,6 +246,9 @@ export class Engine {
 
   beginLoadingTransition(destinationIndex) {
     if (this.isLoading) return;
+    // Arriving in a level from outside (not a death or [R]) clears its checkpoints
+    const dest = [null, this.level1, this.level2, this.level3, this.level4][destinationIndex];
+    dest?.freshStart?.();
     this.isLoading = true;
     this.isGameStarted = false;
     this.loadingTimer = 2.2;
@@ -358,20 +371,21 @@ export class Engine {
       return;
     }
 
-    // Level switching shortcuts [1] through [4]
-    if (Input.isPressed('one') && this.currentLevelIndex !== 1) {
+    // Level switching shortcuts [Shift]+[1] through [4] (plain 1 / 2 choose Rakti's weapon)
+    const devSkip = Input.isDown('ShiftLeft') || Input.isDown('ShiftRight');
+    if (devSkip && Input.isPressed('one') && this.currentLevelIndex !== 1) {
       this.beginLoadingTransition(1);
       return;
     }
-    if (Input.isPressed('two') && this.currentLevelIndex !== 2) {
+    if (devSkip && Input.isPressed('two') && this.currentLevelIndex !== 2) {
       this.beginLoadingTransition(2);
       return;
     }
-    if (Input.isPressed('three') && this.currentLevelIndex !== 3) {
+    if (devSkip && Input.isPressed('three') && this.currentLevelIndex !== 3) {
       this.beginLoadingTransition(3);
       return;
     }
-    if (Input.isPressed('four') && this.currentLevelIndex !== 4) {
+    if (devSkip && Input.isPressed('four') && this.currentLevelIndex !== 4) {
       this.beginLoadingTransition(4);
       return;
     }
@@ -383,8 +397,11 @@ export class Engine {
     }
 
     // Morph Object Ability [Q] (Level 2 only - completely disabled in round 1)
-    if (Input.isPressed('morph') || Input.isPressed('q')) {
-      if (this.currentLevelIndex === 2 && this.level.triggerMorph) {
+    if ((Input.isPressed('morph') || Input.isPressed('q')) && !this.dialogueActive) {
+      if (this.level.castQ) {
+        // Levels with Kali's earth power decide what answers (Level 2: boulders and floating stones)
+        this.level.castQ(this.player);
+      } else if (this.currentLevelIndex === 2 && this.level.triggerMorph) {
         const morphed = this.level.triggerMorph(this.player.x, this.player.y);
         if (morphed) {
           this.openDialogue(this.level.lastMorphMessage || "Transmutation unleashed! The sacred stone transforms into an unstoppable rolling sphere!", 'kali', '⚜ MAA KALI: TRANSMUTATION ⚜');
@@ -528,6 +545,12 @@ export class Engine {
     this.player.update(dt, this.level, this.dialogueActive);
     this.level.update(this.player.x, this.player.y, dt, this.player.isDivine, this.player);
 
+    // Levels that move Rakti between areas (Level 2's door into the sun hall) ask for a camera cut
+    if (this.level.requestCameraSnap) {
+      this.level.requestCameraSnap = false;
+      this.cameraSnap = true;
+    }
+
     // Levels can ask for a story dialogue (e.g. Level 1: Kali grants her form near the lever tower)
     if (this.level.pendingDialogue && !this.dialogueActive) {
       const d = this.level.pendingDialogue;
@@ -575,8 +598,8 @@ export class Engine {
       if (this.completePrompt) this.completePrompt.textContent = '[E] ENTER LEVEL 2  |  [R] REPLAY';
     } else if (this.currentLevelIndex === 2) {
       if (this.completeTitle) this.completeTitle.textContent = 'LEVEL 2 COMPLETE';
-      if (this.completeSubtitle) this.completeSubtitle.textContent = 'DESERT CATACOMBS CLEARED';
-      if (this.completeFlavor) this.completeFlavor.textContent = '* The sealed passage opens onto the overgrown heart of the ruins.';
+      if (this.completeSubtitle) this.completeSubtitle.textContent = 'THE HALL OF THE SUN IS OPEN';
+      if (this.completeFlavor) this.completeFlavor.textContent = '* The Trishul hums at your side as the portal opens onto the jungle.';
       if (this.completePrompt) this.completePrompt.textContent = '[E] CONTINUE TO LEVEL 3  •  AUTO IN 3s';
     } else if (this.currentLevelIndex === 3) {
       if (this.completeTitle) this.completeTitle.textContent = 'LEVEL 3 COMPLETE';
@@ -706,6 +729,17 @@ export class Engine {
       this.divineMeter.classList.toggle('active', divineActive);
     }
     this.hudEl.classList.toggle('divine-mode', divineActive);
+
+    // Equipped weapon: talwar [1] or Trishul [2]; the Trishul icon dims while it is in flight
+    const trishulOn = this.player.hasTrishul && this.player.weapon === 'trishul';
+    put(this.hudWeapon, 'src', trishulOn ? 'assets/ui/hud/trishul.png' : 'assets/ui/hud/talwar.png', v => {
+      this.hudWeapon.src = v;
+      this.hudWeapon.alt = trishulOn ? 'Equipped weapon: Trishul' : 'Equipped weapon: Guardian Talwar';
+      this.hudWeapon.classList.toggle('trishul', trishulOn);
+    });
+    put(this.hudWeapon, 'away', String(trishulOn && Boolean(this.player.trishul)), v => this.hudWeapon.classList.toggle('away', v === 'true'));
+    put(this.hudWeaponKeys, 'show', String(Boolean(this.player.hasTrishul)), v => this.hudWeaponKeys.classList.toggle('show', v === 'true'));
+    put(this.hudWeaponKeys, 'sel', this.player.weapon, v => this.hudWeaponKeys.dataset.weapon = v);
 
     // Keep combat notifications separate from the minimal persistent HUD.
     if (this.killToast) {
