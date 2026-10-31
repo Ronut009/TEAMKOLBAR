@@ -1178,7 +1178,8 @@ export class Player {
     tr.trail.push({ x: tr.x, y: tr.y });
     if (tr.trail.length > 10) tr.trail.shift();
 
-    // Hits: each enemy at most once per throw; the first hit turns it back toward her hand
+    // Hits: only on the way out (the returning Trishul passes harmlessly); each enemy at most once
+    if (tr.state !== 'out') return;
     for (const e of this.trishulTargets(level)) {
       if (tr.hit.has(e)) continue;
       const hw = (e.hitHalfW ?? 16) + 8, hh = e.hitHeight ?? 64;

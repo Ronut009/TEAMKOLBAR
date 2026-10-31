@@ -10,7 +10,7 @@
  *   1-2             - a chasm of floating rocks: [Q] turns them into stone platforms
  *   2 dunes (mirror)- tower 2: a second archer and a second boulder. When he falls a ladder
  *                     unfurls and the Sun Key floats over the tower top
- *   3 dunes         - a sand pit crossed on five crumbling slabs, then two Betal guard the sun door
+ *   3 dunes         - a quicksand pit crossed on five crumbling slabs, then two Betal guard the sun door
  *   4 the sun door  - the key opens it (closed -> open art) and Rakti walks into the hall
  * The hall (two screens, in its own stretch of the world; the camera is limited to it):
  *   the shrine holds the Trishul -> an archer on the hall's tower (only the Trishul reaches him)
@@ -51,12 +51,11 @@ const TOWER = { w: 474, h: 744, cx: 235.2, roofY: 108, baseY: 729.6, roofL: 43, 
 const TOWER_SCALE = 0.325;
 const TOWER_ROOF_Y = Math.round(FLOOR_Y + 4 - (TOWER.baseY - TOWER.roofY) * TOWER_SCALE);   // ~170
 // Pillars: floor pillars stand on the floor, long pillars rise out of a chasm. surface = feet row from the top.
-// Chasm pillars never show their stepped base: the carved body (rows loopTop..bodyEnd) repeats downward
-// past the bottom of the view, so they rise out of the depths instead of floating.
+// Pillars stand on their stepped bases, half buried in the quicksand.
 const PILLAR_ART = {
-  small: { src: 'pillar_small.png', w: 168, h: 191, surface: 12, cap: 0.86, loopTop: 50, bodyEnd: 146 },
-  medium: { src: 'pillar_medium.png', w: 184, h: 288, surface: 12, cap: 0.86, loopTop: 62, bodyEnd: 232 },
-  tall: { src: 'pillar_tall.png', w: 212, h: 411, surface: 12, cap: 0.86, loopTop: 70, bodyEnd: 350 },
+  small: { src: 'pillar2_small.png', w: 168, h: 192, surface: 12, cap: 0.86 },
+  medium: { src: 'pillar2_medium.png', w: 184, h: 306, surface: 12, cap: 0.86 },
+  tall: { src: 'pillar2_tall.png', w: 212, h: 414, surface: 12, cap: 0.86 },
   long: { src: 'pillar_long.png', w: 217, h: 929, surface: 14, cap: 0.84 }   // scenery only (seam columns)
 };
 // Crumbling slabs (the floating-platform art): they give way FALL_DELAY s after Rakti lands on them
@@ -68,6 +67,14 @@ const CHASM_PILLAR_SCALE = 0.33;   // full pillar art, its stepped base standing
 // Every gap is a sunken sand pit: its surface sits below the floor, pillar bases stand in it, and
 // whoever drops in sinks (pit damage, back to the last checkpoint).
 const SAND_Y = 404;
+// Quicksand fills every pit. Rakti can stand in it, but she wades at QS_SLOW of her speed and sinks:
+// QS_SINK px/s standing still, QS_SINK_MOVING while wading. Deeper means weaker jumps; at QS_MAX she is
+// swallowed (pit damage, back to the checkpoint). Kali's form floats on it.
+const QS_SLOW = 0.3;
+const QS_SINK = 120;          // swallowed in about half a second
+const QS_SINK_MOVING = 95;
+const QS_MAX = 62;
+const QS = { src: 'quicksand.png', w: 1178, h: 187, surface: 13, scale: 0.5 };
 // Stone sheets: 6 frames each. Ball frames are centred; slab frames are aligned on the stone's top edge.
 const BALL = { frameW: 196, frameH: 256, anchorX: 97.5, anchorY: 129, bottom: 254, scale: 0.25 };
 const SLAB = { frameW: 202, frameH: 234, anchorX: 101, anchorY: 3, slabL: 24, slabR: 178, scale: 0.42 };
@@ -105,7 +112,7 @@ export class Level2 {
     this.minX = 0;
     this.width = OUT_W;
     this.height = SCREEN_H;
-    this.deathY = SAND_Y + 16;   // sinking into a sand pit
+    this.deathY = SAND_Y + QS_MAX + 30;   // never reached: the quicksand swallows her first
     this.pitDamage = PIT_DAMAGE;
 
     // ------------------------------------------------------------ art
@@ -122,6 +129,8 @@ export class Level2 {
     this.ballSheet = img(S + 'stone_ball_sheet.png');
     this.slabSheet = img(S + 'stone_slab_sheet.png');
     this.keyImg = img(S + 'key.png');
+    this.quicksandImg = img(S + QS.src);
+    this.pierImg = img(S + 'pier.png');
     this.shrineImg = img(S + 'shrine.png');
     this.trishulImg = img('assets/weapons/trishul_upright.png');
     this.platformArt = new PlatformArt('desert');
@@ -159,18 +168,18 @@ export class Level2 {
     ];
     // Every pillar stands in a chasm with gaps between, so it is a jump, never a speed bump.
     // `top` is where feet stand; the bases sink into the chasm's shadow.
+    // Stepping piers: stacked courses of the same carved mudbrick as the floor, rising out of the quicksand
+    // like broken pieces of the old causeway. w = width, top = where feet stand.
     this.pillars = [
-      { art: 'small', cx: 400, top: 345 },
-      { art: 'medium', cx: 495, top: 322 },
-      { art: 'tall', cx: 590, top: 300 },
-      { art: 'small', cx: ROOM_X + 375, top: 344 },
-      { art: 'tall', cx: ROOM_X + 470, top: 292 },
-      { art: 'medium', cx: ROOM_X + 565, top: 318 }
+      { pier: true, cx: 400, top: 345, w: 72 },
+      { pier: true, cx: 495, top: 322, w: 72 },
+      { pier: true, cx: 590, top: 300, w: 72 },
+      { pier: true, cx: ROOM_X + 375, top: 344, w: 72 },
+      { pier: true, cx: ROOM_X + 470, top: 296, w: 72 },
+      { pier: true, cx: ROOM_X + 565, top: 320, w: 72 }
     ];
     for (const p of this.pillars) {
-      const a = PILLAR_ART[p.art];
-      p.scale = p.art === 'long' ? PIT_PILLAR_SCALE : CHASM_PILLAR_SCALE;
-      p.half = (a.w * p.scale * a.cap) / 2;
+      p.half = p.w / 2 - 4;
       p.area = p.cx >= ROOM_X ? 'room' : 'out';
     }
     // Tall carved columns over every seam between two background screens, so the join can't be seen
@@ -181,20 +190,20 @@ export class Level2 {
     // A pile of boulders at each tower; only one stone in each pile answers to [Q] (the `balls` below).
     // back = drawn behind that stone, the rest in front of it but beside it, so it stays visible.
     const pile = (x) => [
-      { sheet: 'slab', x: x - 38, s: 0.31, dim: 0.32, back: true },
-      { sheet: 'ball', x: x + 40, s: 0.25, dim: 0.28, flip: true, back: true },
-      { sheet: 'slab', x: x + 8, s: 0.22, dim: 0.42, back: true },
-      { sheet: 'ball', x: x - 46, s: 0.17 },
-      { sheet: 'slab', x: x + 47, s: 0.19, flip: true },
-      { sheet: 'ball', x: x + 76, s: 0.12, dim: 0.15 },
-      { sheet: 'ball', x: x - 72, s: 0.11, flip: true, dim: 0.2 }
+      { sheet: 'ball', x: x - 40, s: 0.3, dim: 0.32, back: true },
+      { sheet: 'ball', x: x + 42, s: 0.27, dim: 0.28, flip: true, back: true },
+      { sheet: 'ball', x: x + 6, s: 0.21, dim: 0.42, back: true },
+      { sheet: 'ball', x: x - 48, s: 0.18, flip: true },
+      { sheet: 'ball', x: x + 50, s: 0.19 },
+      { sheet: 'ball', x: x + 78, s: 0.12, dim: 0.15, flip: true },
+      { sheet: 'ball', x: x - 74, s: 0.12, dim: 0.2 }
     ];
-    this.decoys = [...pile(1005), ...pile(1895)];
+    this.decoys = [...pile(1005), ...pile(1925)];
 
     // Towers: two outside, one in the hall. Archers stand on their roofs.
     this.towers = [
       { id: 'T1', cx: 1185, area: 'out' },
-      { id: 'T2', cx: 2010, area: 'out' },
+      { id: 'T2', cx: 2185, area: 'out' },
       { id: 'T3', cx: ROOM_X + 1080, area: 'room' }
     ];
     const roofHalf = ((TOWER.roofR - TOWER.roofL) / 2) * TOWER_SCALE - 8;
@@ -223,7 +232,7 @@ export class Level2 {
     const ballCY = FLOOR_Y + 2 - (BALL.bottom - BALL.anchorY) * BALL.scale;
     this.balls = [
       { id: 'ball1', x: 1005, y: ballCY, target: 'A', state: 'idle', t: 0 },
-      { id: 'ball2', x: 1895, y: ballCY, target: 'B', state: 'idle', t: 0 }   // well clear of the chasm edge
+      { id: 'ball2', x: 1925, y: ballCY, target: 'B', state: 'idle', t: 0 }   // well clear of the chasm edge
     ];
     this.slabs = [
       { cx: 1545, top: 336 },
@@ -252,7 +261,7 @@ export class Level2 {
     // Betal: four on the way to the sun door, three in the hall's horde
     const outside = [
       new Betal(1380, 1240, 1460, FLOOR_Y),     // past tower 1, before the floating rocks
-      new Betal(2215, 2150, 2262, FLOOR_Y),     // past tower 2, at the crumbling-slab chasm
+      new Betal(3040, 2990, 3110, FLOOR_Y),     // three guard the sun door
       new Betal(2860, 2700, 2980, FLOOR_Y),     // two guarding the sun door
       new Betal(3230, 3060, 3340, FLOOR_Y)
     ];
@@ -269,7 +278,7 @@ export class Level2 {
     this.checkpoints = [
       { x: this.portal.spawnX, area: 'out' },
       { x: 1300, area: 'out' },
-      { x: 2075, area: 'out' },
+      { x: 2060, area: 'out' },
       { x: ROOM_X + 150, area: 'room' },
       { x: ROOM_X + 840, area: 'room' }
     ];
@@ -331,6 +340,8 @@ export class Level2 {
     this.transition = null;
     this.intro = p.introDone ? null : { t: 0 };
     this.particles = [];
+    this.qsDepth = 0;
+    this.qsWasIn = false;
     this.setArea(p.inRoom ? 'room' : 'out');
 
     for (const [id, a] of Object.entries(this.archers)) {
@@ -385,6 +396,10 @@ export class Level2 {
     for (const f of this.floors) if (f.area === this.area) list.push({ id: 'floor', x1: f.x1, x2: f.x2, y: FLOOR_Y, oneWay: false });
     for (const p of this.pillars) if (p.area === this.area) list.push({ id: 'pillar', x1: p.cx - p.half, x2: p.cx + p.half, y: p.top, oneWay: false });
     for (const t of this.towers) if (t.area === this.area) list.push({ id: 'roof', x1: t.roof.x1, x2: t.roof.x2, y: t.roof.y, oneWay: true });
+    // quicksand: its surface drops under Rakti as she sinks (qsDepth), so she sinks with it
+    for (const pit of this.pits) {
+      if (pit.area === this.area) list.push({ id: 'quicksand', pit, x1: pit.x1, x2: pit.x2, y: SAND_Y + this.qsDepth, oneWay: false });
+    }
     if (this.area === 'out') {
       for (const s of this.slabs) if (s.state === 'solid') list.push({ id: 'slab', ...this.slabBox(s), oneWay: true });
       for (const f of this.fallers) {
@@ -417,6 +432,13 @@ export class Level2 {
 
   /** Pillar sides are solid; the hall's entrance arch is a wall behind her. */
   resolvePitWallCollision(x, y) {
+    // below floor level the pit's walls hold her in (she has to climb or jump out)
+    if (y > FLOOR_Y + 3) {
+      for (const pit of this.pits) {
+        if (pit.area !== this.area || x < pit.x1 - 12 || x > pit.x2 + 12) continue;
+        x = Math.max(pit.x1 + 8, Math.min(pit.x2 - 8, x));
+      }
+    }
     for (const p of this.pillars) {
       if (p.area !== this.area) continue;
       const half = p.half + 7;
@@ -714,15 +736,7 @@ export class Level2 {
       return;
     }
 
-    // sand spray as Rakti drops into a pit (she sinks out of sight and is sent back to the checkpoint)
-    if (player && !player.isDead) {
-      if (playerY > SAND_Y - 4 && !this.sinking) {
-        this.sinking = true;
-        this.burst(playerX, SAND_Y - 2, 22, ['#dca15c', '#c3823f', '#ffe1a8'], 110, 0.7);
-      } else if (playerY < FLOOR_Y) {
-        this.sinking = false;
-      }
-    }
+    this.updateQuicksand(dt, playerX, playerY, isDivine, player);
 
     // ---------------------------------------------------- outside
     if (this.area === 'out') {
@@ -886,6 +900,67 @@ export class Level2 {
     ctx.restore();
   }
 
+  /** Quicksand: slows, sinks and finally swallows Rakti; Kali's form floats on it. */
+  updateQuicksand(dt, px, py, isDivine, player) {
+    // drifting grains over every pit
+    for (const pit of this.pits) {
+      if (pit.area === this.area && Math.random() < dt * 6) {
+        this.particles.push({ x: pit.x1 + Math.random() * (pit.x2 - pit.x1), y: SAND_Y + 2, vx: (Math.random() - 0.5) * 14, vy: -6,
+          life: 1.2, maxLife: 1.2, size: 1.5, color: Math.random() > 0.5 ? '#ffd890' : '#b8702e', g: 0 });
+      }
+    }
+    if (!player || player.isDead) { this.qsDepth = 0; return; }
+    // in the sand: inside a pit, at or below its surface, and not on the way up out of it
+    const pit = this.pits.find((q) => q.area === this.area && px >= q.x1 && px <= q.x2);
+    const inSand = Boolean(pit) && py >= SAND_Y - 3 && player.vy >= 0 && !player.isClimbing;
+    if (!inSand) {
+      // a jump out of the sand is weaker the deeper she was
+      if (this.qsWasIn && player.vy < 0) player.vy *= 1 - 0.55 * Math.min(1, this.qsDepth / QS_MAX);
+      // she keeps her depth until she is clear of the surface (so a short hop lands back where she was)
+      if (py < SAND_Y - 6) this.qsDepth = 0;
+      else if (this.qsDepth > 0 && py > SAND_Y + this.qsDepth + 4) this.qsDepth = Math.max(0, py - SAND_Y);
+      this.qsWasIn = false;
+      this.qsLastX = px;
+      return;
+    }
+    if (!this.qsWasIn) {
+      this.burst(px, SAND_Y - 2, 18, ['#dca15c', '#c3823f', '#ffe1a8'], 100, 0.6);
+      this.cameraShake = Math.max(this.cameraShake, 0.15);
+      this.qsLastX = px;
+      if (!this.progress.said.quicksand) this.toast('⚠ QUICKSAND - KEEP MOVING, JUMP OUT ⚠', 2.4);
+      this.progress.said.quicksand = true;
+    }
+    this.qsWasIn = true;
+    const moved = px - (this.qsLastX ?? px);
+    if (isDivine) {   // Kali floats up and glides over it
+      this.qsDepth = Math.max(0, this.qsDepth - dt * 40);
+      this.qsLastX = px;
+      return;
+    }
+    // wading: only part of each step goes through
+    player.x = (this.qsLastX ?? px) + moved * QS_SLOW;
+    this.qsLastX = player.x;
+    this.qsDepth += dt * (Math.abs(moved) > 0.2 ? QS_SINK_MOVING : QS_SINK);
+    if (Math.random() < dt * 14) {
+      this.particles.push({ x: player.x + (Math.random() - 0.5) * 22, y: SAND_Y + this.qsDepth * 0.2, vx: (Math.random() - 0.5) * 30, vy: -20 - Math.random() * 20,
+        life: 0.5, maxLife: 0.5, size: 2, color: Math.random() > 0.5 ? '#e8b878' : '#a8692e', g: 80 });
+    }
+    // she stays locked to the sinking surface (frame-rate independent)
+    this.qsDepth = Math.max(this.qsDepth, py - SAND_Y);
+    player.y = SAND_Y + this.qsDepth;
+    player.vy = 0;
+    player.isGrounded = true;
+    player.currentPlatform = { id: 'quicksand', pit, x1: pit.x1, x2: pit.x2, y: player.y, oneWay: false };
+    if (this.qsDepth >= QS_MAX) {
+      // swallowed
+      this.burst(player.x, SAND_Y, 26, ['#dca15c', '#c3823f', '#ffe1a8'], 90, 0.8);
+      this.qsDepth = 0;
+      this.qsWasIn = false;
+      player.respawnFromPit(this);
+      this.qsLastX = player.x;
+    }
+  }
+
   startHorde() {
     const p = this.progress;
     if (p.hordeStarted) return;
@@ -964,10 +1039,10 @@ export class Level2 {
         }
         this.cameraShake = 0.9;
         this.burst(b.x, b.y, 30, ['#c8955a', '#ffe39a', '#9ff6e8', '#7a4f2a'], 150, 0.8);
-        b.state = 'falling';
-        b.t = 0;
-        b.vx = 150;
-        b.vy = -160;
+        // the sphere bursts apart against the tower top
+        this.burst(b.x, b.y, 26, ['#c8955a', '#7a4f2a', '#e8b878', '#5a3a1c'], 190, 1.0);
+        b.state = 'gone';
+        b.trail = [];
       }
       return;
     }
@@ -1076,9 +1151,7 @@ export class Level2 {
     }
 
     this.renderTowers(ctx);
-    // chasm pillars first, so the chasm's shadow swallows their bases
     for (const p of this.pillars) if (p.area === this.area) this.drawPillar(ctx, p);
-    this.renderPits(ctx);
 
     ctx.save();
     ctx.imageSmoothingEnabled = true;
@@ -1103,7 +1176,6 @@ export class Level2 {
       for (const id of ['C', 'H1', 'H2']) this.renderArcher(ctx, this.archers[id]);
       for (const b of this.betals) if (b.horde) b.render(ctx, this.enemySprites);
     }
-    this.renderParticles(ctx);
     ctx.restore();
   }
 
@@ -1118,46 +1190,75 @@ export class Level2 {
     ctx.restore();
   }
 
-  /** Sunken sand pits: warm drifted sand below floor level, with a soft rippled surface and a
-   *  shaded lip under the floor ends (no dark box). Pillar bases sink into it. */
+  /** Drawn after Rakti (engine calls it), so the quicksand covers whatever has sunk into it. */
+  renderForeground(ctx) {
+    this.renderPits(ctx);
+    this.renderParticles(ctx);
+  }
+
+  /** Arrows break on anything solid: floors, pillars, the tower bodies and the quicksand. */
+  isSolidPoint(x, y) {
+    if (y >= SAND_Y) return true;
+    if (y >= FLOOR_Y + 2) {
+      for (const f of this.floors) if (f.area === this.area && x >= f.x1 && x <= f.x2) return true;
+    }
+    for (const p of this.pillars) {
+      if (p.area === this.area && y > p.top + 2 && Math.abs(x - p.cx) < p.half) return true;
+    }
+    return false;
+  }
+
+  /** Quicksand pits: the sand strip tiled across each pit, drifting slowly, with a dimple where Rakti sinks. */
   renderPits(ctx) {
-    const room = this.area === 'room';
+    const room = this.area === 'room', im = this.quicksandImg;
+    const k = QS.scale, tw = QS.w * k, th = QS.h * k;
+    const top = SAND_Y - QS.surface * k;
+    const strip = this.cachedArt(`qs:${room}`, tw, th, ready(im), (g) => {
+      g.drawImage(im, 0, 0, tw, th);
+      if (room) {   // the hall's pit lies in shade
+        g.globalCompositeOperation = 'source-atop';
+        g.fillStyle = 'rgba(70, 30, 10, 0.35)';
+        g.fillRect(0, 0, tw, th);
+      }
+    });
+    if (!strip) return;
+    const drift = (this.animTime * 7) % tw;
     for (const pit of this.pits) {
       if (pit.area !== this.area || !this.inView(pit.x1, pit.x2)) continue;
-      const x1 = pit.x1 - 4, x2 = pit.x2 + 4;
-      const c = this.cachedArt(`sand:${pit.x1}:${room}`, x2 - x1, SCREEN_H + 40 - (SAND_Y - 8), true, (g) => {
-        const w = x2 - x1, h = SCREEN_H + 40 - (SAND_Y - 8), top = 8;
-        // rippled surface
-        g.beginPath();
-        g.moveTo(0, h);
-        for (let x = 0; x <= w; x += 4) g.lineTo(x, top + Math.sin((x1 + x) * 0.045) * 1.6 + Math.sin((x1 + x) * 0.013) * 2.2);
-        g.lineTo(w, h);
-        g.closePath();
-        const grad = g.createLinearGradient(0, top - 4, 0, h);
-        grad.addColorStop(0, room ? '#c98d4f' : '#dca15c');
-        grad.addColorStop(0.18, room ? '#a8693a' : '#c3823f');
-        grad.addColorStop(1, room ? '#5e3519' : '#7e4420');
-        g.fillStyle = grad;
-        g.fill();
-        // light along the crest, grains, and shade toward the pit walls
-        g.strokeStyle = 'rgba(255, 228, 170, 0.55)';
-        g.lineWidth = 1.2;
-        g.stroke();
-        for (let i = 0; i < w * 0.6; i++) {
-          const gx = (i * 37.7) % w, gy = top + 6 + ((i * 53.3) % (h - top - 10));
-          g.fillStyle = i % 3 ? 'rgba(255, 220, 160, 0.10)' : 'rgba(70, 30, 8, 0.12)';
-          g.fillRect(gx, gy, 1.5, 1.5);
-        }
-        const side = g.createLinearGradient(0, 0, w, 0);
-        side.addColorStop(0, 'rgba(60, 25, 8, 0.45)');
-        side.addColorStop(Math.min(0.5, 28 / w), 'rgba(60, 25, 8, 0)');
-        side.addColorStop(Math.max(0.5, 1 - 28 / w), 'rgba(60, 25, 8, 0)');
-        side.addColorStop(1, 'rgba(60, 25, 8, 0.45)');
-        g.globalCompositeOperation = 'source-atop';
-        g.fillStyle = side;
-        g.fillRect(0, 0, w, h);
-      });
-      if (c) ctx.drawImage(c, x1, SAND_Y - 8, x2 - x1, SCREEN_H + 40 - (SAND_Y - 8));
+      const x1 = pit.x1 - 2, x2 = pit.x2 + 2;
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(x1, top - 12, x2 - x1, SCREEN_H - top + 60);
+      ctx.clip();
+      for (let x = x1 - drift; x < x2; x += tw - 1) ctx.drawImage(strip, x, top, tw, th);
+      // below the strip: deep sand
+      ctx.fillStyle = room ? '#4a2410' : '#6a3414';
+      ctx.fillRect(x1, top + th - 2, x2 - x1, SCREEN_H + 60);
+      // shaded walls where the floor slabs end
+      const side = ctx.createLinearGradient(x1, 0, x2, 0);
+      const e = Math.min(0.45, 26 / (x2 - x1));
+      side.addColorStop(0, 'rgba(50, 20, 6, 0.55)');
+      side.addColorStop(e, 'rgba(50, 20, 6, 0)');
+      side.addColorStop(1 - e, 'rgba(50, 20, 6, 0)');
+      side.addColorStop(1, 'rgba(50, 20, 6, 0.55)');
+      ctx.fillStyle = side;
+      ctx.fillRect(x1, top, x2 - x1, SCREEN_H + 60);
+      // a sinking dimple and churn around Rakti
+      if (this.qsWasIn && this.player && this.player.x >= pit.x1 && this.player.x <= pit.x2) {
+        const px = this.player.x, d = Math.min(1, this.qsDepth / QS_MAX);
+        const g = ctx.createRadialGradient(px, SAND_Y + 2, 2, px, SAND_Y + 2, 26 + 10 * d);
+        g.addColorStop(0, `rgba(70, 30, 8, ${0.25 + 0.3 * d})`);
+        g.addColorStop(1, 'rgba(70, 30, 8, 0)');
+        ctx.fillStyle = g;
+        ctx.fillRect(px - 40, SAND_Y - 8, 80, 22);
+        ctx.strokeStyle = 'rgba(255, 220, 150, 0.45)';
+        ctx.lineWidth = 1;
+        const r = 12 + ((this.animTime * 18) % 16);
+        ctx.beginPath();
+        ctx.ellipse(px, SAND_Y + 2, r, r * 0.22, 0, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.restore();
     }
   }
 
@@ -1294,6 +1395,14 @@ export class Level2 {
 
   /** The whole pillar, stepped base included; in a pit the sand drawn after it buries the base. */
   drawPillar(ctx, p) {
+    if (p.pier) {
+      // a carved mudbrick pier (the floor's own end caps over its frieze, repeated downward)
+      const k = 0.48, w = 150 * k, h = 492 * k;
+      if (!this.inView(p.cx - w / 2, p.cx + w / 2)) return;
+      const c = this.cachedArt('pier', w, h, ready(this.pierImg), (g) => g.drawImage(this.pierImg, 0, 0, w, h));
+      if (c) ctx.drawImage(c, p.cx - w / 2, p.top - 20 * k, w, h);
+      return;
+    }
     const art = PILLAR_ART[p.art], im = this.pillarImgs[p.art];
     const w = art.w * p.scale, h = art.h * p.scale;
     if (!this.inView(p.cx - w / 2, p.cx + w / 2)) return;

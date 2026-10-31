@@ -20,8 +20,8 @@ export class Arrow {
     this.vy = 0;
     this.speed = 220; // Homing flight speed
     this.angle = Math.PI; // In radians, initially facing left
-    this.life = 5.0;      // homing arrows give up after 5 s
-    this.maxLife = 5.0;
+    this.life = 3.5;      // homing arrows give up after 3.5 s
+    this.maxLife = 3.5;
     this.damage = 2; // Reduced arrow damage
     this.width = 44;
     this.height = 8;
@@ -96,6 +96,16 @@ export class Arrow {
     this.x += this.vx * dt;
     this.y += this.vy * dt;
     this.life -= dt;
+
+    // Arrows break on solid ground instead of diving under a platform and curving back up
+    if (level?.isSolidPoint?.(this.x, this.y)) {
+      level.burst?.(this.x, this.y, 8, ['#ffd700', '#885533', '#c8955a'], 80, 0.35);
+      this.spawnShatterParticles();
+      this.life = Math.min(this.life, 0.0001);
+      this.vx = 0;
+      this.vy = 0;
+      return false;
+    }
 
     // Mystical Tracking Trail Particles (Crimson & Solar Amber)
     if (Math.random() < 0.75) {

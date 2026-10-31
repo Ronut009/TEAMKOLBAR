@@ -860,6 +860,9 @@ export class Engine {
     // 3. Player Sprite (Mortal Warrior, Climbing on Ladders, or Divine Kali)
     this.player.render(ctx);
 
+    // 3b. Level art in front of Rakti (Level 2's quicksand covers her as she sinks)
+    this.level.renderForeground?.(ctx);
+
     // 4. Divine Sparks, Damage & Leap Particles
     this.player.renderParticles(ctx);
 
