@@ -20,6 +20,14 @@ export const PLATFORM_STYLES = {
     capLeft: 489,      // image columns [0, 489) = left end cap
     capRight: 1756     // image columns [1756, end) = right end cap; [489, 1756) tiles seamlessly
   },
+  // Level 3 jungle slab: moss-topped carved brick with hanging roots (960 x 187, middle is made to tile)
+  jungle: {
+    src: 'assets/level3/jungle_platform.png',
+    surfaceY: 40,
+    scale: 0.483,      // ~90 world px thick
+    capLeft: 156,
+    capRight: 756
+  },
   // Previous floor strip (no end caps), kept as a fallback
   temple_v1: {
     src: 'assets/platforms/temple_platform.png',      // 1564 x 219, tiles seamlessly

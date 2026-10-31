@@ -8,7 +8,7 @@
 
 import { Input } from './input.js';
 import { Level2 } from './level2.js';
-import { Level3 } from './level3.js';
+import { Level3 } from './level3_v2.js';
 import { Level4, L4_CONFIG } from './level4.js';
 
 export class Engine {
@@ -171,9 +171,10 @@ export class Engine {
       this.player.y = 480;
       this.player.hasDivineUnlocked = true;
     } else if (index === 3) {
-      // The Heart of Hubris begins on the upper-left ruin ledge.
-      this.player.x = 90;
-      this.player.y = 108;
+      // Level 3 (jungle): starts on the home field, or at the last checkpoint
+      const spawn = this.level3.getRespawnPoint();
+      this.player.x = spawn.x;
+      this.player.y = spawn.y;
       this.player.hasDivineUnlocked = true;
     } else if (index === 2) {
       // Start Level 2 on the high left ledge shown in the new map art.
@@ -294,9 +295,10 @@ export class Engine {
       }
     }
 
-    // Level 2 now continues automatically after its completion screen, while
-    // still allowing the player to enter Level 3 immediately with E or Space.
-    if (this.currentLevelIndex === 2 && this.levelCompleted) {
+    // Levels 2 and 3 continue automatically after their completion screen, while
+    // still allowing the player to enter the next level immediately with E or Space.
+    if ((this.currentLevelIndex === 2 || this.currentLevelIndex === 3) && this.levelCompleted) {
+      const nextLevel = this.currentLevelIndex + 1;
       if (Input.isPressed('reset') || Input.isPressed('KeyR')) {
         this.resetGame();
         return;
@@ -305,10 +307,10 @@ export class Engine {
       this.levelTransitionTimer -= dt;
       if (this.completePrompt) {
         const seconds = Math.max(0, Math.ceil(this.levelTransitionTimer));
-        this.completePrompt.textContent = `[E] CONTINUE TO LEVEL 3  •  AUTO IN ${seconds}s`;
+        this.completePrompt.textContent = `[E] CONTINUE TO LEVEL ${nextLevel}  •  AUTO IN ${seconds}s`;
       }
       if (this.levelTransitionTimer <= 0 || Input.isPressed('interact') || Input.isPressed('space')) {
-        this.beginLoadingTransition(3);
+        this.beginLoadingTransition(nextLevel);
         return;
       }
 
@@ -320,7 +322,7 @@ export class Engine {
 
     // Level 3 intentionally advances through a scripted defeat. Let its own
     // fade and epilogue run instead of triggering the regular checkpoint reset.
-    if (this.currentLevelIndex === 3 && this.player.hp <= 0) {
+    if (this.currentLevelIndex === 3 && this.level.usesScriptedDefeat !== false && this.player.hp <= 0) {
       if (Input.isPressed('reset') || Input.isPressed('KeyR')) {
         this.resetGame();
         return;
@@ -416,6 +418,9 @@ export class Engine {
         } else if (this.currentLevelIndex === 2) {
           this.beginLoadingTransition(3);
           return;
+        } else if (this.currentLevelIndex === 3) {
+          this.beginLoadingTransition(4);
+          return;
         } else if (this.currentLevelIndex === 4) {
           this.returnToTitle();
           return;
@@ -437,7 +442,7 @@ export class Engine {
         // LEVEL 1: claiming the relic in the shrine opens the door to Level 2
         else if (nearby.type === 'relic' && !this.level.relic.collected) {
           this.level.collectRelic(this.player);
-          this.openDialogue(nearby.text, 'kali', '⚜ PEARL OF THE TIDE ⚜');
+          this.openDialogue(nearby.text, 'kali', nearby.title || '⚜ PEARL OF THE TIDE ⚜');
         }
         // LEVEL 1: Sacred Lotus Awakening (Unlocks X ability - Taught by Maa Kali)
         else if (nearby.type === 'lotus_awakening' || nearby.id === 'sacred_lotus') {
@@ -507,6 +512,7 @@ export class Engine {
         }
         // General text landmark
         else {
+          nearby.onInteract?.(this.player);
           this.openDialogue(nearby.text, nearby.speaker || 'stele', nearby.title);
         }
       }
@@ -545,7 +551,7 @@ export class Engine {
     if (!this.levelCompleted && this.level.checkLevelComplete(this.player.x, this.player.y)) {
       this.levelCompleted = true;
       this.showLevelCompleteModal();
-      if (this.currentLevelIndex === 2) this.levelTransitionTimer = 3.0;
+      if (this.currentLevelIndex === 2 || this.currentLevelIndex === 3) this.levelTransitionTimer = this.currentLevelIndex === 3 ? 2.0 : 3.0;
     }
 
     if (this.levelCompleted && this.player.doorwayFade > 0) {
@@ -572,6 +578,11 @@ export class Engine {
       if (this.completeSubtitle) this.completeSubtitle.textContent = 'DESERT CATACOMBS CLEARED';
       if (this.completeFlavor) this.completeFlavor.textContent = '* The sealed passage opens onto the overgrown heart of the ruins.';
       if (this.completePrompt) this.completePrompt.textContent = '[E] CONTINUE TO LEVEL 3  •  AUTO IN 3s';
+    } else if (this.currentLevelIndex === 3) {
+      if (this.completeTitle) this.completeTitle.textContent = 'LEVEL 3 COMPLETE';
+      if (this.completeSubtitle) this.completeSubtitle.textContent = 'THE FOREST HEART IS RESTORED';
+      if (this.completeFlavor) this.completeFlavor.textContent = '* The jungle exhales as the portal opens onto the next trial.';
+      if (this.completePrompt) this.completePrompt.textContent = '[E] CONTINUE TO LEVEL 4  •  AUTO IN 2s';
     } else {
       if (this.completeTitle) this.completeTitle.textContent = 'THE TIDE IS STILL';
       if (this.completeSubtitle) this.completeSubtitle.textContent = 'THE FOUR RELICS ARE RESTORED';

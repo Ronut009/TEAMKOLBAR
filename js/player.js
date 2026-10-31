@@ -1029,7 +1029,7 @@ export class Player {
   getLevelSpawn(level = null) {
     switch (level?.levelIndex) {
       case 2: return { x: 90, y: 145 };
-      case 3: return { x: 90, y: 108 };
+      case 3: return level.getRespawnPoint ? level.getRespawnPoint() : { x: 90, y: 108 };
       case 4: return { x: 320, y: 480 };
       default: return { x: 180, y: 368 };
     }
