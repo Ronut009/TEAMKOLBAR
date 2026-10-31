@@ -10,14 +10,14 @@ import { Input } from './input.js';
 import { TRISHUL } from '../entities/player.js';
 import { Level2 } from '../levels/level2.js';
 import { Level3 } from '../levels/level3.js';
-import { Level4, L4_CONFIG } from '../levels/level4.js';
+import { Level4 } from '../levels/level4.js';
 
 // Shown under the sigil on the loading screen
 const LEVEL_NAMES = {
   1: 'Level I  ·  Drowned Dwaraka',
   2: 'Level II  ·  The Sun Wastes',
   3: 'Level III  ·  The Forest Heart',
-  4: 'Level IV  ·  The Celestial Arena'
+  4: 'Level IV  ·  The Archer Fort'
 };
 
 export class Engine {
@@ -178,9 +178,10 @@ export class Engine {
     }
 
     if (index === 4) {
-      // The arena is built around the raised circular floor.
-      this.player.x = 320;
-      this.player.y = 480;
+      // The archer fort: Rakti steps onto the platform below the wall
+      const spawn = this.level4.getRespawnPoint();
+      this.player.x = spawn.x;
+      this.player.y = spawn.y;
       this.player.hasDivineUnlocked = true;
     } else if (index === 3) {
       // Level 3 (jungle): starts on the home field, or at the last checkpoint
@@ -239,12 +240,6 @@ export class Engine {
 
     // Every level starts in mortal form (Kali form used to carry over when switching levels)
     if (this.player.isDivine || this.player.isTransforming || this.player.isReverting) this.player.revertToMortal();
-    if (index === 4) {
-      // The arena's final chapter starts in the divine form used by its combat balance.
-      this.player.revertToMortal();
-      this.player.hasDivineUnlocked = true;
-      this.player.triggerDivineTransformation();
-    }
     this.updateHUD();
   }
 
