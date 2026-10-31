@@ -54,7 +54,7 @@ const ARCHER_ART = {
 };
 
 export const L4_CONFIG = {
-  ARCHER_HP: 12,
+  ARCHER_HP: 24,             // two Trishul hits (12 each with the Forest Heart), three sword cuts
   ARROW_DAMAGE: 2,
   ARROW_SPEED: 250,
   WAVES: [
@@ -259,11 +259,7 @@ class FortArcher {
     ctx.globalAlpha = this.fade;
     ctx.translate(this.x, y);
     ctx.scale(dir, 1);
-    if (this.state !== 'dying' && this.state !== 'hurt') {
-      ctx.translate(0, ARCHER_ART.pivotY);
-      ctx.rotate(this.aim);
-      ctx.translate(0, -ARCHER_ART.pivotY);
-    }
+    // archers stand upright in their windows (the arrow alone is aimed at Rakti)
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(frameImg, -ARCHER_ART.anchorX * ARCHER_ART.scale, -ARCHER_ART.anchorY * ARCHER_ART.scale,

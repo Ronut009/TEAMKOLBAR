@@ -8,7 +8,7 @@
  *   3. Ruins (mirrored) - checkpoint, double spike strip (must be timed), three-pillar pit
  *   4. Shrine        - checkpoint, Kali grants her form [X] near the lever tower. No floor between the
  *                      three towers: leap up to the lever tower as Kali, defeat its Betal, pull the
- *                      lever -> golden bridges spin out between the towers (walkable only as Kali)
+ *                      lever -> Kali's hibiscus flower bridges bloom between the towers (walkable only as Kali)
  *                      -> relic tower (Betal) -> claim the relic -> door opens -> walk through
  * (The old single-screen temple level is archived in unused_assets/old_code/js/level.js.)
  * ==========================================================================
@@ -47,7 +47,8 @@ const TOWER_ART = {
   doorOpen:   { src: 'assets/level1/tower_door_open.png',   cx: 512, armY: 720, armL: 69, armR: 955, doorSill: 670, doorTop: 330, doorL: 390, doorR: 633 }
 };
 const TOWER_W = 1024, TOWER_H = 1536;
-const TOWER_GAP = 170;          // open water between arm tips, spanned by the golden bridges
+const BRIDGE_SUMMON_TIME = 1.9;  // the flower bridges take this long to bloom across
+const TOWER_GAP = 170;          // open water between arm tips, spanned by Kali's flower bridges
 
 // Spike trap frames are a 4x4 sheet of 420x200 transparent spike art. The floor
 // remains the shared temple platform tile, so the trap has no mismatched slab.
@@ -59,6 +60,35 @@ const SPIKE_BLOCK_W = SPIKE_ART.blockW * SPIKE_SCALE;
 const SPIKE_CYCLE = 6;                          // seconds: ~3 s down, ~3 s up
 const SPIKE_DAMAGE = 4;
 const PIT_DAMAGE = 3;
+
+// ---------------------------------------------------------------- prologue conversation
+// s: speaker ('kali' | 'rakti' | 'voice'), t: text, g: gesture (0-7, row 3 of the portrait sheet)
+// Kali gestures: 0 open palm, 1 finger up, 2 hand on chest, 3 palm out, 4 raised hand, 5 chin, 6 offering, 7 namaste
+// Rakti gestures: 0 palm, 1 finger up, 2 hand on chest, 3 frown, 4 chin, 5 palm, 7 namaste
+const VOICE = '⚜ A VOICE FROM THE DARK ⚜';
+const PROLOGUE_WAKE = [
+  { s: 'rakti', g: 3, t: 'Where... where am I? This isn\'t home. The last thing I remember is the sky over the sea tearing open.' },
+  { s: 'rakti', t: 'Pitaji? Pitaji, can you hear me?!' },
+  { s: 'voice', title: VOICE, t: 'Rakti...' },
+  { s: 'rakti', g: 2, t: 'Who\'s there? Who said my name?' },
+  { s: 'voice', title: VOICE, t: 'Do not be afraid, child. Come to me. Follow the light, deeper into the temple.' },
+  { s: 'rakti', g: 4, t: 'That voice... it\'s coming from further in. I have to see.' }
+];
+const PROLOGUE_IDOL = [
+  { s: 'kali', g: 4, t: 'You came, Rakti. Good. You have your father\'s courage.' },
+  { s: 'rakti', g: 2, t: 'Maa Kali...? You know my father? Where is he? What is this place?' },
+  { s: 'kali', g: 0, t: 'This is Dwaraka, the city the sea swallowed long before your time. The rift that split the sky above your home pulled you down into its ruins.' },
+  { s: 'rakti', g: 3, t: 'And Pitaji?' },
+  { s: 'kali', g: 3, t: 'He came through before you. He went after the four relics, the only things that can seal the rift. His trail runs through these ruins and the lands beyond.' },
+  { s: 'rakti', g: 4, t: 'Then I\'ll follow it. Whatever it takes, I\'m bringing him home.' },
+  { s: 'kali', g: 1, t: 'Betal and Asura walk these halls now. In a sari, with bare hands, you would not last a breath.' },
+  { s: 'kali', g: 6, t: 'So take what I give you: armour, a blade, and a little of my strength. Hold still.' },
+  { s: 'rakti', g: 7, t: 'I\'m ready, Maa.' }
+];
+const PROLOGUE_AFTER = [
+  { s: 'rakti', g: 2, t: 'This armour... it moves with me, as if it was always mine.' },
+  { s: 'kali', g: 0, t: 'The first relic, the Pearl of the Tide, waits past the towers to the east. Go, Rakti. I am with you.' }
+];
 
 export class Level {
   constructor() {
@@ -152,20 +182,28 @@ export class Level {
 
     // the lever stands in the lever tower's niche, at Rakti's chest height
     this.lever = { x: cx1, y: this.towerY(A, A.nicheSill), activated: false, pullTime: 0 };
-    this.leverMessage = "The lever locks into place and threads of gold spin out between the towers. These bridges are woven from my light, Rakti. Only in my form [X] will they bear your weight.";
+    this.leverMessage = "The lever locks into place, and my flowers answer it. Red hibiscus strung on gold now spans the gap between the towers. That bridge is woven from my power, Rakti, and it holds only for my form [X].";
     this.leverImgs = [0, 1, 2].map((i) => img(`assets/level1/lever_${i}.png`));   // idle, moving, pulled
 
-    // Golden bridges between the towers: spun out by the lever, solid only in Kali form
-    // Each bridge art is drawn at its true proportions, scaled to span its gap (deckY = walking rail, image px)
-    this.bridgeArt = [
-      { img: img('assets/level1/golden_bridge_a.png'), w: 1200, h: 193, deckY: 40.6 },
-      { img: img('assets/level1/golden_bridge_b.png'), w: 1200, h: 197, deckY: 45.8 }
-    ];
-    // bridges run arm tip to arm tip, overlapping each tip a little so they look anchored
+    // Kali's flower bridges between the towers: the lever calls them, and red hibiscus blooms (her sacred
+    // flower) strung on a gold thread fly in from both towers and meet in the middle. Solid only in Kali form;
+    // a mortal Rakti sees just their ghost. (The old golden_bridge_a/b.png art stays in assets as a backup.)
     this.bridges = [
       { x1: this.ledges[0].x2 - 4, x2: this.ledges[1].x1 + 4, y: this.ledgeY },
       { x1: this.ledges[1].x2 - 4, x2: this.ledges[2].x1 + 4, y: this.ledgeY }
     ];
+    let seed = 7;
+    const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    for (const b of this.bridges) {
+      const span = b.x2 - b.x1, n = Math.round(span / 8.5);
+      b.blooms = Array.from({ length: n }, (_, i) => {
+        const u = (i + 0.5) / n;
+        return { x: b.x1 + u * span, y: b.y + 6 + (rnd() - 0.5) * 1.8, u, d: Math.min(u, 1 - u) * 2,
+          rot: rnd() * Math.PI * 2, size: i % 3 === 0 ? 11 : 10, shade: i % 2, from: (rnd() - 0.5) * 50, lift: 40 + rnd() * 30, landed: false };
+      });
+      b.met = false;
+    }
+    this.petals = [];
     this.bridgeGrow = 0;
     // Golden orbs that sweep along the bridges: they exist only in Kali form, like the bridges themselves.
     // They float at chest height, so Rakti has to hop over them. Touching one costs 2 HP and knocks her back.
@@ -221,6 +259,8 @@ export class Level {
     this.lever.activated = false;
     this.lever.pullTime = 0;
     this.bridgeGrow = 0;
+    this.petals = [];
+    for (const b of this.bridges) { b.met = false; for (const f of b.blooms) f.landed = false; }
     this.bridgeSentries.forEach((o, i) => Object.assign(o, this.sentryStart[i]));
     this.pendingDialogue = null;
     this.firstBetalShown = false;
@@ -232,6 +272,7 @@ export class Level {
     this.killToastTimer = 0;
     this.idolGlow = 0;
     this.screenFade = 0;
+    this.scene = { stage: 'wake' };   // prologue: wake -> free -> walk -> talk -> outfit -> done
     this.isCompleted = false;
     this.animTime = 0;      // spike traps restart their cycle
     for (const b of this.betals) b.reset();
@@ -313,14 +354,11 @@ export class Level {
 
   // ======================================================================== interactions
   getNearbyInteractable(px, py) {
-    if (!this.idolBlessed && Math.abs(px - this.prologue.idolX) <= this.prologue.idolRange && py > 300) {
-      return { type: 'kali_idol', x: this.prologue.idolX, y: FLOOR_Y, prompt: '[E] TOUCH THE IDOL', text: '' };
-    }
     if (Math.abs(px - this.lever.x) < 40 && Math.abs(py - this.ledgeY) < 12) {
       return {
         type: 'lever', x: this.lever.x, y: this.lever.y, activated: this.lever.activated,
         prompt: this.lever.activated ? '[E] LEVER (ENGAGED)' : '[E] PULL LEVER',
-        text: 'The lever is locked in place. The golden bridges hold only for Kali\'s form [X].'
+        text: 'The lever is locked in place. Kali\'s flower bridges hold only for her form [X].'
       };
     }
     if (!this.relic.collected && !this.lever.activated && Math.abs(px - this.relic.x) < 48 && Math.abs(py - this.ledgeY) < 12) {
@@ -360,19 +398,21 @@ export class Level {
     if (this.killToastTimer > 0) this.killToastTimer -= dt;
     if (this.idolGlow > 0) this.idolGlow = Math.max(0, this.idolGlow - dt * 0.5);
     if (this.screenFade > 0) this.screenFade = Math.max(0, this.screenFade - dt * 0.55);
+    this.updatePrologueScene(player);
 
-    // Lever pull, then the golden bridges spin out from the towers
+    // Lever pull, then Kali's flower bridges bloom from both towers and meet in the middle
     if (this.lever.activated) {
       this.lever.pullTime += dt;
       if (this.lever.pullTime > 0.35 && this.bridgeGrow < 1) {
-        this.bridgeGrow = Math.min(1, this.bridgeGrow + dt / 1.2);
-        this.cameraShake = Math.max(this.cameraShake, 0.18);
+        this.bridgeGrow = Math.min(1, this.bridgeGrow + dt / BRIDGE_SUMMON_TIME);
+        this.cameraShake = Math.max(this.cameraShake, 0.08);
         if (this.bridgeGrow >= 1) {
-          this.killToastText = '⚜ THE GOLDEN BRIDGES AWAKEN ⚜';
+          this.killToastText = '⚜ KALI\'S BRIDGES BLOOM ⚜';
           this.killToastTimer = 2.4;
         }
       }
     }
+    this.updateBridgeBlooms(dt, isDivine);
 
     // Bridge orbs patrol while the bridges are out and Rakti is in Kali form
     if (this.bridgeGrow >= 1 && isDivine) {
@@ -421,7 +461,7 @@ export class Level {
       this.abilityGranted = true;
       this.pendingDialogue = {
         speaker: 'kali', title: '⚜ MAA KALI: MY FORM ⚜', flash: true,
-        text: 'These towers stand beyond a mortal leap, Rakti. Take my form for a few breaths: press [X] to become Kali. You will leap higher, strike harder, and walk on bridges of light.'
+        text: 'These towers stand beyond a mortal leap, Rakti. Take my form for a few breaths: press [X] to become Kali. You will leap far higher, and my bridge will hold you, but in my form your blade is stilled. Fight as yourself: press [X] again on solid ground to let my form go.'
       };
     }
     if (this.abilityGranted && player && !player.hasDivineUnlocked) player.hasDivineUnlocked = true;
@@ -455,6 +495,46 @@ export class Level {
   }
 
   /** Spike cycle (6 s): closed 2.3 s, holes open as a warning 0.4 s, rise 0.5 s, up 2.4 s, retract 0.4 s. */
+  /** The prologue: Rakti wakes up lost, hears Kali's voice, walks to the idol, talks with Kali,
+   *  and is changed into her battle outfit. Every step waits for the one before it. */
+  updatePrologueScene(player) {
+    const sc = this.scene;
+    if (!player || this.pendingDialogue) return;
+    if (this.idolBlessed && sc.stage !== 'outfit') return;   // already played (respawns, level reloads)
+    const standX = this.prologue.idolX - 55;
+    if (sc.stage === 'wake') {
+      if (player.isWaking) return;
+      player.inputLocked = true;
+      sc.stage = 'free';
+      this.pendingDialogue = { whenLocked: true, lines: PROLOGUE_WAKE, onDone: () => { player.inputLocked = false; } };
+    } else if (sc.stage === 'free') {
+      if (player.x < standX - 230 || player.inputLocked) return;
+      // she walks the last steps to the idol by herself
+      player.inputLocked = true;
+      player.autoWalkX = standX;
+      sc.stage = 'walk';
+    } else if (sc.stage === 'walk') {
+      if (player.autoWalkX != null) return;
+      player.facing = 'right';
+      this.idolGlow = Math.max(this.idolGlow, 0.7);
+      sc.stage = 'talk';
+      this.pendingDialogue = {
+        whenLocked: true, lines: PROLOGUE_IDOL,
+        onDone: () => {
+          this.idolBlessed = true;
+          this.idolGlow = 1.8;
+          player.inputLocked = false;
+          player.startOutfitChange();
+          sc.stage = 'outfit';
+        }
+      };
+    } else if (sc.stage === 'outfit') {
+      if (player.isCivilian || player.isChangingOutfit) return;
+      sc.stage = 'done';
+      this.pendingDialogue = { lines: PROLOGUE_AFTER };
+    }
+  }
+
   spikeState(trap) {
     const t = (this.animTime + trap.phase) % SPIKE_CYCLE;
     if (t < 2.3) return { frame: Math.floor(t / 0.6) % 2, harmful: false, reach: 0 };
@@ -821,36 +901,225 @@ export class Level {
     ctx.restore();
   }
 
-  /** Golden bridges grow out after the lever is pulled; each art is scaled uniformly to its gap
-   *  (no squashing). They can only be seen - and stood on - in Kali form. */
-  renderBridges(ctx, isDivine) {
-    if (this.bridgeGrow <= 0 || !isDivine) return;
-    this.bridges.forEach((b, i) => {
-      const art = this.bridgeArt[i % this.bridgeArt.length];
-      const span = b.x2 - b.x1;
-      if (!this.inView(b.x1, b.x2)) return;
-      const s = span / art.w, H = art.h * s;
-      const c = this.cachedArt('bridge:' + i, span, H, art.img.complete && art.img.naturalWidth > 0,
-        (g) => g.drawImage(art.img, 0, 0, span, H));
-      if (!c) return;
-      const top = b.y - art.deckY * s;
-      const len = span * this.bridgeGrow;
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(b.x1 - 2, top - 30, len + 4, H + 60);
-      ctx.clip();
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      const g = ctx.createLinearGradient(0, top - 16, 0, top + H + 8);
-      g.addColorStop(0, 'rgba(0,0,0,0)');
-      g.addColorStop(0.45, 'rgba(255, 210, 110, 0.22)');
-      g.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = g;
-      ctx.fillRect(b.x1, top - 16, span, H + 24);
-      ctx.restore();
-      ctx.drawImage(c, b.x1, top, span, H);
-      ctx.restore();
+  /** Bloom timing on a bridge: ends first, the middle last (d = 0 at the towers, 1 at the centre). */
+  bloomProgress(f) {
+    return Math.max(0, Math.min(1, (this.bridgeGrow - 0.1 - f.d * 0.62) / 0.24));
+  }
+
+  updateBridgeBlooms(dt, isDivine) {
+    if (this.bridgeGrow > 0) {
+      for (const b of this.bridges) {
+        for (const f of b.blooms) {
+          if (!f.landed && this.bloomProgress(f) >= 0.98) {
+            f.landed = true;
+            for (let k = 0; k < 2; k++) this.spawnPetal(f.x, f.y - 2, (Math.random() - 0.5) * 50, -30 - Math.random() * 30);
+          }
+        }
+        // the two halves meet: a flash and a ring of petals
+        if (!b.met && this.bridgeGrow >= 0.84) {
+          b.met = true;
+          b.metT = 0;
+          this.cameraShake = Math.max(this.cameraShake, 0.3);
+          const cx = (b.x1 + b.x2) / 2;
+          for (let k = 0; k < 26; k++) {
+            const a = (k / 26) * Math.PI * 2;
+            this.spawnPetal(cx, b.y + 2, Math.cos(a) * (60 + Math.random() * 50), Math.sin(a) * (45 + Math.random() * 40) - 30);
+          }
+        }
+        if (b.met) b.metT += dt;
+        // once whole (and seen in Kali form) a petal drifts down from it now and then
+        if (this.bridgeGrow >= 1 && isDivine && Math.random() < dt * 1.6) {
+          const f = b.blooms[Math.floor(Math.random() * b.blooms.length)];
+          this.spawnPetal(f.x, f.y + 4, (Math.random() - 0.5) * 12, 8);
+        }
+      }
+    }
+    for (const q of this.petals) {
+      q.life -= dt;
+      q.vy += 70 * dt;
+      q.vx *= 1 - dt * 1.4;
+      q.x += (q.vx + Math.sin(q.life * 5 + q.seed) * 14) * dt;
+      q.y += q.vy * dt;
+      q.rot += q.vr * dt;
+    }
+    this.petals = this.petals.filter((q) => q.life > 0);
+  }
+
+  spawnPetal(x, y, vx, vy) {
+    if (this.petals.length > 140) return;
+    this.petals.push({ x, y, vx, vy, rot: Math.random() * 6, vr: (Math.random() - 0.5) * 8, life: 1.2 + Math.random() * 0.8, max: 2,
+      seed: Math.random() * 6, gold: Math.random() < 0.25 });
+  }
+
+  /** One hibiscus bloom (Kali's flower), painted once into a cache: five ruffled crimson petals with dark veins,
+   *  a deep red eye and the long gold-tipped stamen. */
+  bloomArt(size, shade) {
+    const R = size;
+    return this.cachedArt(`hibiscus:${size}:${shade}`, R * 2 + 4, R * 2 + 4, true, (g) => {
+      g.translate(R + 2, R + 2);
+      const mid = shade ? '#c40f2c' : '#d81b34', edge = shade ? '#ff5a62' : '#ff6f6a';
+      for (let i = 0; i < 5; i++) {
+        g.save();
+        g.rotate((i / 5) * Math.PI * 2);
+        const grad = g.createLinearGradient(0, 0, 0, -R);
+        grad.addColorStop(0, '#4a0010');
+        grad.addColorStop(0.35, mid);
+        grad.addColorStop(1, edge);
+        g.fillStyle = grad;
+        g.beginPath();
+        g.moveTo(0, 0);
+        g.bezierCurveTo(-R * 0.62, -R * 0.25, -R * 0.78, -R * 0.82, -R * 0.3, -R * 0.98);
+        g.quadraticCurveTo(-R * 0.1, -R * 0.86, 0, -R * 1.0);
+        g.quadraticCurveTo(R * 0.12, -R * 0.88, R * 0.32, -R * 0.97);
+        g.bezierCurveTo(R * 0.8, -R * 0.8, R * 0.6, -R * 0.24, 0, 0);
+        g.fill();
+        g.strokeStyle = 'rgba(70, 0, 14, 0.55)';
+        g.lineWidth = R * 0.05;
+        g.beginPath();
+        g.moveTo(0, -R * 0.15); g.lineTo(0, -R * 0.78);
+        g.moveTo(0, -R * 0.3); g.lineTo(-R * 0.22, -R * 0.7);
+        g.moveTo(0, -R * 0.3); g.lineTo(R * 0.22, -R * 0.7);
+        g.stroke();
+        g.restore();
+      }
+      const eye = g.createRadialGradient(0, 0, 0, 0, 0, R * 0.38);
+      eye.addColorStop(0, '#2a0008');
+      eye.addColorStop(1, 'rgba(90, 0, 20, 0)');
+      g.fillStyle = eye;
+      g.beginPath(); g.arc(0, 0, R * 0.38, 0, Math.PI * 2); g.fill();
+      // the stamen column with its golden pollen tip
+      g.strokeStyle = '#ffd36b';
+      g.lineWidth = R * 0.09;
+      g.beginPath(); g.moveTo(0, 0); g.lineTo(R * 0.45, -R * 0.55); g.stroke();
+      g.fillStyle = '#ffe9a0';
+      for (const [dx, dy] of [[0.45, -0.6], [0.52, -0.5], [0.38, -0.66], [0.56, -0.62]]) {
+        g.beginPath(); g.arc(R * dx, R * dy, R * 0.07, 0, Math.PI * 2); g.fill();
+      }
     });
+  }
+
+  /** Kali's flower bridges. While the lever's call plays out, crimson fire flares at both towers and the blooms
+   *  fly in, spinning, from either end, landing on a gold thread that is drawn after them; the two halves meet in
+   *  a flash. Once whole they are solid only in Kali form; a mortal Rakti sees a faint ghost of them. */
+  renderBridges(ctx, isDivine) {
+    if (this.bridgeGrow <= 0) return;
+    const g = this.bridgeGrow, summoning = g < 1;
+    const ghost = !summoning && !isDivine;
+    for (const b of this.bridges) {
+      if (!this.inView(b.x1 - 40, b.x2 + 40)) continue;
+      const span = b.x2 - b.x1, cx = (b.x1 + b.x2) / 2, y = b.y;
+      ctx.save();
+      if (ghost) ctx.globalAlpha = 0.22 + 0.06 * Math.sin(this.animTime * 2.4);
+      // red-gold glow under the deck
+      if (!ghost) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        const f = Math.min(1, Math.max(0, (g - 0.1) / 0.62));
+        const gl = ctx.createLinearGradient(0, y - 18, 0, y + 26);
+        gl.addColorStop(0, 'rgba(0,0,0,0)');
+        gl.addColorStop(0.5, `rgba(255, 70, 50, ${0.16 + 0.05 * Math.sin(this.animTime * 3)})`);
+        gl.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = gl;
+        ctx.fillRect(b.x1, y - 18, (span / 2) * f, 44);
+        ctx.fillRect(b.x2 - (span / 2) * f, y - 18, (span / 2) * f, 44);
+        // the call: crimson fire at both arm tips
+        if (g < 0.45) {
+          const a = 1 - g / 0.45;
+          for (const x of [b.x1, b.x2]) {
+            const r = 16 + 26 * (1 - a);
+            const fl = ctx.createRadialGradient(x, y, 1, x, y, r);
+            fl.addColorStop(0, `rgba(255, 236, 170, ${0.9 * a})`);
+            fl.addColorStop(0.35, `rgba(255, 70, 40, ${0.7 * a})`);
+            fl.addColorStop(1, 'rgba(120, 0, 20, 0)');
+            ctx.fillStyle = fl;
+            ctx.fillRect(x - r, y - r, r * 2, r * 2);
+          }
+        }
+        ctx.restore();
+      }
+      // the gold thread the blooms are strung on, drawn out from both towers
+      const reach = Math.min(1, Math.max(0, (g - 0.1) / 0.66)) * span / 2;
+      ctx.strokeStyle = '#f5c95a';
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.moveTo(b.x1, y + 1); ctx.lineTo(b.x1 + reach, y + 1);
+      ctx.moveTo(b.x2, y + 1); ctx.lineTo(b.x2 - reach, y + 1);
+      ctx.stroke();
+      // the swag garland under the deck, once the halves have met
+      const swag = Math.min(1, Math.max(0, (g - 0.8) / 0.2));
+      if (swag > 0) {
+        ctx.save();
+        ctx.globalAlpha *= swag;
+        const bays = Math.max(3, Math.round(span / 34)), bw = span / bays;
+        ctx.strokeStyle = '#e8b54a';
+        ctx.lineWidth = 1.1;
+        for (let k = 0; k < bays; k++) {
+          const x0 = b.x1 + k * bw, x1 = x0 + bw, sag = 9 + Math.sin(this.animTime * 1.6 + k) * 0.8;
+          ctx.beginPath();
+          ctx.moveTo(x0, y + 9);
+          ctx.quadraticCurveTo((x0 + x1) / 2, y + 9 + sag * 2, x1, y + 9);
+          ctx.stroke();
+          // marigold beads along the swag, and a small bloom hanging at its lowest point
+          ctx.fillStyle = '#ff9d1c';
+          for (let t = 0.2; t < 0.85; t += 0.15) {
+            const bx = (1 - t) * (1 - t) * x0 + 2 * (1 - t) * t * ((x0 + x1) / 2) + t * t * x1;
+            const by = (1 - t) * (1 - t) * (y + 9) + 2 * (1 - t) * t * (y + 9 + sag * 2) + t * t * (y + 9);
+            ctx.beginPath(); ctx.arc(bx, by, 1.4, 0, Math.PI * 2); ctx.fill();
+          }
+          const hb = this.bloomArt(5, k % 2);
+          if (hb) ctx.drawImage(hb, (x0 + x1) / 2 - 7, y + 9 + sag - 7 + 3, 14, 14);
+        }
+        ctx.restore();
+      }
+      // the blooms
+      for (const f of b.blooms) {
+        const p = this.bloomProgress(f);
+        if (p <= 0) continue;
+        const e = 1 - Math.pow(1 - p, 3);
+        const fromX = (f.u < 0.5 ? b.x1 : b.x2) + f.from;
+        const x = fromX + (f.x - fromX) * e;
+        const yy = f.y - f.lift * (1 - e) + Math.sin(this.animTime * 2 + f.rot) * (p >= 1 ? 0.6 : 0);
+        const over = p < 1 ? 0.3 + 0.7 * e + Math.sin(p * Math.PI) * 0.25 : 1 + 0.03 * Math.sin(this.animTime * 2.2 + f.rot);
+        const art = this.bloomArt(f.size, f.shade);
+        if (!art) continue;
+        const R = f.size + 2;
+        ctx.save();
+        ctx.translate(x, yy);
+        ctx.rotate(f.rot + (1 - e) * 5);
+        ctx.scale(over, over * 0.7);   // seen a little from the side: the deck is a flat carpet of flowers
+        ctx.drawImage(art, -R, -R, R * 2, R * 2);
+        ctx.restore();
+      }
+      // where the halves meet: a flash
+      if (b.met && b.metT < 0.6 && !ghost) {
+        const a = 1 - b.metT / 0.6;
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        const fl = ctx.createRadialGradient(cx, y, 1, cx, y, 50);
+        fl.addColorStop(0, `rgba(255, 245, 210, ${a})`);
+        fl.addColorStop(0.3, `rgba(255, 120, 70, ${0.6 * a})`);
+        fl.addColorStop(1, 'rgba(120, 0, 20, 0)');
+        ctx.fillStyle = fl;
+        ctx.fillRect(cx - 50, y - 50, 100, 100);
+        ctx.restore();
+      }
+      ctx.restore();
+    }
+    // loose petals
+    if (this.petals.length) {
+      for (const q of this.petals) {
+        if (!this.inView(q.x - 5, q.x + 5)) continue;
+        ctx.save();
+        ctx.globalAlpha = Math.min(1, q.life / 0.5) * (ghost ? 0.3 : 1);
+        ctx.translate(q.x, q.y);
+        ctx.rotate(q.rot);
+        ctx.fillStyle = q.gold ? '#ffd36b' : '#e0263c';
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 2.6, 1.3, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
   }
 
   sentryPos(o) {

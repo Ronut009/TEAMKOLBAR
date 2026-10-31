@@ -110,7 +110,7 @@ export class Player {
     this.vx = 0;
     this.vy = 0;
     this.baseSpeed = 205;
-    this.divineSpeed = 265;
+    this.divineSpeed = 205;   // Kali form [X] is a jump boost only: same run speed, no damage
     this.speed = this.baseSpeed;
     this.acceleration = 1800;
     this.friction = 1400;
@@ -337,6 +337,8 @@ export class Player {
 
   /** Back to the normal battle-outfit state (used on every level load). */
   resetPrologueState() {
+    this.autoWalkX = null;
+    this.autoWalkSpeed = null;
     this.isCivilian = false;
     this.isWaking = false;
     this.isChangingOutfit = false;
@@ -475,6 +477,8 @@ export class Player {
     this.vy = this.isGrounded ? 0 : -30;
     this.speed = this.divineSpeed;
     this.canDoubleJump = false;
+    this.isAttacking = false;      // a swing in progress does not carry into Kali form
+    this.attackQueued = false;
 
     const flash = document.getElementById('divineFlash');
     if (flash) {
@@ -611,7 +615,8 @@ export class Player {
     if (level && level.ladders && !this.isCivilian) {
       const isUp = Input.isDown('up') || Input.isDown('KeyW') || Input.isDown('ArrowUp');
       const isDown = Input.isDown('down') || Input.isDown('KeyS') || Input.isDown('ArrowDown');
-      const spacePressed = Input.isPressed('jump') || Input.isPressed('Space');
+      // only Space jumps off a ladder (W / Up is the climb key, and also counts as 'jump' elsewhere)
+      const spacePressed = Input.isPressed('Space');
 
       let overlappingLadder = null;
       for (const lad of level.ladders) {
@@ -756,6 +761,27 @@ export class Player {
     if (dialogueActive || this.inputLocked) {
       this.vx = 0;
       this.isMoving = false;
+      // Scripted walk (Level 1: Rakti follows Kali's voice to the idol)
+      if (this.autoWalkX != null && !dialogueActive) {
+        const d = this.autoWalkX - this.x;
+        if (Math.abs(d) > 2) {
+          const dir = Math.sign(d);
+          this.facing = dir > 0 ? 'right' : 'left';
+          const speed = this.autoWalkSpeed || (this.isCivilian ? this.walkSpeed : this.baseSpeed);
+          this.x += dir * Math.min(Math.abs(d), speed * dt);
+          this.isMoving = true;
+          // slower than her normal pace: the run cycle slows with it, so her feet do not slide
+          this.runTimer += dt * (this.autoWalkSpeed && !this.isCivilian ? this.autoWalkSpeed / this.baseSpeed : 1);
+          if (this.runTimer >= (this.isCivilian ? this.walkFrameDuration : this.runFrameDuration)) {
+            this.runTimer = 0;
+            this.runFrame = (this.runFrame + 1) % 6;
+          }
+        } else {
+          this.autoWalkX = null;
+          this.autoWalkSpeed = null;
+          this.runFrame = 0;
+        }
+      }
       this.updateParticles(dt);
       return;
     }
@@ -875,7 +901,8 @@ export class Player {
     }
 
     // 1. Attack on Left Click or Right Click Parry / Deflection Strike
-    if (!this.isCivilian && (Input.isPressed('attack') || Input.isPressed('parry'))) {
+    // (no attacks in Kali form: it only lends her Kali's leap)
+    if (!this.isCivilian && !this.isDivine && (Input.isPressed('attack') || Input.isPressed('parry'))) {
       if (typeof window !== 'undefined' && (Input.isPressed('MouseLeft') || Input.isPressed('MouseRight'))) {
         // engine.js sets screenX each frame; near map edges the camera stops following,
         // so the screen centre is not where Rakti is.
@@ -920,6 +947,8 @@ export class Player {
     if ((Input.isPressed('KeyX') || Input.isPressed('x')) && !dialogueActive) {
       if (!this.isDivine && !this.isTransforming && this.hasDivineUnlocked && !this.isCivilian) {
         this.triggerDivineTransformation();
+      } else if (this.isDivine && this.isGrounded && !(this.currentPlatform && this.currentPlatform.divineOnly)) {
+        this.divineTimer = 0;   // [X] again on solid ground: back to Rakti early (Kali form cannot fight)
       }
     }
 
@@ -945,7 +974,8 @@ export class Player {
           color: Math.random() > 0.4 ? '#ffd700' : '#ff0055'
         });
       }
-      if (this.divineTimer <= 0) {
+      // the form never ends in mid-air (the return animation would freeze her over a pit): it waits until she lands
+      if (this.divineTimer <= 0 && (this.isGrounded || this.isClimbing || this.divineTimer < -1.5)) {
         this.startRevert();
 
         // If standing on the divine golden bridge when power expires, fall!

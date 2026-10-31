@@ -60,7 +60,7 @@ const PILLAR_ART = {
   long: { src: 'pillar_long.png', w: 217, h: 929, surface: 14, cap: 0.84 }   // scenery only (seam columns)
 };
 // Crumbling slabs (the floating-platform art): they give way FALL_DELAY s after Rakti lands on them
-const FALL_DELAY = 0.35;
+const FALL_DELAY = 0.5;
 const FALL_RESPAWN = 2.6;
 const FLOOR_PILLAR_SCALE = 0.29;
 const PIT_PILLAR_SCALE = 0.24;
@@ -79,6 +79,11 @@ const QS = { src: 'quicksand.png', w: 1178, h: 187, surface: 13, scale: 0.5 };
 // Stone sheets: 6 frames each. Ball frames are centred; slab frames are aligned on the stone's top edge.
 const BALL = { frameW: 196, frameH: 256, anchorX: 97.5, anchorY: 129, bottom: 254, scale: 0.25 };
 const SLAB = { frameW: 202, frameH: 234, anchorX: 101, anchorY: 3, slabL: 24, slabR: 178, scale: 0.42 };
+const PIER_SINK_SPEED = 26;     // hall piers sink this fast (px/s) while Rakti stands on them
+const PIER_RISE_SPEED = 18;     // and rise back this fast once she leaves
+const PIER_SINK_MAX = 70;       // by then the top is under the sand
+const SLAB_ROCK_BOTTOM = 232;   // lowest row of the raw rock (frame 0)
+const SLAB_REST_SINK = 30;      // how deep the raw rocks sit in the quicksand (about a third of the rock)
 // center / upCenter: where the drawn arrow sits in the full-draw frames (aim_3 / aimup_3), in world px from
 // the feet when facing right; the released arrow starts there, pointing the way the bow points.
 const ARCHER_ART = {
@@ -163,7 +168,7 @@ export class Level2 {
     ];
     this.pits = [
       { x1: 250, x2: 690, area: 'out' },                     // first steps: small -> medium -> tall
-      { x1: 1480, x2: 2045, area: 'out', sand: false },      // floating rocks ([Q] platforms): a bare chasm
+      { x1: 1480, x2: 2045, area: 'out' },                   // floating rocks ([Q] platforms) over quicksand
       { x1: 2856, x2: 3411, area: 'out' },                   // three crumbling slabs
       { x1: ROOM_X + 250, x2: ROOM_X + 690, area: 'room' }   // the hall's broken floor
     ];
@@ -172,14 +177,17 @@ export class Level2 {
     // Stepping piers: stacked courses of the same carved mudbrick as the floor, rising out of the quicksand
     // like broken pieces of the old causeway. w = width, top = where feet stand.
     this.pillars = [
-      { pier: true, cx: 330, top: 345, w: 72 },
-      { pier: true, cx: 475, top: 322, w: 72 },
-      { pier: true, cx: 620, top: 300, w: 72 },
-      { pier: true, cx: ROOM_X + 330, top: 344, w: 72 },
-      { pier: true, cx: ROOM_X + 475, top: 300, w: 72 },
-      { pier: true, cx: ROOM_X + 620, top: 322, w: 72 }
+      // two piers that rise and sink in turn (base = middle height, swing = +/- px, period s)
+      { pier: true, cx: 380, top: 330, w: 72, base: 330, swing: 26, period: 3.2, phase: 0 },
+      { pier: true, cx: 560, top: 310, w: 72, base: 312, swing: 26, period: 3.2, phase: Math.PI },
+      // the hall's piers stand in quicksand: they sink while Rakti stands on them, so she cannot wait
+      { pier: true, cx: ROOM_X + 336, top: 340, w: 72, sinks: true },
+      { pier: true, cx: ROOM_X + 486, top: 294, w: 72, sinks: true },
+      { pier: true, cx: ROOM_X + 632, top: 316, w: 72, sinks: true }
     ];
     for (const p of this.pillars) {
+      p.top0 = p.top;
+      p.sinkD = 0;
       p.half = p.w / 2 - 4;
       p.area = p.cx >= ROOM_X ? 'room' : 'out';
     }
@@ -224,6 +232,8 @@ export class Level2 {
       H1: archer('H1', ROOM_X + 700, FLOOR_Y),     // the horde's archers step out at both ends of the hall
       H2: archer('H2', ROOM_X + 1430, FLOOR_Y)
     };
+    this.archers.H1.x0 = this.archers.H1.x;   // their posts (they run / leap in to them with the horde)
+    this.archers.H2.x0 = this.archers.H2.x;
     this.archers.H1.shootCooldown = 3.4;   // two at once: give Rakti room to breathe
     this.archers.H2.shootCooldown = 3.4;
     this.archers.A.crushOnly = true;    // only Kali's stone reaches them
@@ -261,6 +271,9 @@ export class Level2 {
     // Betal: four on the way to the sun door, three in the hall's horde
     const outside = [
       new Betal(1380, 1240, 1460, FLOOR_Y),     // past tower 1, before the floating rocks
+      new Betal(1050, 900, 1130, FLOOR_Y),      // at the first boulder pile
+      new Betal(2640, 2540, 2760, FLOOR_Y),     // on the long run past tower 2
+      new Betal(2800, 2700, 2850, FLOOR_Y),
       new Betal(3716, 3666, 3786, FLOOR_Y),     // three guard the sun door
       new Betal(3560, 3450, 3660, FLOOR_Y),
       new Betal(3906, 3736, 4016, FLOOR_Y)
@@ -342,7 +355,7 @@ export class Level2 {
     this.particles = [];
     this.qsDepth = 0;
     this.qsWasIn = false;
-    this.rockFade = p.qUnlocked ? 1 : 0;   // the boulders only show once Kali has taught [Q]
+    this.rockFade = 1;   // the boulder piles are part of the scenery from the start (they used to pop in with [Q])
     this.setArea(p.inRoom ? 'room' : 'out');
 
     for (const [id, a] of Object.entries(this.archers)) {
@@ -358,8 +371,13 @@ export class Level2 {
     }
     this.balls[0].state = p.archerA ? 'gone' : 'idle';
     this.balls[1].state = p.archerB ? 'gone' : 'idle';
-    for (const b of this.balls) { b.t = 0; b.trail = []; }
-    for (const s of this.slabs) { s.state = p.slabsRaised ? 'solid' : 'raw'; s.t = 0; s.delay = 0; }
+    for (const b of this.balls) {
+      // back where it lay (a death mid-throw used to leave it on the tower top)
+      b.x0 ??= b.x; b.y0 ??= b.y;
+      b.x = b.x0; b.y = b.y0; b.t = 0; b.trail = []; b.spin = 0;
+    }
+    for (const q of this.pillars) if (q.sinks) { q.sinkD = 0; q.top = q.top0; }
+    for (const s of this.slabs) { s.state = p.slabsRaised ? 'solid' : 'raw'; s.t = 0; s.delay = 0; s.pulled = false; }
     for (const f of this.fallers) Object.assign(f, { state: 'idle', t: 0, dy: 0, vy: 0, alpha: 1 });
     this.ladderShown = p.archerB ? 1 : 0;
     this.key.shown = p.archerB && !p.keyTaken ? 1 : 0;
@@ -370,7 +388,11 @@ export class Level2 {
     this.door2.anim = p.hordeCleared ? 1 : 0;
     this.trishulFly = p.trishulTaken ? 1 : 0;
     this.hordeTimer = -1;
+    this.hordeEntries = [];
+    this.hordeTalked = false;
+    for (const id of ['H1', 'H2']) { const a = this.archers[id]; a.entry = null; a.x = a.x0; a.y = FLOOR_Y; }
     for (const b of this.betals) {
+      b.entry = null;
       b.reset();
       if (b.horde) {
         b.hidden = true;
@@ -395,7 +417,7 @@ export class Level2 {
   getPlatforms() {
     const list = [];
     for (const f of this.floors) if (f.area === this.area) list.push({ id: 'floor', x1: f.x1, x2: f.x2, y: FLOOR_Y, oneWay: false });
-    for (const p of this.pillars) if (p.area === this.area) list.push({ id: 'pillar', x1: p.cx - p.half, x2: p.cx + p.half, y: p.top, oneWay: false });
+    for (const p of this.pillars) if (p.area === this.area) list.push({ id: 'pillar', pierRef: p, x1: p.cx - p.half, x2: p.cx + p.half, y: p.top, oneWay: false });
     for (const t of this.towers) if (t.area === this.area) list.push({ id: 'roof', x1: t.roof.x1, x2: t.roof.x2, y: t.roof.y, oneWay: true });
     // quicksand: its surface drops under Rakti as she sinks (qsDepth), so she sinks with it
     for (const pit of this.pits) {
@@ -737,11 +759,30 @@ export class Level2 {
       return;
     }
 
+    // moving piers carry Rakti with them; sinking piers go down into the quicksand under her weight
+    for (const p of this.pillars) {
+      if (!p.swing && !p.sinks) continue;
+      const prev = p.top;
+      if (p.sinks) {
+        const on = player && player.isGrounded && player.currentPlatform?.pierRef === p;
+        p.sinkD = on ? Math.min(PIER_SINK_MAX, p.sinkD + PIER_SINK_SPEED * dt) : Math.max(0, p.sinkD - PIER_RISE_SPEED * dt);
+        p.top = p.top0 + p.sinkD;
+        if (on && Math.random() < dt * 14) this.burst(p.cx + (Math.random() - 0.5) * p.w, SAND_Y - 2, 2, ['#dca15c', '#c3823f', '#ffe1a8'], 40, 0.5);
+        if (on && p.sinkD >= PIER_SINK_MAX) { player.isGrounded = false; player.currentPlatform = null; }   // swallowed: she drops into the sand
+      } else {
+        p.top = p.base + Math.sin((this.animTime * Math.PI * 2) / p.period + p.phase) * p.swing;
+      }
+      if (player && player.isGrounded && player.currentPlatform?.pierRef === p) {
+        player.y = p.top;
+        player.currentPlatform.y = p.top;
+      } else if (player && player.isGrounded && Math.abs(playerX - p.cx) <= p.half + 2 && Math.abs(playerY - prev) < 3) {
+        player.y = p.top;
+      }
+    }
     this.updateQuicksand(dt, playerX, playerY, isDivine, player);
 
     // ---------------------------------------------------- outside
     if (this.area === 'out') {
-      if (p.qUnlocked && this.rockFade < 1) this.rockFade = Math.min(1, this.rockFade + dt * 1.5);
       // Kali teaches [Q] as Rakti nears the first tower
       if (!p.qUnlocked && playerX >= 790) {
         p.qUnlocked = true;
@@ -764,6 +805,10 @@ export class Level2 {
       for (const s of this.slabs) {
         if (s.state === 'forming') {
           if (s.delay > 0) { s.delay -= dt; continue; }
+          if (!s.pulled) {   // it tears free of the quicksand
+            s.pulled = true;
+            this.burst(s.cx, SAND_Y - 2, 16, ['#dca15c', '#c3823f', '#ffe1a8'], 90, 0.6);
+          }
           s.t += dt;
           if (Math.random() < 0.5) this.burst(s.cx + (Math.random() - 0.5) * 30, s.top + 20, 1, ['#9ff6e8', '#ffe39a'], 40, 0.5);
           if (s.t >= 0.6) {
@@ -829,14 +874,15 @@ export class Level2 {
       this.hordeTimer -= dt;
       if (this.hordeTimer <= 0) this.startHorde();
     }
+    if (!talking) this.updateHordeEntries(dt, player);
     for (const id of ['H1', 'H2']) {
       const a = this.archers[id];
-      if (a.hidden) continue;
+      if (a.hidden || a.entry) continue;
       if (a.appear < 1) a.appear = Math.min(1, a.appear + dt * 2);
       a.dormant = a.appear < 1;
       if (!talking) this.updateArcher(a, dt, player);
     }
-    for (const b of this.betals) if (b.horde) b.update(dt, player, this, !talking);
+    for (const b of this.betals) if (b.horde && !b.entry) b.update(dt, player, this, !talking);
 
     if (p.hordeStarted && !p.hordeCleared) {
       const alive = this.betals.some((b) => b.horde && !b.dead) || this.archers.H1.alive || this.archers.H2.alive;
@@ -962,24 +1008,77 @@ export class Level2 {
     }
   }
 
+  /** The horde pours into the hall from both sides: from the left they leap the quicksand pit from the
+   *  entrance floor, from the right they run in past the sun-door (off screen). Kali speaks once all are in. */
   startHorde() {
     const p = this.progress;
     if (p.hordeStarted) return;
     p.hordeStarted = true;
     this.cameraShake = 0.8;
-    for (const b of this.betals) if (b.horde) { b.hidden = false; b.fadeAlpha = 0; }
-    for (const id of ['H1', 'H2']) {
-      const a = this.archers[id];
-      a.hidden = false;
-      a.appear = 0;
-      a.cooldownTimer = 1.6 + (id === 'H2' ? 0.8 : 0);
-      this.burst(a.x, a.y - 30, 18, ['#ff6a4a', '#ffd27a', '#3a2a20'], 90, 0.6);
-    }
-    this.toast('⚜ THE HALL AWAKENS ⚜', 2.4);
-    this.pendingDialogue = {
-      speaker: 'kali', title: '⚜ MAA KALI ⚜',
-      text: 'It was a trap - the hall wakes! Betal at your sides, archers at both ends of the hall. Keep the Trishul flying, Rakti, and do not stand still.'
+    const L0 = ROOM_X + 120, edge = ROOM_X + 250, land = ROOM_X + 720, R0 = ROOM_END + 50;
+    const enter = (who, side, toX, delay, isArcher = false) => {
+      who.hidden = false;
+      who.entry = side === 'L'
+        ? { side, delay, t: 0, x: L0 - delay * 40, toX, takeoff: edge - 6, land, leapT: -1, isArcher }
+        : { side, delay, t: 0, x: R0 + delay * 30, toX, isArcher };
+      who.x = who.entry.x;
+      who.y = FLOOR_Y;
+      if (isArcher) { who.appear = 1; who.dormant = true; } else { who.fadeAlpha = 1; who.isMoving = true; }
+      who.facing = side === 'L' ? 'right' : 'left';
     };
+    const hb = this.betals.filter((b) => b.horde);
+    enter(hb[0], 'L', hb[0].spawn.x, 0.15);
+    enter(hb[1], 'R', hb[1].spawn.x, 0.0);
+    enter(hb[2], 'R', hb[2].spawn.x, 0.7);
+    enter(this.archers.H1, 'L', this.archers.H1.x0, 0.9, true);
+    enter(this.archers.H2, 'R', this.archers.H2.x0, 1.3, true);
+    this.toast('⚜ THE HALL AWAKENS ⚜', 2.4);
+  }
+
+  updateHordeEntries(dt, player) {
+    const movers = [...this.betals.filter((b) => b.horde), this.archers.H1, this.archers.H2].filter((w) => w.entry);
+    for (const w of movers) {
+      const e = w.entry;
+      if (e.delay > 0) { e.delay -= dt; continue; }
+      e.t += dt;
+      const speed = e.isArcher ? 150 : 125;
+      w.animTime = (w.animTime || 0) + dt;
+      if (e.side === 'L' && e.leapT < 0 && w.x < e.takeoff) {
+        w.x = Math.min(e.takeoff, w.x + speed * dt);           // a run-up on the entrance floor
+        if (w.x >= e.takeoff) { e.leapT = 0; this.burst(w.x, FLOOR_Y - 2, 8, ['#c8955a', '#ffe1a8'], 60, 0.4); }
+      } else if (e.side === 'L' && e.leapT >= 0 && e.leapT < 1) {
+        // the leap over the quicksand pit
+        e.leapT = Math.min(1, e.leapT + dt / 0.85);
+        const u = e.leapT;
+        w.x = e.takeoff + (e.land - e.takeoff) * u;
+        w.y = FLOOR_Y - Math.sin(u * Math.PI) * 95;
+        if (e.leapT >= 1) {
+          w.y = FLOOR_Y;
+          e.leapT = 2;
+          this.burst(w.x, FLOOR_Y - 2, 14, ['#c8955a', '#ffe1a8', '#7a4a20'], 90, 0.5);
+          this.cameraShake = Math.max(this.cameraShake, 0.25);
+        }
+      } else {
+        const d = e.toX - w.x;
+        w.facing = d < 0 ? 'left' : 'right';
+        if (Math.abs(d) > 3) w.x += Math.sign(d) * Math.min(Math.abs(d), speed * dt);
+        else {
+          w.x = e.toX;
+          w.entry = null;
+          if (e.isArcher) { w.dormant = false; w.cooldownTimer = 1.4; if (player) w.facing = player.x < w.x ? 'left' : 'right'; }
+          else w.isMoving = false;
+        }
+      }
+      if (!e.isArcher) w.isMoving = Boolean(w.entry) && !(e.side === 'L' && e.leapT >= 0 && e.leapT < 1);
+    }
+    // all in: Kali speaks
+    if (!this.hordeTalked && this.progress.hordeStarted && !movers.length) {
+      this.hordeTalked = true;
+      this.pendingDialogue = {
+        speaker: 'kali', title: '⚜ MAA KALI ⚜',
+        text: 'It was a trap. The hall has woken, and they are pouring in from both sides! Keep the Trishul flying, Rakti, and do not stand still.'
+      };
+    }
   }
 
   updateArcher(a, dt, player) {
@@ -1383,7 +1482,15 @@ export class Level2 {
     const c = this.cachedArt('seamColumn', w, h, ready(im), (g) => g.drawImage(im, 0, 0, w, h));
     if (!c) return;
     for (const col of this.seamColumns) {
-      if (col.area === this.area && this.inView(col.cx - w / 2, col.cx + w / 2)) ctx.drawImage(c, col.cx - w / 2, FLOOR_Y + 4 - h, w, h);
+      if (col.area !== this.area) continue;
+      // the stepped base must sit wholly on a floor slab: slide it onto the nearest one, or leave it out
+      if (col.x === undefined) {
+        const half = w / 2 + 14;   // clear of the slab's bevelled end
+        const f = this.floors.find((q) => q.area === col.area && q.x1 - 60 <= col.cx && q.x2 + 60 >= col.cx && q.x2 - q.x1 >= half * 2);
+        col.x = f ? Math.max(f.x1 + half, Math.min(f.x2 - half, col.cx)) : null;
+        if (col.x !== null && Math.abs(col.x - col.cx) > 75) col.x = null;
+      }
+      if (col.x !== null && this.inView(col.x - w / 2, col.x + w / 2)) ctx.drawImage(c, col.x - w / 2, FLOOR_Y + 4 - h, w, h);
     }
   }
 
@@ -1443,11 +1550,16 @@ export class Level2 {
     const k = SLAB.scale, w = SLAB.frameW * k, h = SLAB.frameH * k;
     if (!this.inView(s.cx - w, s.cx + w)) return;
     let frame = 0, bob = 0, glow = 0;
+    // Before [Q] the rocks rest half sunk in the quicksand (its surface is drawn over them, in front);
+    // [Q] lifts them out while they break open into slabs.
+    const rest = SAND_Y + SLAB_REST_SINK - (s.top + (SLAB_ROCK_BOTTOM - SLAB.anchorY) * k);
     if (s.state === 'raw') {
-      bob = Math.sin(this.animTime * 1.6 + s.phase) * 3;
+      bob = rest + Math.sin(this.animTime * 1.3 + s.phase) * 1.2;
       glow = this.progress.qUnlocked ? 0.35 + 0.35 * Math.sin(this.animTime * 3 + s.phase) : 0;
     } else if (s.state === 'forming') {
       frame = Math.min(5, Math.floor(Math.max(0, s.t) / 0.1));
+      const u = Math.min(1, Math.max(0, s.t) / 0.6), e = 1 - (1 - u) * (1 - u) * (1 - u);
+      bob = rest * (1 - e);
     } else {
       frame = 5;
     }

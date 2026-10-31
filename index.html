@@ -55,25 +55,25 @@
     </div>
   </div>
 
-  <!-- Sands of Time Ornate Guidance Parchment Box -->
+  <!-- Dialogue box: the speaker's portrait has its own column (Kali on the right, Rakti on the left),
+       so it never covers the title or the text -->
   <div class="dialogue-box sands-dialogue" id="dialogueBox">
-    <div class="dialogue-header">
-      <span class="dialogue-rule left"></span>
-      <span class="dialogue-title" id="dialogueTitle">⚜ WHISPER OF SURYA ⚜</span>
-      <span class="dialogue-rule right"></span>
-    </div>
     <div class="dialogue-content">
-      <div class="dialogue-inner">
-        <p class="dialogue-text" id="dialogueText">A celestial relic radiates warmth from the ruins.</p>
-        <div class="dialogue-footer">
-          <span class="dialogue-dismiss">[E] CONTINUE</span>
-        </div>
-      </div>
-      <!-- Kali Ma Animated Dialogue Portrait (Pops out and covers the right upper area) -->
       <div class="dialogue-portrait-container" id="dialoguePortraitContainer" style="display: none;">
         <div class="portrait-divine-aura"></div>
-        <img id="dialoguePortraitImg" class="dialogue-portrait-img" src="assets/portraits/kali_0.png" alt="Maa Kali">
+        <img id="dialoguePortraitBack" class="dialogue-portrait-img back" src="assets/portraits/kali2_0.png" alt="">
+        <img id="dialoguePortraitImg" class="dialogue-portrait-img" src="assets/portraits/kali2_0.png" alt="Maa Kali">
         <div class="dialogue-portrait-name" id="dialoguePortraitName">⚜ MAA KALI ⚜</div>
+      </div>
+      <div class="dialogue-inner">
+        <div class="dialogue-header">
+          <span class="dialogue-title" id="dialogueTitle">⚜ WHISPER OF SURYA ⚜</span>
+          <span class="dialogue-rule right"></span>
+        </div>
+        <p class="dialogue-text" id="dialogueText"></p>
+        <div class="dialogue-footer">
+          <span class="dialogue-dismiss" id="dialogueDismiss">[E] CONTINUE</span>
+        </div>
       </div>
     </div>
   </div>

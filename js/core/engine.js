@@ -69,19 +69,18 @@ export class Engine {
     this.dialogueTitle = document.getElementById('dialogueTitle');
     this.dialoguePortraitContainer = document.getElementById('dialoguePortraitContainer');
     this.dialoguePortraitImg = document.getElementById('dialoguePortraitImg');
+    this.dialoguePortraitBack = document.getElementById('dialoguePortraitBack');   // the previous pose, under a crossfade
+    this.dialogueDismiss = document.getElementById('dialogueDismiss');
     this.dialoguePortraitName = document.getElementById('dialoguePortraitName');
 
-    // Kali Ma Animated Dialogue Portrait Sprites (9 frames from new sprite sheet)
-    this.kaliPortraitFrames = [];
-    for (let i = 0; i < 9; i++) {
-      const img = new Image();
-      img.src = `assets/portraits/kali_${i}.png`;
-      this.kaliPortraitFrames.push(img);
-    }
-    this.kaliPortraitSeq = [0, 1, 2, 4, 3, 5, 7, 1];
-    this.kaliPortraitIndex = 0;
-    this.kaliAnimTimer = 0;
+    // Dialogue portraits: 24 frames per character (row 0 idle + blinks, row 1 talking, row 2 gestures)
+    const frames = (prefix) => Array.from({ length: 24 }, (_, i) => { const im = new Image(); im.src = `assets/portraits/${prefix}_${i}.png`; return im; });
+    this.portraitSets = { kali: frames('kali2'), rakti: frames('rakti'), rakti_sari: frames('rakti_sari') };
+    this.portraitAnim = 0;
+    this.portraitFrame = -1;
     this.dialogueSpeaker = null;
+    this.dlg = null;        // the line on screen: { text, shown, speaker, gesture }
+    this.convo = null;      // a conversation: { lines, i, onDone, title }
 
     this.interactPrompt = document.getElementById('interactPrompt');
     this.interactPromptText = document.getElementById('interactPromptText');
@@ -339,19 +338,8 @@ export class Engine {
       return;
     }
 
-    // Animate Kali Ma hands/arms when active (measuring divine stillness of body)
-    if (this.dialogueActive && this.dialogueSpeaker === 'kali') {
-      this.kaliAnimTimer += dt;
-      if (this.kaliAnimTimer >= 0.22) {
-        this.kaliAnimTimer = 0;
-        const seq = this.kaliPortraitSeq || [0, 1, 2, 4, 3, 5];
-        this.kaliPortraitIndex = (this.kaliPortraitIndex + 1) % seq.length;
-        const frameIdx = seq[this.kaliPortraitIndex];
-        if (this.dialoguePortraitImg && this.kaliPortraitFrames[frameIdx]) {
-          this.dialoguePortraitImg.src = this.kaliPortraitFrames[frameIdx].src;
-        }
-      }
-    }
+    // Dialogue: the text types out while the speaker's portrait talks, then idles (with blinks) or holds a gesture
+    if (this.dialogueActive && this.dlg) this.updateDialogue(dt);
 
     // Levels 2 and 3 continue automatically after their completion screen, while
     // still allowing the player to enter the next level immediately with E or Space.
@@ -483,7 +471,7 @@ export class Engine {
       }
 
       if (this.dialogueActive) {
-        this.closeDialogue();
+        this.advanceDialogue();
       } else if (nearby) {
         // LEVEL 1 PROLOGUE: touching Maa Kali's idol changes Rakti into her battle outfit
         if (nearby.type === 'kali_idol') {
@@ -515,7 +503,7 @@ export class Engine {
         else if (nearby.type === 'lever' && !this.level.lever.activated) {
           this.level.pullLever();
           if (this.level.leverMessage) {
-            this.openDialogue(this.level.leverMessage, 'kali', '⚜ THE GOLDEN BRIDGES ⚜');
+            this.openDialogue(this.level.leverMessage, 'kali', '⚜ KALI\'S FLOWER BRIDGES ⚜');
           } else {
             this.openDialogue("You pull the ancient mechanism. Deep tremors reverberate through the temple as the sacred stone pillar rises from the depths!");
           }
@@ -575,7 +563,10 @@ export class Engine {
       }
     } else if (Input.isPressed('cancel')) {
       if (this.dialogueActive) {
+        // Esc skips the whole conversation, but its outcome (e.g. the blessing) still happens
+        const c = this.convo;
         this.closeDialogue();
+        c?.onDone?.();
       }
     }
 
@@ -592,10 +583,17 @@ export class Engine {
     }
 
     // Levels can ask for a story dialogue (e.g. Level 1: Kali grants her form near the lever tower)
-    if (this.level.pendingDialogue && !this.dialogueActive) {
-      const d = this.level.pendingDialogue;
+    const p = this.player;
+    const settled = p.isGrounded && !p.isClimbing && !p.climbTransition && !p.isTransforming && !p.isReverting
+      && !p.isCasting && !p.throwAnim && !p.inputLocked && Math.abs(p.vx) < 30 && Math.abs(p.vy) < 1;
+    if (settled) this.settledTime = (this.settledTime || 0) + dt; else this.settledTime = 0;
+    // Kali's story lines wait until Rakti is standing still on solid ground (never mid-jump or mid-climb)
+    const pend = this.level.pendingDialogue;
+    if (pend && !this.dialogueActive && (this.settledTime >= 0.12 || (pend.whenLocked && p.isGrounded))) {
+      const d = pend;
       this.level.pendingDialogue = null;
-      this.openDialogue(d.text, d.speaker || 'kali', d.title);
+      if (d.lines) this.openConversation(d.lines, d.onDone, d.title);
+      else this.openDialogue(d.text, d.speaker || 'kali', d.title, d.gesture);
       if (d.flash) {
         const flash = document.getElementById('divineFlash');
         if (flash) {
@@ -724,16 +722,23 @@ export class Engine {
     this.hudEl.classList.toggle('prologue-hidden', Boolean(this.player.isCivilian));
 
     const hpRatio = Math.max(0, Math.min(1, this.player.hp / this.player.maxHp));
-    // Medallion portrait: bruised version below half health
-    const hurtPortrait = this.player.hp < this.player.maxHp / 2;
-    if (this.hudPortraitArt && hurtPortrait !== this.isHurtPortrait) {
-      this.hudPortraitArt.src = hurtPortrait
-        ? 'assets/ui/hud/rakti_medallion_hurt.png'
-        : 'assets/ui/hud/rakti_medallion.png';
-      this.hudPortraitArt.alt = hurtPortrait
-        ? 'Rakti, hurt'
-        : 'Rakti at full health';
-      this.isHurtPortrait = hurtPortrait;
+    // Medallion portrait: Kali's face while Rakti is in Kali form [X]; otherwise Rakti, bruised below half health
+    const kaliPortrait = Boolean(this.player.isDivine || this.player.isTransforming);
+    const portrait = kaliPortrait ? 'kali' : (this.player.hp < this.player.maxHp / 2 ? 'hurt' : 'rakti');
+    if (this.hudPortraitArt && portrait !== this.hudPortraitKind) {
+      this.hudPortraitArt.src = {
+        kali: 'assets/ui/hud/kali_medallion.png',
+        hurt: 'assets/ui/hud/rakti_medallion_hurt.png',
+        rakti: 'assets/ui/hud/rakti_medallion.png'
+      }[portrait];
+      this.hudPortraitArt.alt = { kali: 'Rakti in Kali form', hurt: 'Rakti, hurt', rakti: 'Rakti at full health' }[portrait];
+      // switching to or from Kali: the medallion flares
+      if (this.hudPortraitKind && (portrait === 'kali' || this.hudPortraitKind === 'kali')) {
+        this.hudPortraitArt.classList.remove('medallion-swap');
+        void this.hudPortraitArt.offsetWidth;
+        this.hudPortraitArt.classList.add('medallion-swap');
+      }
+      this.hudPortraitKind = portrait;
     }
     // HUD writes only happen when a value actually changes (rewriting the DOM every frame forces restyles)
     const put = (el, key, value, apply) => {
@@ -794,45 +799,142 @@ export class Engine {
     }
   }
 
-  openDialogue(text, speaker = 'stele', title = null) {
+  /** One line of dialogue. speaker: 'kali', 'rakti' (portrait follows her outfit) or anything else (no portrait).
+   *  gesture: 0-7 picks a gesture frame (row 3 of the portrait sheet), shown once the line has been spoken. */
+  openDialogue(text, speaker = 'stele', title = null, gesture = null) {
+    const prevSpeaker = this.dialogueActive ? this.dialogueSpeaker : null;
     this.dialogueActive = true;
     this.dialogueSpeaker = speaker;
-
-    if (this.dialogueBox && this.dialogueText) {
-      this.dialogueText.textContent = text;
-
-      if (this.dialogueTitle) {
-        this.dialogueTitle.textContent = title || (speaker === 'kali' ? '⚜ MAA KALI ⚜' : '⚜ WHISPER OF SURYA ⚜');
-      }
-
-      if (this.dialoguePortraitContainer) {
-        if (speaker === 'kali') {
-          this.dialogueBox.classList.add('has-portrait');
-          this.dialoguePortraitContainer.style.display = 'flex';
-          this.kaliPortraitIndex = 0;
-          this.kaliAnimTimer = 0;
-          const initialFrame = (this.kaliPortraitSeq && this.kaliPortraitSeq[0]) || 0;
-          if (this.dialoguePortraitImg && this.kaliPortraitFrames[initialFrame]) {
-            this.dialoguePortraitImg.src = this.kaliPortraitFrames[initialFrame].src;
-          }
-          if (this.dialoguePortraitName) {
-            this.dialoguePortraitName.textContent = '⚜ MAA KALI ⚜';
-          }
-        } else {
-          this.dialogueBox.classList.remove('has-portrait');
-          this.dialoguePortraitContainer.style.display = 'none';
-        }
-      }
-
-      this.dialogueBox.style.display = 'block';
+    this.dlg = { text, shown: 0, speaker, gesture };
+    this.portraitAnim = 0;
+    this.portraitFrame = -1;
+    this.portraitPose = null;
+    if (!this.dialogueBox || !this.dialogueText) return;
+    // the whole line is laid out at once (the untyped part invisible), so the box never changes size while typing
+    this.dialogueText.textContent = '';
+    this.dlgShownNode = document.createTextNode('');
+    this.dlgRestNode = document.createElement('span');
+    this.dlgRestNode.className = 'dlg-rest';
+    this.dlgRestNode.textContent = text;
+    this.dialogueText.append(this.dlgShownNode, this.dlgRestNode);
+    if (this.dialogueTitle) {
+      this.dialogueTitle.textContent = title || (speaker === 'kali' ? '⚜ MAA KALI ⚜' : speaker === 'rakti' ? '⚜ RAKTI ⚜' : '⚜ WHISPER OF SURYA ⚜');
     }
+    const set = this.portraitSetFor(speaker);
+    if (this.dialoguePortraitContainer) {
+      this.dialogueBox.classList.toggle('has-portrait', Boolean(set));
+      this.dialogueBox.classList.toggle('portrait-left', speaker === 'rakti');
+      this.dialogueBox.classList.toggle('speaker-rakti', speaker === 'rakti');
+      this.dialoguePortraitContainer.style.display = set ? 'flex' : 'none';
+      if (set && this.dialoguePortraitName) this.dialoguePortraitName.textContent = speaker === 'kali' ? '⚜ MAA KALI ⚜' : '⚜ RAKTI ⚜';
+      if (set && this.dialoguePortraitImg) this.dialoguePortraitImg.alt = speaker === 'kali' ? 'Maa Kali' : 'Rakti';
+      if (set && speaker !== prevSpeaker) {
+        // a new speaker slides up into view (no crossfade from the last speaker's face)
+        if (this.dialoguePortraitBack) this.dialoguePortraitBack.style.opacity = '0';
+        this.dialoguePortraitContainer.classList.remove('enter');
+        void this.dialoguePortraitContainer.offsetWidth;
+        this.dialoguePortraitContainer.classList.add('enter');
+        this.portraitNewSpeaker = true;
+      }
+    }
+    this.updateDialogue(0);
+    this.dialogueBox.style.display = 'block';
   }
 
+  portraitSetFor(speaker) {
+    if (speaker === 'kali') return this.portraitSets.kali;
+    if (speaker === 'rakti') return this.player.isCivilian ? this.portraitSets.rakti_sari : this.portraitSets.rakti;
+    return null;
+  }
+
+  /** A sequence of lines between Kali and Rakti: [{ s: 'kali' | 'rakti', t: text, g: gesture }]. [E] steps through it. */
+  openConversation(lines, onDone = null, title = null) {
+    this.convo = { lines, i: 0, onDone, title };
+    const l = lines[0];
+    this.openDialogue(l.t, l.s, l.title || title, l.g ?? null);
+  }
+
+  updateDialogue(dt) {
+    const d = this.dlg;
+    const typing = d.shown < d.text.length;
+    if (typing) d.shown = Math.min(d.text.length, d.shown + dt * 70);
+    const n = Math.floor(d.shown);
+    if (this.dlgShownNode && this.dlgShownNode.nodeValue.length !== n) {
+      this.dlgShownNode.nodeValue = d.text.slice(0, n);
+      this.dlgRestNode.textContent = d.text.slice(n);
+    }
+    this.dialogueDismiss?.classList.toggle('typing', d.shown < d.text.length);
+    if (this.dialogueDismiss) this.dialogueDismiss.textContent = d.shown < d.text.length ? '[E] SKIP' : (this.convo && this.convo.i < this.convo.lines.length - 1 ? '[E] NEXT ▸' : '[E] CONTINUE');
+    const set = this.portraitSetFor(d.speaker);
+    if (!set || !this.dialoguePortraitImg) return;
+    this.portraitAnim += dt;
+    // While the line types she talks (row 2); then she holds the line's gesture (row 3), or idles and blinks (row 1).
+    let f, pose;
+    if (d.shown < d.text.length) {
+      pose = 'talk';
+      f = 8 + (Math.floor(this.portraitAnim / 0.12) % 8);
+    } else if (d.gesture !== null && d.gesture !== undefined) {
+      pose = 'gesture';
+      f = 16 + d.gesture;
+    } else {
+      pose = 'idle';
+      f = Math.floor(this.portraitAnim / 0.32) % 8;
+    }
+    const img = this.dialoguePortraitImg, back = this.dialoguePortraitBack;
+    if (this.portraitBackTimer > 0) {   // the crossfade is over: drop the old pose
+      this.portraitBackTimer -= dt;
+      if (this.portraitBackTimer <= 0 && back) back.style.opacity = '0';
+    }
+    if (f === this.portraitFrame || !set[f]) return;
+    if (pose !== this.portraitPose && this.portraitPose !== null && back && !this.portraitNewSpeaker) {
+      // a change of pose crossfades: the old pose stays underneath while the new one fades in
+      back.src = img.src;
+      back.style.opacity = '1';
+      img.style.transition = 'none';
+      img.style.opacity = '0';
+      img.src = set[f].src;
+      void img.offsetWidth;
+      img.style.transition = '';
+      img.style.opacity = '1';
+      this.portraitBackTimer = 0.22;
+    } else {
+      img.src = set[f].src;
+      img.style.opacity = '1';
+      if (back && pose !== this.portraitPose) back.style.opacity = '0';
+    }
+    this.portraitNewSpeaker = false;
+    this.portraitPose = pose;
+    this.portraitFrame = f;
+  }
+
+  /** [E] in a dialogue: finish the typing, then the next line, then close (running the conversation's onDone). */
+  advanceDialogue() {
+    const d = this.dlg;
+    if (d && d.shown < d.text.length) {
+      d.shown = d.text.length;
+      this.updateDialogue(0);
+      return;
+    }
+    const c = this.convo;
+    if (c && c.i < c.lines.length - 1) {
+      c.i++;
+      const l = c.lines[c.i];
+      this.openDialogue(l.t, l.s, l.title || c.title, l.g ?? null);
+      return;
+    }
+    this.convo = null;
+    this.closeDialogue();
+    c?.onDone?.();
+  }
+
+  /** Closes without running a conversation's onDone (level loads, deaths). */
   closeDialogue() {
     this.dialogueActive = false;
     this.dialogueSpeaker = null;
+    this.dlg = null;
+    this.convo = null;
     if (this.dialogueBox) {
-      this.dialogueBox.classList.remove('has-portrait');
+      this.dialogueBox.classList.remove('has-portrait', 'portrait-left', 'speaker-rakti');
       this.dialogueBox.style.display = 'none';
     }
   }

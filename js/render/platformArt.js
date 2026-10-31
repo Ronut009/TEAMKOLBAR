@@ -30,12 +30,14 @@ export const PLATFORM_STYLES = {
     capRight: 752
   },
   // Level 3 jungle slab: moss-topped carved brick with hanging roots (960 x 187, middle is made to tile)
+  // Level 3 jungle slab v2: mossy carved brick with roots and glowing flowers (809 x 125: left cap | 272 px
+  // module that tiles | right cap). The previous strip is assets/level3/jungle_platform.png.
   jungle: {
-    src: 'assets/level3/jungle_platform.png',
-    surfaceY: 40,
-    scale: 0.483,      // ~90 world px thick
-    capLeft: 156,
-    capRight: 756
+    src: 'assets/level3/jungle_platform_v2.png',
+    surfaceY: 30,
+    scale: 0.75,       // ~70 world px below the walking surface
+    capLeft: 311,
+    capRight: 583
   }
 };
 

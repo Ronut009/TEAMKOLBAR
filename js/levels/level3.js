@@ -4,8 +4,8 @@
  * Built like Level 2: the map is cut into short floor chunks (about 450-550 px each) with a pit between
  * every two, about as long as Level 2 overall. Background screens, a shared floor strip (PlatformArt
  * 'jungle'), data-driven floors / pits / pillars, Betal swordsmen, a relic and a door at the end.
- *   Home field -> pit on two pillars -> chunk -> pit with a stepping ledge -> chunk ->
- *   WIDE chasm: leap onto the high ledge as Kali [X], cross the golden bridge -> chunk ->
+ *   Home field -> pit on two pillars -> chunk -> pit on three crumbling jungle platforms -> chunk ->
+ *   WIDE chasm: leap onto the high ledge as Kali [X], open the jungle stones one by one with [Q] -> chunk ->
  *   pit on two pillars -> final chunk. The sealed forest door waits at the end of the map from the start.
  * Hazards (no spike packs of four any more): jungle spikes in packs of two on a timer, and single
  * jungle vines that rise and sink, and spin at anyone who comes near. Only the sword destroys a vine.
@@ -19,17 +19,23 @@ import { PlatformArt } from '../render/platformArt.js';
 import { Betal } from '../entities/betal.js';
 import { EnemySpriteSheet } from '../entities/enemySprites.js';
 
-// Backgrounds are 2000 x 585 (dark bottom band cropped). The moss floor line sits at image y = 522.
-const BG_SCALE = 368 / 522;
-const SCREEN_W = 2000 * BG_SCALE;      // ~1410 world px per screen
-const SCREEN_H = 585 * BG_SCALE;       // ~412
+// Backgrounds (v2) are 2171 x 724; the sunlit floor line sits at image y = 588, the roots band below it
+// reaches past the bottom of the view. (The old 2000 x 585 jungle_a/b.jpg are kept as backups.)
+const BG_W = 2171, BG_H = 724;
+const BG_SCALE = 368 / 588;
+const SCREEN_W = BG_W * BG_SCALE;      // ~1359 world px per screen
+const SCREEN_H = BG_H * BG_SCALE;      // ~453
+const BG_EXT = 80;                     // the art continues below itself (a mirrored strip), so no black band shows under the floor
 const FLOOR_Y = 368;
 const FEATHER = 240 * BG_SCALE;        // image px faded in at each screen's left edge
 const X = (screen, imageX = 0) => screen * (SCREEN_W - FEATHER) + imageX * BG_SCALE;
 
-// Pillar art reused from Level 1 (assets/level1/pillar_tall.png) until jungle pillars exist
-const PILLAR_ART = { tall: { src: 'assets/level1/pillar_tall.png', w: 329, h: 735, surface: 10 } };
-const PIT_PILLAR_SCALE = 0.24;
+// Jungle piers (v2): the jungle slab's own end caps on a solid mossy brick column that darkens and fades into
+// the pit (150 x 560, made by tools/make_pier2.py). The old banded jungle_pier.png is kept as a backup.
+const PILLAR_ART = { tall: { src: 'assets/level3/jungle_pier_v2.png', w: 150, h: 560, surface: 30 } };
+const PIT_PILLAR_SCALE = 0.5;
+const PIER_CRUMBLE = 0.6;      // a crumbling pier gives way this long after Rakti lands on it
+const PIER_RETURN = 2.6;       // and rises back out of the pit this long after it fell
 
 // Jungle spikes (assets/level3/jungle_spike.png): 24 frames, 8 per row, each frame two near-identical variants
 // (0/1, 2/3 ...). A pack is two spikes side by side, the second drawn with the partner variant.
@@ -51,10 +57,19 @@ const VINE_HP = 10;
 const VINE_DAMAGE = 4;
 const PIT_DAMAGE = 3;
 
-const BRIDGE_ART = { src: 'assets/level1/golden_bridge_a.png', w: 1200, h: 193, deckY: 40.6 };
+// Jungle pathway stones (v2: 6-frame morph sheet, rock -> breaking -> floating slab; deckY = walking surface
+// of the final slab, half = half its walkable width). The first sheet, jungle_path_sheet.png, is kept as a backup.
+const PATH_ART = { src: 'assets/level3/jungle_path_sheet_v2.png', frameW: 118, frameH: 137, anchorX: 59, deckY: 73.6, half: 48 };
+const PATH_MORPH_TIME = 0.3;
+const PATH_HOLD = 3;              // a stone stays a platform this long after [Q], then closes back into a rock
+// Crumbling jungle platforms (the final frame of the morph sheet): they drop JFALL_DELAY s after Rakti lands
+const JFALL_DELAY = 0.5;
+const JFALL_RESPAWN = 2.6;
 // Sprite sheets (assets/level3/, keyed from AI art): heart 5 cols x 2 rows of 225x228 (frames 0-5 idle loop),
 // door 7 cols x 2 rows of 326x342 (frame 0 closed .. 6 open, 6-13 swirling portal loop)
-const HEART_ART = { src: 'assets/level3/forest_heart.png', cw: 225, ch: 228, cols: 5, idle: 6, scale: 0.6 };
+// The Forest Heart beating (8 frames, 149 x 143, roots' tips at row 141) on its carved stump shrine (300 x 267)
+const HEART_ART = { src: 'assets/level3/forest_heart_beat.png', cw: 149, ch: 143, cols: 8, idle: 8, scale: 0.34, footY: 141 };
+const SHRINE_ART = { src: 'assets/level3/heart_shrine.png', w: 300, h: 267, scale: 0.36, seatY: 82 };
 const DOOR_ART = { src: 'assets/level3/forest_door.png', cw: 326, ch: 342, cols: 7, frames: 14, openFrame: 6, scale: 0.4 };
 const DOOR_FPS = 9;
 const LEDGE_Y = FLOOR_Y - 150;          // 150 px above the floor: Kali's leap (~170) reaches it, a mortal's (~120) does not
@@ -69,8 +84,8 @@ export class Level3 {
     this.usesScriptedDefeat = false;     // the old horde level ended in a scripted death; this one has normal checkpoints
 
     const img = (src) => { const i = new Image(); i.src = src; return i; };
-    this.bgA = img('assets/level3/jungle_a.jpg');
-    this.bgB = img('assets/level3/jungle_b.jpg');
+    this.bgA = img('assets/level3/jungle_a2.jpg');
+    this.bgB = img('assets/level3/jungle_b2.jpg');
     this.screens = [
       { img: this.bgA, mirror: false }, { img: this.bgB, mirror: false },
       { img: this.bgA, mirror: true }, { img: this.bgB, mirror: true }
@@ -80,9 +95,10 @@ export class Level3 {
     this.spikeSheet = img(JSPIKE_ART.src);
     this.vineAImg = img(VINE_A.src);
     this.vineBImg = img(VINE_B.src);
-    this.bridgeImg = img(BRIDGE_ART.src);
+    this.pathImg = img(PATH_ART.src);
     this.enemySprites = new EnemySpriteSheet();
     this.heartImg = img(HEART_ART.src);
+    this.shrineImg = img(SHRINE_ART.src);
     this.doorImg = img(DOOR_ART.src);
 
     // ------------------------------------------------------------------ floors & pits
@@ -90,52 +106,59 @@ export class Level3 {
     const END = 4300;
     this.floors = [
       { x1: 0, x2: 560 },                // home field
-      { x1: 930, x2: 1450 },
-      { x1: 1850, x2: 2370 },
-      { x1: 3010, x2: 3470 },
-      { x1: 3850, x2: END }              // final chunk, the door at its far end
+      { x1: 930, x2: 1400 },
+      { x1: 1920, x2: 2370 },
+      { x1: 3010, x2: 3440 },
+      { x1: 3900, x2: END }              // final chunk, the door at its far end
     ];
     this.pits = [
       { x1: 560, x2: 930 },              // two pillars
-      { x1: 1450, x2: 1850 },            // one stepping ledge
+      { x1: 1400, x2: 1920 },            // three crumbling platforms, spread out
       { x1: 2370, x2: 3010 },            // the wide chasm: Kali only
-      { x1: 3470, x2: 3850 }             // two pillars
+      { x1: 3440, x2: 3900 }             // three piers: low, rising and sinking, high
     ];
     this.pillars = [
       { art: 'tall', cx: 645, top: 335, scale: PIT_PILLAR_SCALE },
       { art: 'tall', cx: 825, top: 305, scale: PIT_PILLAR_SCALE },
-      { art: 'tall', cx: 3555, top: 335, scale: PIT_PILLAR_SCALE },
-      { art: 'tall', cx: 3735, top: 305, scale: PIT_PILLAR_SCALE }
+      // The last pit, hard: the first pier crumbles PIER_CRUMBLE s after she lands (no waiting on it), the
+      // middle one rises and sinks fast, and the last, high one is only reachable near the top of that swing.
+      { art: 'tall', cx: 3498, top: 330, scale: PIT_PILLAR_SCALE, crumble: true },
+      { art: 'tall', cx: 3668, top: 298, base: 298, swing: 48, period: 2.2, phase: 0, scale: PIT_PILLAR_SCALE },
+      { art: 'tall', cx: 3842, top: 236, scale: PIT_PILLAR_SCALE }
     ];
     // High ledges: two over the chasm (solid for everybody, but only Kali can jump up to the first) and one
     // stepping stone in the middle of the second pit
     this.ledges = [
-      { id: 'step_ledge', x1: 1565, x2: 1735, y: FLOOR_Y - 46 },
       { id: 'kali_ledge_a', x1: 2260, x2: 2420, y: LEDGE_Y },
       { id: 'kali_ledge_b', x1: 2980, x2: 3140, y: LEDGE_Y }
     ];
-    // The golden bridge joining the two Kali ledges exists (and is drawn) only in Kali form
-    this.bridge = { x1: this.ledges[1].x2 - 4, x2: this.ledges[2].x1 + 4, y: LEDGE_Y };
+    // The pathway between the two Kali ledges: three floating jungle stones that open into platforms in Kali form
+    const ax = this.ledges[0].x2, bx = this.ledges[1].x1, gap = (bx - ax - 3 * PATH_ART.half * 2) / 4;
+    this.pathStones = [0, 1, 2].map((i) => ({
+      cx: ax + gap * (i + 1) + PATH_ART.half * (2 * i + 1), y: LEDGE_Y - (i === 1 ? 12 : 0), m: 0, phase: i * 1.7, open: 0
+    }));
+    // The second pit is crossed on crumbling jungle platforms
+    this.fallers = [1505, 1660, 1815].map((cx, i) => ({ cx, top: FLOOR_Y - [28, 52, 36][i], phase: i * 1.3, state: 'idle', t: 0, dy: 0, vy: 0, alpha: 1 }));
 
     // Jungle spikes: packs of two, x = left edge of the pack (none placed for now)
     this.spikes = [].map((x, i) => ({ x, phase: i * 1.3 }));
     // Jungle vines: always one at a time
-    this.vines = [470, 985, 1290, 2110, 3400, 4010].map((x, i) => ({ x, phase: i * 0.9, state: 'hidden', t: 0, wait: 0.6 + (i % 3) * 0.5, hp: VINE_HP, cool: 0, flash: 0, removed: false }));
+    this.vines = [470, 985, 1290, 2110, 3360, 4010].map((x, i) => ({ x, phase: i * 0.9, state: 'hidden', t: 0, wait: 0.6 + (i % 3) * 0.5, hp: VINE_HP, cool: 0, flash: 0, removed: false }));
     this.fx = [];
 
-    this.checkpoints = [970, 1890, 2310, 3050, 3890];
+    this.checkpoints = [970, 1960, 2310, 3050, 3940];
     this.checkpointIndex = -1;
 
     this.betals = [
       new Betal(330, 260, 380),
       new Betal(1060, 1000, 1120),
       new Betal(1220, 1160, 1280),
-      new Betal(1380, 1320, 1430),
+      new Betal(1340, 1290, 1385),
       new Betal(2010, 1940, 2080),
       new Betal(2230, 2160, 2330),
       new Betal(3160, 3100, 3230),
       new Betal(3330, 3260, 3420),
-      new Betal(3940, 3880, 4010),
+      new Betal(3990, 3930, 4060),
       new Betal(4080, 4020, 4120)
     ];
 
@@ -171,8 +194,20 @@ export class Level3 {
     this.isCompleted = false;
     this.animTime = 0;
     for (const b of this.betals) b.reset();
+    for (const p of this.pillars) if (p.crumble) Object.assign(p, { st: 'idle', t: 0, dy: 0, vy: 0 });
+    for (const s of this.pathStones) Object.assign(s, { open: 0, m: 0 });
+    for (const f of this.fallers) Object.assign(f, { state: 'idle', t: 0, dy: 0, vy: 0, alpha: 1 });
     for (const v of this.vines) Object.assign(v, { state: 'hidden', t: 0, wait: 0.6 + (v.phase % 3) * 0.5, hp: VINE_HP, cool: 0, flash: 0, removed: false });
     this.fx = [];
+  }
+
+  /** Called by the engine when Rakti arrives from another level (or the [O] test key), not on death or [R]:
+   *  back to the very start, and she walks in from the edge of the forest. */
+  freshStart() {
+    this.checkpointIndex = -1;
+    this.kaliHintShown = false;
+    this.introQueued = true;
+    this.intro = null;
   }
 
   getRespawnPoint() {
@@ -203,17 +238,23 @@ export class Level3 {
   get doorOpenReady() { return this.door.opening && this.door.openT * DOOR_FPS >= DOOR_ART.openFrame + 0.5; }
 
   // ======================================================================== geometry
-  pillarHalf(p) { return PILLAR_ART[p.art].w * p.scale * 0.4; }
+  pillarHalf(p) { return PILLAR_ART[p.art].w * p.scale * 0.42; }
 
   getPlatforms() {
     const list = [];
     for (const f of this.floors) list.push({ id: 'floor', x1: f.x1, x2: f.x2, y: FLOOR_Y, oneWay: false });
     for (const p of this.pillars) {
+      if (p.crumble && (p.st === 'falling' || p.st === 'returning')) continue;
       const half = this.pillarHalf(p);
-      list.push({ id: 'pillar', x1: p.cx - half, x2: p.cx + half, y: Math.round(p.top), oneWay: false });
+      list.push({ id: 'pillar', pierRef: p, x1: p.cx - half, x2: p.cx + half, y: Math.round(p.top), oneWay: false });
     }
     for (const l of this.ledges) list.push({ ...l, oneWay: true });
-    list.push({ id: 'golden_bridge', x1: this.bridge.x1, x2: this.bridge.x2, y: this.bridge.y, oneWay: true, divineOnly: true });
+    for (const s of this.pathStones) {
+      if (s.m >= 0.8) list.push({ id: 'jungle_path', stone: s, x1: s.cx - PATH_ART.half, x2: s.cx + PATH_ART.half, y: s.y, oneWay: true });
+    }
+    for (const f of this.fallers) {
+      if (f.state === 'idle' || f.state === 'shaking') list.push({ id: 'faller', faller: f, x1: f.cx - PATH_ART.half, x2: f.cx + PATH_ART.half, y: f.top, oneWay: true });
+    }
     return list;
   }
 
@@ -238,6 +279,7 @@ export class Level3 {
   resolvePitWallCollision(x, y) {
     x = Math.max(12, x);
     for (const p of this.pillars) {
+      if (p.crumble && (p.st === 'falling' || p.st === 'returning')) continue;
       const half = this.pillarHalf(p) + 7;
       if (y > p.top + 5 && Math.abs(x - p.cx) < half) x = x < p.cx ? p.cx - half : p.cx + half;
     }
@@ -281,13 +323,125 @@ export class Level3 {
     return false;
   }
 
+  // ======================================================================== [Q] the jungle stones
+  /** [Q]: the nearest closed stone ahead of Rakti opens into a platform for PATH_HOLD seconds. One at a time. */
+  castQ(player) {
+    if (!player || player.isDead || !player.hasPearl || player.isCasting || player.isClimbing) return;
+    const dir = player.facing === 'left' ? -1 : 1;
+    const cands = this.pathStones.filter((s) => s.open <= 0 && s.m < 0.5 && Math.abs(s.cx - player.x) < 300);
+    if (!cands.length) {
+      this.killToastText = '✧ NOTHING HERE ANSWERS ✧';
+      this.killToastTimer = 1.2;
+      return;
+    }
+    // prefer stones in front of her, nearest first
+    // the path runs left to right: prefer the next stone onward (the way she faces, then to the right), nearest first
+    const ahead = (q) => ((q.cx - player.x) * dir > 0 ? 0 : 1) + (q.cx > player.x ? 0 : 1);
+    cands.sort((a, b) => ahead(a) - ahead(b) || Math.abs(a.cx - player.x) - Math.abs(b.cx - player.x));
+    const s = cands[0];
+    player.startCast(() => {
+      s.open = PATH_HOLD;
+      this.cameraShake = Math.max(this.cameraShake, 0.2);
+      for (let i = 0; i < 14; i++) {
+        const a = Math.random() * Math.PI * 2;
+        this.fx.push({ x: s.cx, y: s.y - 10, vx: Math.cos(a) * 80, vy: Math.sin(a) * 80 - 30, life: 0.5, maxLife: 0.5, c: i % 2 ? '#9ff6c8' : '#e6ffb0' });
+      }
+    }, s.cx);
+  }
+
+  updateFaller(f, dt, player) {
+    f.t += dt;
+    if (f.state === 'idle') {
+      if (player && player.isGrounded && player.currentPlatform?.faller === f) { f.state = 'shaking'; f.t = 0; }
+    } else if (f.state === 'shaking') {
+      if (f.t >= JFALL_DELAY) {
+        f.state = 'falling'; f.t = 0; f.vy = 40;
+        this.cameraShake = Math.max(this.cameraShake, 0.15);
+        if (player && player.currentPlatform?.faller === f) { player.isGrounded = false; player.currentPlatform = null; }
+      }
+    } else if (f.state === 'falling') {
+      f.vy += 900 * dt; f.dy += f.vy * dt;
+      f.alpha = Math.max(0, 1 - f.t / 0.8);
+      if (f.t >= JFALL_RESPAWN) { f.state = 'returning'; f.t = 0; f.dy = 0; f.alpha = 0; }
+    } else if (f.state === 'returning') {
+      f.alpha = Math.min(1, f.t / 0.6);
+      if (f.t >= 0.6) { f.state = 'idle'; f.t = 0; f.alpha = 1; }
+    }
+  }
+
   // ======================================================================== update
   update(playerX, playerY, dt, isDivine = false, player = null) {
     this.animTime += dt;
+    // Arrival: the screen fades in as Rakti walks out of the trees at the left edge, then she takes over
+    if (this.introQueued && player && !player.isDead) {
+      this.introQueued = false;
+      this.intro = { t: 0 };
+      Object.assign(player, { x: -70, y: FLOOR_Y, vx: 0, vy: 0, isGrounded: true, facing: 'right', inputLocked: true,
+        autoWalkX: null, spawnAlpha: 1 });
+      this.screenFade = 1;
+    }
+    if (this.intro && player) {
+      const it = this.intro;
+      it.t += dt;
+      // (the loading screen is still fading out for the first moments: she waits for it in the trees)
+      this.screenFade = Math.max(0, Math.min(1, 1 - (it.t - 0.5) / 0.9));
+      player.inputLocked = true;
+      if (!it.walking && it.t >= 0.7) { it.walking = true; player.autoWalkX = 165; player.autoWalkSpeed = 120; }
+      // leaves stir where she pushes through the undergrowth
+      if (player.x < 40 && Math.random() < 0.5) {
+        this.fx.push({ x: Math.max(4, player.x + 10), y: FLOOR_Y - 10 - Math.random() * 40, vx: 30 + Math.random() * 40, vy: -10 - Math.random() * 20,
+          life: 0.7, maxLife: 0.7, c: Math.random() > 0.4 ? '#6fcf6a' : '#c9e88a' });
+      }
+      if (it.walking && player.autoWalkX == null) {
+        player.inputLocked = false;
+        this.intro = null;
+        this.screenFade = 0;
+      }
+    }
+    // [Q]-opened stones hold for PATH_HOLD seconds, then close back into rocks (dropping anyone on them)
+    for (const s of this.pathStones) {
+      // (the stone she is standing on does not run down while she casts the next one)
+      if (s.open > 0 && !(player?.isCasting && player.currentPlatform?.stone === s)) s.open = Math.max(0, s.open - dt);
+      const target = s.open > 0 ? 1 : 0;
+      s.m = target > s.m ? Math.min(1, s.m + dt / PATH_MORPH_TIME) : Math.max(0, s.m - dt / PATH_MORPH_TIME);
+      if (s.m < 0.8 && player?.currentPlatform?.stone === s) { player.isGrounded = false; player.currentPlatform = null; }
+    }
+    for (const f of this.fallers) this.updateFaller(f, dt, player);
+    // crumbling piers: shake once stood on, drop into the pit, then rise back
+    for (const p of this.pillars) {
+      if (!p.crumble) continue;
+      p.st ??= 'idle'; p.t = (p.t || 0) + dt; p.dy ??= 0;
+      const on = player && player.isGrounded && player.currentPlatform?.pierRef === p;
+      if (p.st === 'idle' && on) { p.st = 'shaking'; p.t = 0; }
+      else if (p.st === 'shaking' && p.t >= PIER_CRUMBLE) {
+        p.st = 'falling'; p.t = 0; p.vy = 30;
+        this.cameraShake = Math.max(this.cameraShake, 0.2);
+        if (on) { player.isGrounded = false; player.currentPlatform = null; }
+        for (let i = 0; i < 10; i++) this.fx.push({ x: p.cx + (Math.random() - 0.5) * 50, y: p.top + Math.random() * 20, vx: (Math.random() - 0.5) * 90, vy: -40 - Math.random() * 60, life: 0.7, maxLife: 0.7, c: Math.random() > 0.5 ? '#8a6a44' : '#4f9a2a' });
+      } else if (p.st === 'falling') {
+        p.vy += 700 * dt; p.dy += p.vy * dt;
+        if (p.t >= PIER_RETURN) { p.st = 'returning'; p.t = 0; p.dy = 150; }   // it rises back from just below view
+      } else if (p.st === 'returning') {
+        p.dy = Math.max(0, p.dy - 260 * dt);
+        if (p.dy <= 0) { p.st = 'idle'; p.t = 0; }
+      }
+    }
+    // moving piers carry Rakti with them
+    for (const p of this.pillars) {
+      if (!p.swing) continue;
+      const prev = p.top;
+      p.top = p.base + Math.sin((this.animTime * Math.PI * 2) / p.period + p.phase) * p.swing;
+      if (player && player.isGrounded && (player.currentPlatform?.pierRef === p ||
+          (Math.abs(playerX - p.cx) <= this.pillarHalf(p) + 2 && Math.abs(playerY - prev) < 3))) {
+        player.y = p.top;
+        if (player.currentPlatform?.pierRef === p) player.currentPlatform.y = p.top;
+      }
+    }
     if (this.cameraShake > 0) this.cameraShake = Math.max(0, this.cameraShake - dt * 2.0);
     if (this.killToastTimer > 0) this.killToastTimer -= dt;
 
     this.px = playerX; this.py = playerY;
+    this.updateGuideArrow(dt);
     if (this.relic.collected && this.relic.fly < 1) this.relic.fly = Math.min(1, this.relic.fly + dt * 1.4);
     if (this.relic.spawned) this.relic.spawnT += dt;
     if (this.door.opening) {
@@ -323,7 +477,7 @@ export class Level3 {
       this.kaliHintShown = true;
       this.pendingDialogue = {
         speaker: 'kali', title: '⚜ MAA KALI: BEYOND THE CHASM ⚜',
-        text: 'No mortal leap crosses this chasm, Rakti. Take my form [X]: leap to the high ledge, then run the bridge of light before my strength fades.'
+        text: 'No mortal leap crosses this chasm, Rakti. Take my form [X] to leap to the high ledge. Then call on the Pearl with [Q], stone by stone: each one opens into a path for a few breaths before it closes again.'
       };
     }
 
@@ -483,11 +637,17 @@ export class Level3 {
 
   screenCanvas(key, image, { mirror = false, feather = true } = {}) {
     const ready = image.complete && image.naturalWidth > 0;
-    return this.cachedArt('scr:' + key, SCREEN_W, SCREEN_H, ready, (g) => {
+    return this.cachedArt('scr:' + key, SCREEN_W, SCREEN_H + BG_EXT, ready, (g) => {
       g.save();
       if (mirror) { g.translate(SCREEN_W, 0); g.scale(-1, 1); }
       g.drawImage(image, 0, 0, SCREEN_W, SCREEN_H);
+      g.translate(0, SCREEN_H * 2);
+      g.scale(1, -1);
+      g.drawImage(image, 0, 0, SCREEN_W, SCREEN_H);
       g.restore();
+      // the reflected part is the deep forest floor: a little darker
+      g.fillStyle = 'rgba(4, 12, 6, 0.35)';
+      g.fillRect(0, SCREEN_H, SCREEN_W, BG_EXT);
       if (feather) {
         g.globalCompositeOperation = 'destination-in';
         const grad = g.createLinearGradient(0, 0, SCREEN_W, 0);
@@ -495,7 +655,7 @@ export class Level3 {
         grad.addColorStop(FEATHER / SCREEN_W, 'rgba(0,0,0,1)');
         grad.addColorStop(1, 'rgba(0,0,0,1)');
         g.fillStyle = grad;
-        g.fillRect(0, 0, SCREEN_W, SCREEN_H);
+        g.fillRect(0, 0, SCREEN_W, SCREEN_H + BG_EXT);
       }
     });
   }
@@ -518,7 +678,7 @@ export class Level3 {
       if (!c) return;
       ctx.save();
       ctx.imageSmoothingQuality = 'low';
-      ctx.drawImage(c, x, 0, SCREEN_W + 1, SCREEN_H);
+      ctx.drawImage(c, x, 0, SCREEN_W + 1, SCREEN_H + BG_EXT);
       ctx.restore();
     });
 
@@ -542,7 +702,6 @@ export class Level3 {
 
     // 4. Enemies
     for (const b of this.betals) b.render(ctx, this.enemySprites);
-    this.renderGuideArrow(ctx);
     for (const q of this.fx) {
       ctx.globalAlpha = Math.max(0, q.life / q.maxLife);
       ctx.fillStyle = q.c;
@@ -557,7 +716,7 @@ export class Level3 {
       if (!this.inView(pit.x1, pit.x2)) continue;
       const g = ctx.createLinearGradient(0, FLOOR_Y - 6, 0, FLOOR_Y + 70);
       g.addColorStop(0, 'rgba(2, 10, 6, 0)');
-      g.addColorStop(1, 'rgba(1, 5, 3, 0.97)');
+      g.addColorStop(1, 'rgba(3, 14, 8, 0.8)');   // deep green shade, not a black slab
       ctx.fillStyle = g;
       ctx.fillRect(pit.x1, FLOOR_Y - 6, pit.x2 - pit.x1, this.height - FLOOR_Y + 8);
     }
@@ -565,10 +724,13 @@ export class Level3 {
 
   drawPillar(ctx, p) {
     const art = PILLAR_ART[p.art], im = this.pillarImgs[p.art];
-    const w = art.w * p.scale, h = art.h * p.scale;
+    const w = art.w * p.scale, h = art.h * p.scale;   // tall enough to run past the bottom of the view
     if (!this.inView(p.cx - w / 2, p.cx + w / 2)) return;
     const c = this.cachedArt(`pillar:${p.art}:${p.scale}`, w, h, im.complete && im.naturalWidth > 0, (g) => g.drawImage(im, 0, 0, w, h));
-    if (c) ctx.drawImage(c, p.cx - w / 2, p.top - art.surface * p.scale, w, h);
+    if (!c) return;
+    let ox = 0, oy = p.dy || 0;
+    if (p.st === 'shaking') { ox = Math.sin(p.t * 80) * 1.8; oy += Math.sin(p.t * 63) * 0.8; }
+    ctx.drawImage(c, p.cx - w / 2 + ox, p.top - art.surface * p.scale + oy, w, h);
   }
 
   drawSpikeTrap(ctx, trap) {
@@ -582,25 +744,40 @@ export class Level3 {
     }
   }
 
-  /** Golden bridge between the two high ledges: seen and walkable only in Kali form. */
+  /** Morphing jungle pathway: mossy rocks float over the chasm; in Kali form [X] they burst into flat stepping
+   *  platforms (frames 0 -> 5), and when her form ends they close back into rocks and give way. */
   renderBridge(ctx, isDivine) {
-    if (!isDivine) return;
-    const b = this.bridge, span = b.x2 - b.x1;
-    if (!this.inView(b.x1, b.x2)) return;
-    const im = this.bridgeImg, s = span / BRIDGE_ART.w, H = BRIDGE_ART.h * s;
-    const c = this.cachedArt('bridge', span, H, im.complete && im.naturalWidth > 0, (g) => g.drawImage(im, 0, 0, span, H));
-    if (!c) return;
-    const top = b.y - BRIDGE_ART.deckY * s;
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    const g = ctx.createLinearGradient(0, top - 16, 0, top + H + 8);
-    g.addColorStop(0, 'rgba(0,0,0,0)');
-    g.addColorStop(0.45, 'rgba(255, 210, 110, 0.22)');
-    g.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = g;
-    ctx.fillRect(b.x1, top - 16, span, H + 24);
-    ctx.restore();
-    ctx.drawImage(c, b.x1, top, span, H);
+    const im = this.pathImg, A = PATH_ART, k = 1;
+    if (!im.complete || im.naturalWidth === 0) return;
+    for (const s of this.pathStones) {
+      if (!this.inView(s.cx - A.frameW, s.cx + A.frameW)) continue;
+      const f = Math.max(0, Math.min(5, Math.round(s.m * 5)));
+      const c = this.cachedArt('jpath:' + f, A.frameW, A.frameH, true,
+        (g) => g.drawImage(im, f * A.frameW, 0, A.frameW, A.frameH, 0, 0, A.frameW, A.frameH));
+      if (!c) continue;
+      const bob = Math.sin(this.animTime * 1.6 + s.phase) * (s.m < 1 ? 2.5 : 1);
+      // about to close: a quick flicker warns Rakti to move on
+      const warn = s.open > 0 && s.open < 0.7 && Math.floor(this.animTime * 14) % 2 === 0;
+      ctx.save();
+      if (warn) ctx.globalAlpha = 0.55;
+      ctx.drawImage(c, s.cx - A.anchorX * k, s.y - A.deckY * k + bob, A.frameW * k, A.frameH * k);
+      ctx.restore();
+    }
+    // crumbling jungle platforms (final frame of the sheet)
+    const c5 = this.cachedArt('jpath:5', A.frameW, A.frameH, true,
+      (g) => g.drawImage(im, 5 * A.frameW, 0, A.frameW, A.frameH, 0, 0, A.frameW, A.frameH));
+    for (const f of this.fallers) {
+      if (f.alpha <= 0 || !this.inView(f.cx - A.frameW, f.cx + A.frameW)) continue;
+      let ox = 0, oy = f.dy + (f.state === 'idle' ? Math.sin(this.animTime * 1.7 + f.phase) * 1.5 : 0), rot = 0;
+      if (f.state === 'shaking') { ox = Math.sin(f.t * 90) * 1.6; oy += Math.sin(f.t * 70) * 0.8; }
+      if (f.state === 'falling') rot = Math.min(0.5, f.t * 0.7) * (f.phase > 1 ? 1 : -1);
+      ctx.save();
+      ctx.globalAlpha = f.alpha;
+      ctx.translate(f.cx + ox, f.top + oy);
+      if (rot) ctx.rotate(rot);
+      ctx.drawImage(c5, -A.anchorX, -A.deckY, A.frameW, A.frameH);
+      ctx.restore();
+    }
   }
 
   /** Draws one frame of a sprite sheet at w x h world px, pre-scaled once into its own cache entry. */
@@ -615,9 +792,17 @@ export class Level3 {
   renderHeart(ctx) {
     const r = this.relic;
     if (!r.spawned) return;
-    const f = this.sheetFrame('heart', this.heartImg, HEART_ART, Math.floor(this.animTime * 8) % HEART_ART.idle);
-    if (!f || !this.inView(r.x - 120, r.x + 120)) return;
-    const cy = FLOOR_Y - f.h * 0.5;
+    // the carved stump shrine (drawn once the heart has woken there)
+    const sk = SHRINE_ART.scale, sw = SHRINE_ART.w * sk, sh = SHRINE_ART.h * sk;
+    const shrine = this.cachedArt('heartShrine', sw, sh, (this.shrineImg.complete && this.shrineImg.naturalWidth > 0), (g) => g.drawImage(this.shrineImg, 0, 0, sw, sh));
+    if (!this.inView(r.x - 120, r.x + 120)) return;
+    if (shrine) ctx.drawImage(shrine, r.x - sw / 2, FLOOR_Y + 4 - sh, sw, sh);
+    const seat = FLOOR_Y + 4 - sh + SHRINE_ART.seatY * sk;      // the hollow on top of the stump
+    // a slow heartbeat: two quick pulses, then rest
+    const beat = Math.floor((this.animTime * 9) % 12);
+    const f = this.sheetFrame('heart', this.heartImg, HEART_ART, Math.min(7, beat));
+    if (!f) return;
+    const cy = seat - f.h * 0.55;
     let alpha = Math.min(1, r.spawnT / 1.0);
     if (r.collected) alpha *= 1 - Math.min(1, r.fly * 1.6);
     const near = Math.abs(this.px - r.x) < 110 ? 1 : 0.45;
@@ -626,12 +811,12 @@ export class Level3 {
       ctx.globalCompositeOperation = 'lighter';
       const pulse = 0.5 + 0.5 * Math.sin(this.animTime * 3);
       const g = ctx.createRadialGradient(r.x, cy, 4, r.x, cy, 70);
-      g.addColorStop(0, `rgba(255, 90, 60, ${(0.35 + 0.2 * pulse) * alpha * near})`);
+      g.addColorStop(0, `rgba(90, 255, 170, ${(0.3 + 0.2 * pulse) * alpha * near})`);
       g.addColorStop(1, 'rgba(0, 0, 0, 0)');
       ctx.fillStyle = g;
       ctx.fillRect(r.x - 72, cy - 72, 144, 144);
       if (r.spawnT < 1.4) {   // awakening ring
-        ctx.strokeStyle = `rgba(255, 150, 90, ${1 - r.spawnT / 1.4})`;
+        ctx.strokeStyle = `rgba(140, 255, 190, ${1 - r.spawnT / 1.4})`;
         ctx.lineWidth = 3;
         ctx.beginPath();
         ctx.ellipse(r.x, FLOOR_Y - 8, 20 + r.spawnT * 110, 5 + r.spawnT * 22, 0, 0, Math.PI * 2);
@@ -640,7 +825,7 @@ export class Level3 {
       ctx.restore();
       ctx.save();
       ctx.globalAlpha = alpha;
-      ctx.drawImage(f.c, r.x - f.w / 2, FLOOR_Y + 2 - f.h, f.w, f.h);
+      ctx.drawImage(f.c, r.x - f.w / 2, seat + 6 - HEART_ART.footY * HEART_ART.scale, f.w, f.h);
       ctx.restore();
     }
     if (r.collected && r.fly < 1) {       // a spark of the heart flies to Rakti
@@ -649,8 +834,8 @@ export class Level3 {
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
       const g = ctx.createRadialGradient(x, y, 1, x, y, 20);
-      g.addColorStop(0, `rgba(255, 200, 150, ${1 - t})`);
-      g.addColorStop(1, 'rgba(255, 60, 40, 0)');
+      g.addColorStop(0, `rgba(190, 255, 210, ${1 - t})`);
+      g.addColorStop(1, 'rgba(40, 200, 110, 0)');
       ctx.fillStyle = g;
       ctx.fillRect(x - 20, y - 20, 40, 40);
       ctx.restore();
@@ -683,36 +868,87 @@ export class Level3 {
     ctx.drawImage(f.c, d.x - f.w / 2, FLOOR_Y + 2 - f.h, f.w, f.h);
   }
 
-  /** A bobbing arrow beside Rakti pointing at the awakened heart (then at the door once she carries it). */
-  renderGuideArrow(ctx) {
+  /** Guide to the awakened Forest Heart (only the heart; the door needs no arrow).
+   *  Off screen: an arrow circles Rakti's shoulders and points at the heart, eased so it glides instead of
+   *  jumping with every hop. On screen: a marker bobs over the heart itself. */
+  updateGuideArrow(dt) {
     const r = this.relic;
-    let tx = null, label = '';
-    if (r.spawned && r.spawnT > 0.8 && !r.collected) { tx = r.x; label = 'FOREST HEART'; }
-    else if (r.collected && !this.door.opening) { tx = this.door.x; label = 'DOOR'; }
-    if (tx === null) return;
-    const dx = tx - this.px;
-    if (Math.abs(dx) < 140) return;
-    const dir = Math.sign(dx), bob = Math.sin(this.animTime * 5) * 5;
-    const ax = this.px + dir * (70 + bob), ay = this.py - 105;
+    const g = this.guide || (this.guide = { a: 0, x: this.px, y: this.py - 62, alpha: 0, init: false });
+    const active = r.spawned && r.spawnT > 0.8 && !r.collected;
+    const v = this.view;
+    const heartOnScreen = v && r.x > v.x1 + 80 && r.x < v.x2 - 80;
+    g.mode = heartOnScreen ? 'marker' : 'arrow';
+    const want = active && !(g.mode === 'arrow' && Math.abs(r.x - this.px) < 120) ? 1 : 0;
+    g.alpha += (want - g.alpha) * Math.min(1, dt * 6);
+    if (!active && g.alpha < 0.02) { g.init = false; return; }
+    // aim at the heart's glow, from Rakti's chest; mostly sideways (a steep arrow reads poorly)
+    const cx = this.px, cy = this.py - 56;
+    const ty = FLOOR_Y - 45;
+    let a = Math.atan2(ty - cy, r.x - cx);
+    const dir = Math.cos(a) >= 0 ? 1 : -1;
+    const tilt = Math.max(-0.45, Math.min(0.45, Math.atan2(ty - cy, Math.abs(r.x - cx))));
+    a = dir > 0 ? tilt : Math.PI - tilt;
+    if (!g.init) { g.a = a; g.init = true; }
+    let da = a - g.a;
+    while (da > Math.PI) da -= Math.PI * 2;
+    while (da < -Math.PI) da += Math.PI * 2;
+    g.a += da * Math.min(1, dt * 7);
+    const R = 46;
+    const tx = cx + Math.cos(g.a) * R, tyy = cy + Math.sin(g.a) * R * 0.6;
+    if (g.x === undefined || Math.abs(g.x - tx) > 200) { g.x = tx; g.y = tyy; }
+    const k = Math.min(1, dt * 12);
+    g.x += (tx - g.x) * k;
+    g.y += (tyy - g.y) * Math.min(1, dt * 8);   // a softer vertical follow, so jumps do not yank it
+  }
+
+  /** Drawn over Rakti (engine hook). */
+  renderForeground(ctx) { this.renderGuideArrow(ctx); }
+
+  renderGuideArrow(ctx) {
+    const g = this.guide, r = this.relic;
+    if (!g || g.alpha < 0.02) return;
     ctx.save();
-    ctx.translate(ax, ay);
-    ctx.scale(dir, 1);
+    ctx.globalAlpha = g.alpha;
+    if (g.mode === 'marker') {
+      // a gold chevron bobbing over the heart
+      const bob = Math.sin(this.animTime * 4) * 4;
+      const x = r.x, y = FLOOR_Y - 118 + bob;
+      ctx.translate(x, y);
+      ctx.fillStyle = 'rgba(255, 214, 110, 0.95)';
+      ctx.strokeStyle = 'rgba(70, 30, 6, 0.95)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(-9, -6); ctx.lineTo(0, 4); ctx.lineTo(9, -6); ctx.lineTo(9, 0); ctx.lineTo(0, 10); ctx.lineTo(-9, 0); ctx.closePath();
+      ctx.fill(); ctx.stroke();
+      ctx.font = 'bold 8px Cinzel, serif';
+      ctx.textAlign = 'center';
+      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = 'rgba(20, 8, 0, 0.9)';
+      ctx.fillStyle = 'rgba(190, 255, 210, 0.95)';
+      ctx.strokeText('FOREST HEART', 0, -11);
+      ctx.fillText('FOREST HEART', 0, -11);
+      ctx.restore();
+      return;
+    }
+    const pulse = 1.35 + Math.sin(this.animTime * 6) * 0.08;
+    ctx.translate(g.x, g.y);
+    ctx.rotate(g.a);
+    ctx.scale(pulse, pulse);
+    // soft green glow behind, then the arrow
+    ctx.globalCompositeOperation = 'lighter';
+    const glow = ctx.createRadialGradient(0, 0, 2, 0, 0, 18);
+    glow.addColorStop(0, 'rgba(120, 255, 170, 0.35)');
+    glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(-18, -18, 36, 36);
+    ctx.globalCompositeOperation = 'source-over';
     ctx.fillStyle = 'rgba(255, 214, 110, 0.95)';
-    ctx.strokeStyle = 'rgba(90, 40, 10, 0.95)';
-    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = 'rgba(70, 30, 6, 0.95)';
+    ctx.lineWidth = 1.3;
     ctx.beginPath();
-    ctx.moveTo(-16, -5); ctx.lineTo(2, -5); ctx.lineTo(2, -12); ctx.lineTo(16, 0);
-    ctx.lineTo(2, 12); ctx.lineTo(2, 5); ctx.lineTo(-16, 5); ctx.closePath();
+    ctx.moveTo(-10, -3.5); ctx.lineTo(1, -3.5); ctx.lineTo(1, -8); ctx.lineTo(11, 0);
+    ctx.lineTo(1, 8); ctx.lineTo(1, 3.5); ctx.lineTo(-10, 3.5); ctx.closePath();
     ctx.fill(); ctx.stroke();
-    ctx.restore();
-    ctx.save();
-    ctx.font = 'bold 9px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillStyle = 'rgba(255, 230, 160, 0.95)';
-    ctx.strokeStyle = 'rgba(30, 10, 0, 0.9)';
-    ctx.lineWidth = 2.5;
-    ctx.strokeText(label, ax, ay - 16);
-    ctx.fillText(label, ax, ay - 16);
     ctx.restore();
   }
 }
