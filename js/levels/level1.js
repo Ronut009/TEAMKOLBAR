@@ -524,9 +524,11 @@ export class Level {
       if (this.doorOpenDelay > 0) {
         this.doorOpenDelay -= dt;
       } else if (this.doorOpen < 1) {
+        if (this.doorOpen === 0) Sfx.play('door_open');   // the door unlocks and starts to swing
         this.doorOpen = Math.min(1, this.doorOpen + dt / 1.4);
         this.cameraShake = Math.max(this.cameraShake, 0.2);
         if (this.doorOpen >= 1) {
+          Sfx.play('portal_open');   // it is open: the portal starts
           this.killToastText = '⚜ THE PORTAL IS OPEN ⚜';
           this.killToastTimer = 2.8;
         }

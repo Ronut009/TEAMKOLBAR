@@ -30,6 +30,8 @@ const SOUNDS = {
   mob_aggro:     { vol: 0.8, jitter: 0.06, gap: 0.12, maxOverlap: 3, overlapGain: [1, 0.6, 0.35] },   // a melee mob locks on
   mob_growl:     { vol: 0.16, loop: true, fade: 0.35, fadeOut: 0.5 },                // ...and growls, quietly, while it chases
   item_aura:     { vol: 0.5, loop: true, fade: 0.4, fadeOut: 0.9 },                                // Rakti is near a relic she needs to go on
+  door_open:     { vol: 0.8, jitter: 0.02, gap: 0.5 },                               // a door unlocks and swings open
+  portal_open:   { vol: 0.7, jitter: 0, gap: 3 },                                    // the portal behind it starts up
   item_get:      { vol: 0.8, jitter: 0, gap: 1 },                                    // Rakti takes an item she needs to go on
   stone_open:    { vol: 0.8, jitter: 0.04, gap: 0.25 },                              // a jungle stone breaks open into a platform
   stone_close:   { vol: 0.7, jitter: 0.04, gap: 0.25 },                              // it slides shut into a rock again

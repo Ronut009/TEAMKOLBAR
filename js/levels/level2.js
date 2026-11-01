@@ -544,6 +544,7 @@ export class Level2 {
   takeKey() {
     if (this.key.taken) return;
     this.key.taken = true;
+    Sfx.play('item_get');
     this.key.fly = 0;
     this.key.fromX = this.key.x;
     this.key.fromY = this.key.y;
@@ -849,6 +850,7 @@ export class Level2 {
       if (p.door1Open && this.door1.anim < 1) {
         this.door1.keyFly = Math.min(1, (this.door1.keyFly ?? 0) + dt * 1.6);
         if (this.door1.keyFly >= 1) {
+          if (this.door1.anim === 0) Sfx.play('door_open');
           this.door1.anim = Math.min(1, this.door1.anim + dt / 1.4);
           this.cameraShake = Math.max(this.cameraShake, 0.2);
           if (this.door1.anim >= 1) this.toast('⚜ THE SUN DOOR OPENS ⚜', 2.2);
@@ -902,8 +904,9 @@ export class Level2 {
       }
     }
     if (p.hordeCleared && this.door2.anim < 1) {
+      if (this.door2.anim === 0) Sfx.play('door_open');
       this.door2.anim = Math.min(1, this.door2.anim + dt / 1.6);
-      if (this.door2.anim >= 1) this.toast('⚜ THE PORTAL IS OPEN ⚜', 2.8);
+      if (this.door2.anim >= 1) { Sfx.play('portal_open'); this.toast('⚜ THE PORTAL IS OPEN ⚜', 2.8); }
     }
   }
 

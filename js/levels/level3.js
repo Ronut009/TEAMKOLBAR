@@ -311,6 +311,8 @@ export class Level3 {
     if (this.door.opening || !this.relic.collected) return;
     this.door.opening = true;
     this.door.openT = 0;
+    this.door.portalSfx = false;
+    Sfx.play('door_open');
     this.cameraShake = 0.6;
   }
 
@@ -555,7 +557,10 @@ export class Level3 {
     if (this.relic.spawned) this.relic.spawnT += dt;
     if (this.door.opening) {
       this.door.openT += dt;
-      if (this.doorOpenReady) this.cameraShake = Math.max(this.cameraShake, 0.1);
+      if (this.doorOpenReady) {
+        this.cameraShake = Math.max(this.cameraShake, 0.1);
+        if (!this.door.portalSfx) { this.door.portalSfx = true; Sfx.play('portal_open'); }   // the portal swirls into life
+      }
     }
 
     const talking = Boolean(player?.dialogueOpen);
