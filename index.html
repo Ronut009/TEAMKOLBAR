@@ -29,7 +29,7 @@
       </div>
       <img class="hud-bar-art" src="assets/ui/hud/hp_bar.png" alt="" draggable="false">
     </div>
-    <div class="hud-bar ability-bar" aria-label="X ability">
+    <div class="hud-bar ability-bar" id="abilityBar" aria-label="X ability">
       <div class="meter-track divine-track" id="divineTrack" role="progressbar" aria-label="X ability duration" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
         <span class="divine-fill" id="divineBarFill"></span>
       </div>
@@ -50,15 +50,23 @@
 
   <!-- Player 0 HP Death Screen Modal -->
   <div class="death-screen-modal sands-death" id="deathScreen">
-    <div class="death-inner">
-      <div class="death-crest">⏳</div>
-      <h1 class="death-title">FATE FRACTURED</h1>
-      <p class="death-desc">The Sands of Time recall your mortal form.</p>
-      <p class="death-flavor">Rewinding timeline to checkpoint...</p>
+    <!-- the framed card (assets/ui/card_frame.png); the old 'FATE FRACTURED' box is in js/levels/backup/index_before_framed_cards.html -->
+    <div class="framed-card death-card">
+      <div class="framed-crest">⚜</div>
+      <h1 class="framed-title death-big">IT'S NOT OVER YET</h1>
+      <div class="framed-divider"></div>
+      <p class="framed-small" id="deathSmall">Respawning at the last checkpoint</p>
+      <div class="framed-progress"><span></span></div>
     </div>
   </div>
 
   <!-- Level 4 boss health: the fill sits in the channel between the frame's two rails -->
+  <!-- Level 4 stage 1 (Pitaji, possessed): his own portrait bar; the fill sits in the pill-shaped channel -->
+  <div class="father-hud" id="fatherHud" aria-label="Pitaji health">
+    <div class="father-fill-track"><div class="father-fill-lag" id="fatherFillLag"></div><div class="father-fill" id="fatherFill"></div></div>
+    <img class="father-frame" src="assets/ui/hud/father_boss_bar.png" alt="" draggable="false">
+    <span class="father-name">PITAJI  ·  POSSESSED</span>
+  </div>
   <div class="boss-hud" id="bossHud" aria-label="Boss health">
     <div class="boss-fill-track"><div class="boss-fill-lag" id="bossFillLag"></div><div class="boss-fill" id="bossFill"></div></div>
     <img class="boss-frame" src="assets/level4/sprites/boss_bar.png" alt="" draggable="false">
@@ -103,10 +111,30 @@
       <p class="complete-subtitle" id="completeSubtitle">THE SANDS FLOW FORWARD</p>
       <div class="complete-divider"></div>
       <p class="complete-flavor" id="completeFlavor">The echoes of the temple bend to your blade.</p>
-      <p class="complete-flavor" style="color: #ffd700; margin-top: 8px;">The gate to the inner catacombs stands open.</p>
+      <p class="complete-thanks" id="completeThanks"></p>
       <div class="complete-prompt" id="completePrompt">[E] ENTER LEVEL 2  |  [R] REPLAY</div>
     </div>
   </div>
+
+  <!-- [Esc] pause menu (story and unlimited mode): the title screen's buttons; Restart asks first -->
+  <section class="pause-screen" id="pauseScreen" aria-label="Paused" aria-hidden="true">
+    <div class="pause-panel" id="pauseMain">
+      <h1 class="pause-title">PAUSED</h1>
+      <div class="pause-divider"></div>
+      <button class="menu-button" id="pauseContinue" type="button"><span>CONTINUE</span></button>
+      <button class="menu-button" id="pauseRestart" type="button"><span>RESTART</span></button>
+      <button class="menu-button" id="pauseExit" type="button"><span>EXIT TO MAIN MENU</span></button>
+      <p class="pause-hint">[ESC] RESUME</p>
+    </div>
+    <div class="pause-panel pause-confirm" id="pauseConfirm" hidden>
+      <h2 class="pause-question">ARE YOU SURE?</h2>
+      <p class="pause-warning" id="pauseConfirmText">You will go back to the start of this level. All progress in it will be lost.</p>
+      <div class="pause-confirm-row">
+        <button class="menu-button small" id="pauseYes" type="button"><span>YES</span></button>
+        <button class="menu-button small" id="pauseNo" type="button"><span>NO</span></button>
+      </div>
+    </div>
+  </section>
 
   <section class="title-screen active" id="titleScreen" aria-label="Rakti title screen">
     <div class="title-backdrop"></div>

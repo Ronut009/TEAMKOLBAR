@@ -25,6 +25,42 @@ const LEVEL_NAMES = {
 const SPEAKER_NAMES = { kali: '⚜ MAA KALI ⚜', rakti: '⚜ RAKTI ⚜', father: '⚜ PITAJI ⚜', demon: '⚜ THE ASURA ⚜' };
 const divineActiveNow = (p) => p.isDivine || p.isTransforming;
 
+// What each still portrait frame shows (v3 sheets). A dialogue line picks one with `p` (frame number);
+// lines without `p` map their old gesture `g`, or are read for tone (! ? ...) by pickPortrait().
+//  kali:   0 stern  1 speaking  2 fierce shout  3 hard glare  4 head raised (proud)  5 eyes closed (serene)
+//          6 open palm (offering)  7 finger raised (instruction)  8 hand on chest  9 palm out (stop / blessing)  10 roar  11 clawed hand (threat)
+//  rakti (armour): 0 neutral  1 speaking / surprised  2 worried  3 doubtful side-glance  4 hand on chin (thinking)  5 eyes closed, soft smile
+//          6 open palm (explaining)  7 finger raised  8 hand on chest  9 palm out (stop)  10 shocked  11 determined / angry
+//  rakti_sari: 0 neutral  1 speaking  2 worried  3 frowning  4 smiling, open hand  5 hand on chin
+//  father: 0 stern  1 speaking, angry  2 concerned  3 hard glare  4 eyes closed  5 sad / gentle
+//          6 open hand  7 finger raised  8 hand on chest  9 palm out  10 shouting  11 cold stare
+//  demon:  0 glare  1 stern  2 snarling  3 sly grin  4 head lowered, menacing  5 head thrown back
+//          6 open palm (demanding)  7 finger raised  8 hand on chest  9 palm out  10 roar  11 clawed hand
+const OLD_GESTURE_TO_FRAME = {
+  kali: { 0: 6, 1: 7, 2: 8, 3: 9, 4: 9, 5: 0, 6: 6, 7: 5 },
+  rakti: { 0: 6, 1: 7, 2: 8, 3: 2, 4: 4, 5: 6, 7: 5 },
+  rakti_sari: { 0: 4, 1: 1, 2: 2, 3: 3, 4: 5, 5: 4, 7: 0 },
+  father: { 0: 0, 9: 2, 10: 5, 11: 2, 12: 4, 13: 3, 14: 1, 15: 1 },
+  demon: { 0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 10 }
+};
+/** The still frame for a line: its explicit `p`, else its old gesture mapped, else its tone. */
+function pickPortrait(setName, gesture, text, p) {
+  const n = setName === 'rakti_sari' ? 6 : 12;
+  if (Number.isInteger(p) && p >= 0 && p < n) return p;
+  const map = OLD_GESTURE_TO_FRAME[setName];
+  if (gesture != null && map && map[gesture] != null) return map[gesture];
+  const t = String(text || '');
+  const shout = /!/.test(t) && /[A-Z]{3,}|!.*!/.test(t), excl = /!/.test(t), ask = /\?/.test(t);
+  switch (setName) {
+    case 'kali': return /\[[A-Z0-9]/.test(t) ? 7 : shout ? 2 : excl ? 1 : 6;
+    case 'rakti': return shout ? 10 : ask ? 2 : excl ? 11 : /\.\.\./.test(t) ? 4 : 0;
+    case 'rakti_sari': return ask ? 2 : excl ? 1 : /\.\.\./.test(t) ? 5 : 0;
+    case 'father': return shout ? 10 : excl ? 1 : 0;
+    case 'demon': return shout ? 10 : excl ? 2 : 3;
+    default: return 0;
+  }
+}
+
 export class Engine {
   constructor(canvas, level, player) {
     this.canvas = canvas;
@@ -81,13 +117,17 @@ export class Engine {
     this.bossFill = document.getElementById('bossFill');
     this.bossFillLag = document.getElementById('bossFillLag');
     this.bossName = document.getElementById('bossName');
+    this.fatherHud = document.getElementById('fatherHud');
+    this.fatherFill = document.getElementById('fatherFill');
+    this.fatherFillLag = document.getElementById('fatherFillLag');
     this.dialoguePortraitName = document.getElementById('dialoguePortraitName');
 
-    // Dialogue portraits: 24 frames per character (row 0 idle + blinks, row 1 talking, row 2 gestures)
-    const frames = (prefix) => Array.from({ length: 24 }, (_, i) => { const im = new Image(); im.src = `assets/portraits/${prefix}_${i}.png`; return im; });
-    this.portraitSets = { kali: frames('kali2'), rakti: frames('rakti'), rakti_sari: frames('rakti_sari'), father: Array.from({ length: 16 }, (_, i) => { const im = new Image(); im.src = `assets/portraits/father2_${i}.png`; return im; }),   // static expressions
-      // the Asura's 6 expressions: 0 glare, 1 snarl, 2 roar, 3 stern, 4 grit, 5 pained
-      demon: Array.from({ length: 6 }, (_, i) => { const im = new Image(); im.src = `assets/level4/sprites/demon_portrait_${i}.png`; return im; }) };
+    // Dialogue portraits (v3, assets/portraits/*3_N.png): still busts, one expression per line, no talking animation.
+    // The old animated sets (kali2_, rakti_, rakti_sari_, father2_, demon_portrait_) stay on disk as backups.
+    // Frames (see PORTRAIT_FRAMES below for what each one shows):
+    const still = (prefix, n) => Array.from({ length: n }, (_, i) => { const im = new Image(); im.src = `assets/portraits/${prefix}_${i}.png`; return im; });
+    this.portraitSets = { kali: still('kali3', 12), rakti: still('rakti3', 12), rakti_sari: still('rakti_sari3', 6),
+      father: still('father3', 12), demon: still('demon3', 12) };
     this.portraitAnim = 0;
     this.portraitFrame = -1;
     this.dialogueSpeaker = null;
@@ -105,6 +145,17 @@ export class Engine {
 
     // Kill Notification & Death Screen Elements
     this.deathScreen = document.getElementById('deathScreen');
+    // [Esc] pause menu: Continue / Restart (asks first) / Exit to main menu
+    this.paused = false;
+    this.pauseScreen = document.getElementById('pauseScreen');
+    this.pauseMain = document.getElementById('pauseMain');
+    this.pauseConfirm = document.getElementById('pauseConfirm');
+    const on = (id, fn) => document.getElementById(id)?.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); fn(); });
+    on('pauseContinue', () => this.resume());
+    on('pauseRestart', () => this.showRestartConfirm(true));
+    on('pauseExit', () => { this.resume(); this.returnToTitle(); });
+    on('pauseYes', () => this.restartFromStart());
+    on('pauseNo', () => this.showRestartConfirm(false));
     this.killToast = document.getElementById('killToast');
     this.killToastText = document.getElementById('killToastText');
 
@@ -341,8 +392,56 @@ export class Engine {
     this.loadingScreen?.setAttribute('aria-hidden', 'false');
   }
 
+  /** [Esc]: freeze the game and show the pause menu. */
+  pause() {
+    if (this.paused) return;
+    this.paused = true;
+    this.showRestartConfirm(false);
+    this.pauseScreen?.classList.add('active');
+    this.pauseScreen?.setAttribute('aria-hidden', 'false');
+    document.getElementById('pauseContinue')?.focus({ focusVisible: false });   // [Enter] works, no outline box
+  }
+
+  resume() {
+    this.paused = false;
+    this.pauseScreen?.classList.remove('active');
+    this.pauseScreen?.setAttribute('aria-hidden', 'true');
+    Input.keysPressed?.clear();      // the click / key that closed the menu is not also a swing or a jump
+    Input.keysDown?.clear();
+    this.lastTime = performance.now();
+  }
+
+  /** Restart asks first: true shows "Are you sure?", false goes back to the three buttons. */
+  showRestartConfirm(show) {
+    if (this.pauseMain) this.pauseMain.hidden = show;
+    if (this.pauseConfirm) this.pauseConfirm.hidden = !show;
+    const txt = document.getElementById('pauseConfirmText');
+    if (txt) txt.textContent = this.currentLevelIndex === 5
+      ? 'The unlimited arena starts over from round one. Your current run will be lost.'
+      : 'You will go back to the very start of this level. All progress in it, and its checkpoints, will be lost.';
+    document.getElementById(show ? 'pauseNo' : 'pauseContinue')?.focus({ focusVisible: false });
+  }
+
+  /** Restart (confirmed): back to the very start of the level (or round one of the arena), whatever was done. */
+  restartFromStart() {
+    const i = this.currentLevelIndex;
+    this.resume();
+    this.closeDialogue();
+    this.playerDying = false;
+    this.deathScreen?.classList.remove('active');
+    if (i === 1) {
+      // Level 1 starts with the wake-up again
+      this.prologueComplete = false;
+      this.level1.checkpointIndex = -1;
+      this.level1.abilityGranted = false;
+    }
+    this.beginLoadingTransition(i);   // freshStart(): checkpoints and story flags cleared
+  }
+
   returnToTitle() {
     this.isGameStarted = false;
+    this.paused = false;
+    this.pauseScreen?.classList.remove('active');
     this.levelCompleteModal?.classList.remove('active');
     this.closeDialogue();
     this.titleScreen?.classList.add('active');
@@ -373,6 +472,20 @@ export class Engine {
         this.startJourney();
       }
       this.updateCamera(dt);
+      return;
+    }
+
+    // [Esc] pauses (story and unlimited mode); while paused nothing moves. [Esc] again resumes (or backs out of
+    // the restart question).
+    if (this.paused) {
+      if (Input.isPressed('Escape')) {
+        if (this.pauseConfirm && !this.pauseConfirm.hidden) this.showRestartConfirm(false);
+        else this.resume();
+      }
+      return;
+    }
+    if (Input.isPressed('Escape') && !this.playerDying && !this.levelCompleted) {
+      this.pause();
       return;
     }
 
@@ -423,7 +536,7 @@ export class Engine {
 
       if (this.level.proceedToLevel4 || (
         this.level.epilogueAlpha > 0.6 &&
-        (Input.isPressed('interact') || Input.isPressed('space') || Input.isPressed('enter'))
+        (Input.isPressed('interact') || Input.isPressed('space'))
       )) {
         this.beginLoadingTransition(4);
       }
@@ -451,14 +564,13 @@ export class Engine {
       }
     }
 
-    // Unlimited mode: [Esc] leaves for the title screen
-    if (this.currentLevelIndex === 5 && Input.isPressed('Escape') && !this.dialogueActive) {
-      this.returnToTitle();
-      return;
-    }
 
-    // Restart [R]
-    if (Input.isPressed('reset') || Input.isPressed('KeyR')) {
+    // Restart [R] (from the last checkpoint): only while Rakti is fully under the player's control, never during a
+    // dialogue, a cutscene (scripted walk, wake-up, outfit change, level scenes) or a level-change fade
+    const p0 = this.player, L0 = this.level;
+    const inCutsceneNow = this.dialogueActive || p0.inputLocked || p0.isWaking || p0.isChangingOutfit || p0.autoWalkX != null
+      || Boolean(L0.pendingDialogue) || Boolean(L0.introPending) || Boolean(L0.cutscene) || (L0.screenFade || 0) > 0.05;
+    if ((Input.isPressed('reset') || Input.isPressed('KeyR')) && !inCutsceneNow) {
       this.resetGame();
       return;
     }
@@ -494,7 +606,7 @@ export class Engine {
 
     // 2. Handle [E] / [Enter] to interact, pull lever, open chest, or unlock door.
     // Z is reserved for strike so attacking near a landmark never activates it.
-    if (Input.isPressed('interact') || Input.isPressed('e') || Input.isPressed('enter')) {
+    if (Input.isPressed('interact') || (this.levelCompleted && Input.isPressed('space'))) {
       if (this.levelCompleted) {
         if (this.currentLevelIndex === 1) {
           this.beginLoadingTransition(2);
@@ -607,7 +719,7 @@ export class Engine {
       }
     } else if (Input.isPressed('cancel')) {
       if (this.dialogueActive) {
-        // Esc skips the whole conversation, but its outcome (e.g. the blessing) still happens
+        // [C] skips the whole conversation ([Esc] pauses), but its outcome (e.g. the blessing) still happens
         const c = this.convo;
         this.closeDialogue();
         c?.onDone?.();
@@ -630,16 +742,17 @@ export class Engine {
 
     // Levels can ask for a story dialogue (e.g. Level 1: Kali grants her form near the lever tower)
     const p = this.player;
-    const settled = p.isGrounded && !p.isClimbing && !p.climbTransition && !p.isTransforming && !p.isReverting
-      && !p.isCasting && !p.throwAnim && !p.inputLocked && Math.abs(p.vx) < 30 && Math.abs(p.vy) < 1;
-    if (settled) this.settledTime = (this.settledTime || 0) + dt; else this.settledTime = 0;
-    // Kali's story lines wait until Rakti is standing still on solid ground (never mid-jump or mid-climb)
+    // Story lines open as soon as Rakti is on solid ground (running is fine: she simply stops). They still wait
+    // out a jump, a climb or a transformation, which is only a moment.
+    const ready = p.isGrounded && !p.isClimbing && !p.climbTransition && !p.isTransforming && !p.isReverting
+      && !p.isCasting && !p.throwAnim && !p.inputLocked;
     const pend = this.level.pendingDialogue;
-    if (pend && !this.dialogueActive && (this.settledTime >= 0.12 || (pend.whenLocked && p.isGrounded))) {
+    if (pend && !this.dialogueActive && (ready || (pend.whenLocked && p.isGrounded))) {
       const d = pend;
       this.level.pendingDialogue = null;
+      p.vx = 0;   // she stops where she is while the line plays
       if (d.lines) this.openConversation(d.lines, d.onDone, d.title);
-      else this.openDialogue(d.text, d.speaker || 'kali', d.title, d.gesture);
+      else this.openDialogue(d.text, d.speaker || 'kali', d.title, d.gesture, d.portrait);
       if (d.flash) {
         const flash = document.getElementById('divineFlash');
         if (flash) {
@@ -678,24 +791,30 @@ export class Engine {
     if (this.currentLevelIndex === 1) {
       if (this.completeTitle) this.completeTitle.textContent = 'LEVEL 1 COMPLETE';
       if (this.completeSubtitle) this.completeSubtitle.textContent = 'DROWNED DWARAKA CLEARED';
-      if (this.completeFlavor) this.completeFlavor.textContent = '* The Pearl of the Tide hums in your hands as the portal takes you.';
+      if (this.completeFlavor) this.completeFlavor.textContent = 'The Pearl of the Tide hums in your hands as the portal takes you.';
       if (this.completePrompt) this.completePrompt.textContent = '[E] ENTER LEVEL 2  |  [R] REPLAY';
     } else if (this.currentLevelIndex === 2) {
       if (this.completeTitle) this.completeTitle.textContent = 'LEVEL 2 COMPLETE';
       if (this.completeSubtitle) this.completeSubtitle.textContent = 'THE HALL OF THE SUN IS OPEN';
-      if (this.completeFlavor) this.completeFlavor.textContent = '* The Trishul, second of the four relics, hums at your side as the portal opens onto the jungle.';
+      if (this.completeFlavor) this.completeFlavor.textContent = 'The Trishul, second of the four relics, hums at your side as the portal opens onto the jungle.';
       if (this.completePrompt) this.completePrompt.textContent = '[E] CONTINUE TO LEVEL 3  •  AUTO IN 3s';
     } else if (this.currentLevelIndex === 3) {
       if (this.completeTitle) this.completeTitle.textContent = 'LEVEL 3 COMPLETE';
       if (this.completeSubtitle) this.completeSubtitle.textContent = 'THE FOREST HEART IS RESTORED';
-      if (this.completeFlavor) this.completeFlavor.textContent = '* The jungle exhales as the portal opens onto the next trial.';
+      if (this.completeFlavor) this.completeFlavor.textContent = 'The jungle exhales as the portal opens onto the next trial.';
       if (this.completePrompt) this.completePrompt.textContent = '[E] CONTINUE TO LEVEL 4  •  AUTO IN 2s';
     } else {
-      if (this.completeTitle) this.completeTitle.textContent = 'THE TIDE IS STILL';
-      if (this.completeSubtitle) this.completeSubtitle.textContent = 'THE FOUR RELICS ARE RESTORED';
-      if (this.completeFlavor) this.completeFlavor.textContent = '* Rakti steps out of the portal as the fractured realms fall quiet.';
+      // the end of the game: the framed ending card
+      if (this.completeTitle) this.completeTitle.textContent = 'THE REALMS ARE SAVED';
+      if (this.completeSubtitle) this.completeSubtitle.textContent = 'THE FOUR RELICS ARE WHOLE  ·  THE RIFT IS SEALED';
+      if (this.completeFlavor) this.completeFlavor.textContent = 'Rakti crossed four broken realms, freed her father from the Asura and sealed the rift with Maa Kali\'s relics. The sea is calm over Dwaraka again, and the two of them are going home.';
       if (this.completePrompt) this.completePrompt.textContent = '[E] RETURN TO TITLE  |  [R] RELIVE THE FINAL TRIAL';
     }
+    const final = this.currentLevelIndex === 4;
+    // every level's card uses the same gold-framed design as the death card (the 'final' class is that frame)
+    this.levelCompleteModal.classList.add('final');
+    const thanks = document.getElementById('completeThanks');
+    if (thanks) thanks.textContent = final ? 'THANK YOU FOR PLAYING' : '';
 
     this.levelCompleteModal.classList.add('active');
   }
@@ -711,17 +830,19 @@ export class Engine {
     this.player.spawnDeathBurst();
 
     if (this.deathScreen) {
+      const small = document.getElementById('deathSmall');
+      if (small) small.textContent = this.currentLevelIndex === 5 ? 'Rising again in the arena' : 'Respawning at the last checkpoint';
       this.deathScreen.classList.add('active');
     }
 
-    // After brief dramatic pause, respawn at the exact same level and reset the map!
+    // After a short pause (long enough to read the card), respawn at the last checkpoint with full health
     setTimeout(() => {
       this.loadLevel(this.currentLevelIndex);
       this.playerDying = false;
       if (this.deathScreen) {
         this.deathScreen.classList.remove('active');
       }
-    }, 1400);
+    }, 1900);
   }
 
   updateCamera(dt) {
@@ -827,12 +948,22 @@ export class Engine {
       this.divineMeter.classList.toggle('locked', !divineUnlocked);
       this.divineMeter.classList.toggle('active', divineActive);
     }
+    // The X ability bar only appears once Rakti has been given Kali's form
+    this.abilityBarEl = this.abilityBarEl || document.getElementById('abilityBar');
+    put(this.abilityBarEl, 'shown', String(divineUnlocked), v => this.abilityBarEl?.classList.toggle('ability-hidden', v !== 'true'));
     this.hudEl.classList.toggle('divine-mode', divineActive);
 
     // Level 4 boss bar
+    // Stage 1 (Pitaji) has his own portrait bar; the Asura uses the boss bar
     const boss = this.isGameStarted ? this.level?.bossHud?.() : null;
-    put(this.bossHud, 'show', String(Boolean(boss)), v => this.bossHud?.classList.toggle('show', v === 'true'));
-    if (boss) {
+    const fatherBar = Boolean(boss && boss.father);
+    put(this.fatherHud, 'show', String(fatherBar), v => this.fatherHud?.classList.toggle('show', v === 'true'));
+    if (fatherBar) {
+      const w = `${(Math.max(0, Math.min(1, boss.ratio)) * 100).toFixed(1)}%`;
+      put(this.fatherFill, 'w', w, v => { this.fatherFill.style.width = v; this.fatherFillLag.style.width = v; });
+    }
+    put(this.bossHud, 'show', String(Boolean(boss) && !fatherBar), v => this.bossHud?.classList.toggle('show', v === 'true'));
+    if (boss && !fatherBar) {
       const w = `${(Math.max(0, Math.min(1, boss.ratio)) * 100).toFixed(1)}%`;
       put(this.bossFill, 'w', w, v => { this.bossFill.style.width = v; this.bossFillLag.style.width = v; });
       put(this.bossName, 'n', boss.name, v => { this.bossName.textContent = v; });
@@ -880,11 +1011,11 @@ export class Engine {
 
   /** One line of dialogue. speaker: 'kali', 'rakti' (portrait follows her outfit) or anything else (no portrait).
    *  gesture: 0-7 picks a gesture frame (row 3 of the portrait sheet), shown once the line has been spoken. */
-  openDialogue(text, speaker = 'stele', title = null, gesture = null) {
+  openDialogue(text, speaker = 'stele', title = null, gesture = null, portrait = null) {
     const prevSpeaker = this.dialogueActive ? this.dialogueSpeaker : null;
     this.dialogueActive = true;
     this.dialogueSpeaker = speaker;
-    this.dlg = { text, shown: 0, speaker, gesture };
+    this.dlg = { text, shown: 0, speaker, gesture, frame: pickPortrait(this.portraitSetName(speaker), gesture, text, portrait) };
     this.portraitAnim = 0;
     this.portraitFrame = -1;
     this.portraitPose = null;
@@ -920,17 +1051,20 @@ export class Engine {
     this.dialogueBox.style.display = 'block';
   }
 
+  portraitSetName(speaker) {
+    if (speaker === 'rakti') return this.player.isCivilian ? 'rakti_sari' : 'rakti';
+    return speaker;
+  }
+
   portraitSetFor(speaker) {
-    if (speaker === 'kali') return this.portraitSets.kali;
-    if (speaker === 'rakti') return this.player.isCivilian ? this.portraitSets.rakti_sari : this.portraitSets.rakti;
-    return this.portraitSets[speaker] || null;
+    return this.portraitSets[this.portraitSetName(speaker)] || null;
   }
 
   /** A sequence of lines between Kali and Rakti: [{ s: 'kali' | 'rakti', t: text, g: gesture }]. [E] steps through it. */
   openConversation(lines, onDone = null, title = null) {
     this.convo = { lines, i: 0, onDone, title };
     const l = lines[0];
-    this.openDialogue(l.t, l.s, l.title || title, l.g ?? null);
+    this.openDialogue(l.t, l.s, l.title || title, l.g ?? null, l.p ?? null);
   }
 
   updateDialogue(dt) {
@@ -947,25 +1081,8 @@ export class Engine {
     const set = this.portraitSetFor(d.speaker);
     if (!set || !this.dialoguePortraitImg) return;
     this.portraitAnim += dt;
-    // While the line types she talks (row 2); then she holds the line's gesture (row 3), or idles and blinks (row 1).
-    let f, pose;
-    if (set.length === 16) {
-      // Rakti's father: a still portrait, one expression per line
-      pose = 'idle'; f = d.gesture ?? 0;
-    } else if (set.length === 6) {
-      // the Asura: snarls and roars while speaking, then holds the line's expression (or glares)
-      if (d.shown < d.text.length) { pose = 'talk'; f = [1, 2, 1, 4][Math.floor(this.portraitAnim / 0.14) % 4]; }
-      else { pose = 'idle'; f = d.gesture ?? 0; }
-    } else if (d.shown < d.text.length) {
-      pose = 'talk';
-      f = 8 + (Math.floor(this.portraitAnim / 0.12) % 8);
-    } else if (d.gesture !== null && d.gesture !== undefined) {
-      pose = 'gesture';
-      f = 16 + d.gesture;
-    } else {
-      pose = 'idle';
-      f = Math.floor(this.portraitAnim / 0.32) % 8;
-    }
+    // Still portraits: the line's one expression for its whole length (a change of expression crossfades softly)
+    const f = d.frame ?? 0, pose = 'f' + f;
     const img = this.dialoguePortraitImg, back = this.dialoguePortraitBack;
     if (this.portraitBackTimer > 0) {   // the crossfade is over: drop the old pose
       this.portraitBackTimer -= dt;
@@ -1005,7 +1122,7 @@ export class Engine {
     if (c && c.i < c.lines.length - 1) {
       c.i++;
       const l = c.lines[c.i];
-      this.openDialogue(l.t, l.s, l.title || c.title, l.g ?? null);
+      this.openDialogue(l.t, l.s, l.title || c.title, l.g ?? null, l.p ?? null);
       return;
     }
     this.convo = null;

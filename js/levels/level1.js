@@ -19,6 +19,7 @@
 import { PlatformArt } from '../render/platformArt.js';
 import { Betal } from '../entities/betal.js';
 import { EnemySpriteSheet } from '../entities/enemySprites.js';
+import { drawShrineBeacon } from '../render/shrineBeacon.js';
 
 const BG_SCALE = 368 / 655;            // background image px -> world px (floor line at world y = 368)
 const SCREEN_W = 1926 * BG_SCALE;      // ~1082 world px per screen
@@ -65,13 +66,28 @@ const SPIKE_ART = { frameW: 68, frameH: 140, surface: 130 };
 const SPIKE_TIP_ROW = [140, 140, 125, 116, 103, 82, 51, 25, 7, 9, 7, 9, 38, 69, 96, 121];   // top row per frame
 const SPIKE_SCALE = 0.62;       // one spike ~32 world px wide, ~76 tall when up
 const SPIKE_HALF = 17;          // harmful half-width
-const SPIKE_CYCLE = 2.4;        // default seconds per cycle (the rise/up/retract part always takes 1.5 s)
+const SPIKE_CYCLE = 3.4;        // default seconds per cycle (warn/rise/up/retract always take 1.77 s)
 const SPIKE_DAMAGE = 3;
 const PIT_DAMAGE = 3;
 
-// Geysers that replace the old bridge orbs: the deep breathes up through the middle of each hibiscus span.
-// Bubbles and a glow warn first; the column then bursts ~130 px above the deck. Kali can leap over it.
-const GEYSER = { cycle: 3.4, warn: 0.85, burst: 0.75, height: 132, half: 17, damage: 3 };
+// Kali's hibiscus road (assets/level1/hibiscus/, cut from the hibiscus sheet): the deck is a chain of leaf pads
+// carpeted with blooms; side-view flowers hang from the gold swag under it; petals drift off it.
+const HIB = 'assets/level1/hibiscus/';
+const PAD_ART = { s: { w: 277, h: 101 }, m: { w: 311, h: 115 }, l: { w: 493, h: 117 } };
+const PAD_K = 0.21;          // pad image px -> world px (a large pad ~104 px long, ~25 px thick)
+const PAD_OVERLAP = 12;      // neighbouring pads overlap by this many world px
+const PAD_SURFACE = 0.42;    // the leaf's top surface sits this far down the pad image
+const PETAL_ART = { c: { w: 113, h: 57 }, d: { w: 79, h: 39 } };
+
+// Geyser art (assets/level1/geyser_sheet.png): 6 frames of 125x395; frames 4-5 are the full column (splash base
+// on row 390). The jet comes DOWN from the surface: its column (rows colTop..colBottom, tiled) is drawn from the
+// top of the screen down to the deck, where the splash (rows colBottom..frameH) lands.
+const GEYSER_ART = { src: 'assets/level1/geyser_sheet.png', frameW: 125, frameH: 395, base: 390, scale: 0.36, colTop: 60, colBottom: 290 };
+
+// Water jets that replace the old bridge orbs: the sea above pours a jet straight down onto each hibiscus span.
+// A thin shimmer from above and a ring on the deck warn first; the jet then drives down from the top of the
+// screen onto the deck, holds, and its tail follows it down. It fills the whole height: wait for it to pass.
+const GEYSER = { cycle: 3.4, warn: 0.85, burst: 0.95, half: 17, damage: 3, top: -14 };
 
 // ---------------------------------------------------------------- prologue conversation
 // s: speaker ('kali' | 'rakti' | 'voice'), t: text, g: gesture (0-7, row 3 of the portrait sheet)
@@ -79,34 +95,34 @@ const GEYSER = { cycle: 3.4, warn: 0.85, burst: 0.75, height: 132, half: 17, dam
 // Rakti gestures: 0 palm, 1 finger up, 2 hand on chest, 3 frown, 4 chin, 5 palm, 7 namaste
 const VOICE = '⚜ A VOICE FROM THE DARK ⚜';
 const PROLOGUE_WAKE = [
-  { s: 'rakti', g: 3, t: 'Where... where am I? This isn\'t home. The last thing I remember is the sky over the sea tearing open.' },
-  { s: 'rakti', t: 'Pitaji? Pitaji, can you hear me?!' },
+  { s: 'rakti', p: 2, g: 3, t: 'Where... where am I? This isn\'t home. The last thing I remember is the sky over the sea tearing open.' },
+  { s: 'rakti', p: 1, t: 'Pitaji? Pitaji, can you hear me?!' },
   { s: 'voice', title: VOICE, t: 'Rakti...' },
-  { s: 'rakti', g: 2, t: 'Who\'s there? Who said my name?' },
+  { s: 'rakti', p: 3, g: 2, t: 'Who\'s there? Who said my name?' },
   { s: 'voice', title: VOICE, t: 'Do not be afraid, child. Come to me. Follow the light, deeper into the temple.' },
-  { s: 'rakti', g: 4, t: 'That voice... it\'s coming from further in. I have to see.' }
+  { s: 'rakti', p: 5, g: 4, t: 'That voice... it\'s coming from further in. I have to see.' }
 ];
 const PROLOGUE_IDOL = [
-  { s: 'kali', g: 4, t: 'You came, Rakti. Good. You have your father\'s courage.' },
-  { s: 'rakti', g: 2, t: 'Maa Kali...? You know my father? Where is he? What is this place?' },
-  { s: 'kali', g: 0, t: 'This is Dwaraka, the city the sea swallowed long before your time. The rift that split the sky above your home pulled you down into its ruins.' },
-  { s: 'rakti', g: 3, t: 'And Pitaji?' },
-  { s: 'kali', g: 3, t: 'He came through before you. He went after the four relics, the only things that can seal the rift. His trail runs through these ruins and the lands beyond.' },
-  { s: 'rakti', g: 4, t: 'Then I\'ll follow it. Whatever it takes, I\'m bringing him home.' },
-  { s: 'kali', g: 1, t: 'Betal and Asura walk these halls now. In a sari, with bare hands, you would not last a breath.' },
-  { s: 'kali', g: 6, t: 'So take what I give you: armour, a blade, and a little of my strength. Hold still.' },
-  { s: 'rakti', g: 7, t: 'I\'m ready, Maa.' }
+  { s: 'kali', p: 6, g: 4, t: 'You came, Rakti. Good. You have your father\'s courage.' },
+  { s: 'rakti', p: 1, g: 2, t: 'Maa Kali...? You know my father? Where is he? What is this place?' },
+  { s: 'kali', p: 1, g: 0, t: 'This is Dwaraka, the city the sea swallowed long before your time. The rift that split the sky above your home pulled you down into its ruins.' },
+  { s: 'rakti', p: 2, g: 3, t: 'And Pitaji?' },
+  { s: 'kali', p: 7, g: 3, t: 'He came through before you. He went after the four relics, the only things that can seal the rift. His trail runs through these ruins and the lands beyond.' },
+  { s: 'rakti', p: 3, g: 4, t: 'Then I\'ll follow it. Whatever it takes, I\'m bringing him home.' },
+  { s: 'kali', p: 3, g: 1, t: 'Betal and Asura walk these halls now. In a sari, with bare hands, you would not last a breath.' },
+  { s: 'kali', p: 6, g: 6, t: 'So take what I give you: armour, a blade, and a little of my strength. Hold still.' },
+  { s: 'rakti', p: 0, g: 7, t: 'I\'m ready, Maa.' }
 ];
 const PROLOGUE_AFTER = [
-  { s: 'rakti', g: 2, t: 'This armour... it moves with me, as if it was always mine. And this blade is so light.' },
-  { s: 'kali', g: 1, t: 'A blade is only as good as the hand that holds it. Now comes your first test, Rakti.' },
-  { s: 'kali', g: 3, t: 'Something in the dark has smelled a mortal. A Betal. Do not run from it. Face it, and strike when it raises its blade.' },
-  { s: 'rakti', g: 3, t: 'Then let it come.' }
+  { s: 'rakti', p: 1, g: 2, t: 'This armour... it moves with me, as if it was always mine. And this blade is so light.' },
+  { s: 'kali', p: 7, g: 1, t: 'A blade is only as good as the hand that holds it. Now comes your first test, Rakti.' },
+  { s: 'kali', p: 3, g: 3, t: 'Something in the dark has smelled a mortal. A Betal. Do not run from it. Face it, and strike when it raises its blade.' },
+  { s: 'rakti', p: 11, g: 3, t: 'Then let it come.' }
 ];
 const TEST_DONE = [
-  { s: 'rakti', g: 2, t: 'I... I did it. It\'s gone.' },
-  { s: 'kali', g: 4, t: 'Well struck. That was your first test, and you met it. There will be many more.' },
-  { s: 'kali', g: 0, t: 'The first relic, the Pearl of the Tide, waits past the towers to the east. The ruins between are full of traps. Watch the floor, Rakti. I am with you.' }
+  { s: 'rakti', p: 1, g: 2, t: 'I... I did it. It\'s gone.' },
+  { s: 'kali', p: 5, g: 4, t: 'Well struck. That was your first test, and you met it. There will be many more.' },
+  { s: 'kali', p: 6, g: 0, t: 'The first relic, the Pearl of the Tide, waits past the towers to the east. The ruins between are full of traps. Watch the floor, Rakti. I am with you.' }
 ];
 
 export class Level {
@@ -128,6 +144,9 @@ export class Level {
       towers: img('assets/level1/towers_bg.jpg')      // open water behind the shrine towers (screens 5+)
     };
     this.idolImg = img(IDOL_ART.src);
+    this.hib = Object.fromEntries(['pad_s', 'pad_m', 'pad_l', 'hib_front', 'hib_side_a', 'hib_side_b', 'leaf_b', 'leaf_c', 'petal_c', 'petal_d']
+      .map((n) => [n, img(HIB + n + '.png')]));
+    this.geyserImg = img(GEYSER_ART.src);
     this.towerImgs = Object.fromEntries(Object.entries(TOWER_ART).map(([k, v]) => [k, img(v.src)]));
 
     this.platformArt = new PlatformArt('temple');
@@ -171,32 +190,27 @@ export class Level {
     ];
 
     // Pillars: `top` is where feet stand. Pit pillars use the tall art and sink into the abyss.
-    // `spin`: the pillar turns on its axis; seen edge-on it is too thin to stand on (see spinCos).
+    // `swing`: the pillar rises and sinks around `base` (like the moving piers of Levels 2 and 3) and carries Rakti.
     this.pillars = [
       { art: 'tall', cx: X(2) + 275, top: 335, scale: PIT_PILLAR_SCALE },
       { art: 'tall', cx: X(2) + 455, top: 305, scale: PIT_PILLAR_SCALE },
       { art: 'tall', cx: X(3) + 725, top: 320, scale: PIT_PILLAR_SCALE },
       { art: 'tall', cx: X(3) + 845, top: 298, scale: PIT_PILLAR_SCALE },
-      { art: 'tall', cx: X(4) + 610, top: 322, scale: PIT_PILLAR_SCALE },
-      { art: 'tall', cx: X(4) + 760, top: 290, scale: PIT_PILLAR_SCALE, spin: { period: 3.6, phase: 0 } },
-      { art: 'tall', cx: X(4) + 905, top: 318, scale: PIT_PILLAR_SCALE }
+      // the last pit: two moving pillars, out of step with each other
+      { art: 'tall', cx: X(4) + 680, top: 322, base: 322, swing: 30, period: 3.0, phase: 0, scale: PIT_PILLAR_SCALE },
+      { art: 'tall', cx: X(4) + 830, top: 306, base: 306, swing: 28, period: 3.0, phase: Math.PI, scale: PIT_PILLAR_SCALE }
     ];
 
-    // Single spikes. `x` = centre; `pillar` = index of the pillar whose cap it sits on (else the floor);
-    // `cycle` in seconds; `phase` offsets it so rows ripple or alternate instead of moving together.
+    // Single floor spikes. `x` = centre; `cycle` in seconds; `phase` offsets it so rows ripple or alternate
+    // instead of moving together. (Pillar-cap spikes were tried and removed.)
     const row = (x0, n, step, cycle, phaseOf) => Array.from({ length: n }, (_, i) => ({ x: x0 + i * step, cycle, phase: phaseOf(i) }));
     this.spikes = [
       // screen 2: a ripple of three after the first pit (each rises a beat after the one before it)
-      ...row(X(2) + 650, 3, 52, 2.2, (i) => -i * 0.28),
-      { pillar: 1, cycle: 2.4, phase: 0.6 },
+      ...row(X(2) + 650, 3, 52, 3.2, (i) => -i * 0.4),
       // screen 3: the gauntlet alternates: odd spikes are up while even ones are down; hop from gap to gap
-      ...row(X(3) + 150, 6, 60, 1.8, (i) => (i % 2) * 0.9),
-      // its pit: the two pillars' spikes alternate, so one of them is always armed
-      { pillar: 2, cycle: 2.0, phase: 0 },
-      { pillar: 3, cycle: 2.0, phase: 1.0 },
-      // screen 4: a rolling wave that runs toward Rakti (right to left), then a spike on the last pit pillar
-      ...row(X(4) + 130, 5, 58, 2.4, (i) => i * 0.3),
-      { pillar: 6, cycle: 2.6, phase: 1.3 }
+      ...row(X(3) + 150, 6, 60, 3.6, (i) => (i % 2) * 1.8),
+      // screen 4: a rolling wave that runs toward Rakti (right to left)
+      ...row(X(4) + 130, 5, 58, 3.4, (i) => i * 0.42)
     ];
 
     // Shrine room (screen 5): lever tower -> bridge -> pier -> bridge -> relic tower -> bridge -> pier -> bridge -> door tower.
@@ -247,11 +261,24 @@ export class Level {
     let seed = 7;
     const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
     for (const b of this.bridges) {
-      const span = b.x2 - b.x1, n = Math.round(span / 8.5);
-      b.blooms = Array.from({ length: n }, (_, i) => {
-        const u = (i + 0.5) / n;
-        return { x: b.x1 + u * span, y: b.y + 6 + (rnd() - 0.5) * 1.8, u, d: Math.min(u, 1 - u) * 2,
-          rot: rnd() * Math.PI * 2, size: i % 3 === 0 ? 11 : 10, shade: i % 2, from: (rnd() - 0.5) * 50, lift: 40 + rnd() * 30, landed: false };
+      // fill the span with leaf pads (large ones while there is room), then stretch them a touch to fit exactly
+      const span = b.x2 - b.x1, kinds = [];
+      let total = -PAD_OVERLAP;
+      while (total < span) {
+        const left = span - total, k = left > 130 ? 'l' : (left > 66 ? 'm' : 's');
+        kinds.push(k);
+        total += PAD_ART[k].w * PAD_K - PAD_OVERLAP;
+      }
+      if (kinds.length > 2) kinds.push(kinds.shift());   // a large pad in the middle rather than at the end
+      const fit = (span + PAD_OVERLAP * 2) / (total + PAD_OVERLAP * 2);
+      let cur = b.x1 - PAD_OVERLAP * 0.5;
+      b.blooms = kinds.map((k) => {
+        const w = PAD_ART[k].w * PAD_K * fit, h = PAD_ART[k].h * PAD_K;
+        const x = cur + w / 2;
+        cur += w - PAD_OVERLAP * fit;
+        const u = (x - b.x1) / span;
+        return { kind: k, x, y: b.y, w, h, u, d: Math.min(Math.max(u, 0), Math.max(1 - u, 0)) * 2, flip: rnd() < 0.5,
+          tilt: (rnd() - 0.5) * 0.04, rot: rnd() * Math.PI * 2, landed: false };
       });
       b.met = false;
     }
@@ -371,9 +398,8 @@ export class Level {
     const list = [];
     for (const f of this.floors) list.push({ id: 'floor', x1: f.x1, x2: f.x2, y: FLOOR_Y, oneWay: false });
     for (const p of this.pillars) {
-      if (p.spin && Math.abs(this.spinCos(p)) < 0.22) continue;   // edge-on: nothing to stand on
       const half = this.pillarHalf(p);
-      list.push({ id: p.spin ? 'spin_pillar' : 'pillar', x1: p.cx - half, x2: p.cx + half, y: Math.round(p.top), oneWay: false });
+      list.push({ id: 'pillar', x1: p.cx - half, x2: p.cx + half, y: p.swing ? p.top : Math.round(p.top), oneWay: false });
     }
     for (const l of this.ledges) list.push({ ...l, oneWay: true });
     for (const q of this.piers) list.push({ id: 'pier', x1: q.x1, x2: q.x2, y: q.top, oneWay: false });
@@ -384,13 +410,7 @@ export class Level {
   }
 
   pillarHalf(p) {
-    const half = PILLAR_ART[p.art].w * pillarScale(p) * 0.4;   // the cap is a little narrower than the base
-    return p.spin ? half * Math.max(0.06, Math.abs(this.spinCos(p))) : half;
-  }
-
-  /** A spinning pillar turns on its vertical axis: cos of its angle (1 = face on, 0 = edge on). */
-  spinCos(p) {
-    return Math.cos((this.animTime / p.spin.period + p.spin.phase) * Math.PI * 2);
+    return PILLAR_ART[p.art].w * pillarScale(p) * 0.4;   // the cap is a little narrower than the base
   }
 
   checkPlatformLanding(prevY, currY, x, droppingThrough = false, isDivine = false) {
@@ -471,6 +491,7 @@ export class Level {
     if (this.idolGlow > 0) this.idolGlow = Math.max(0, this.idolGlow - dt * 0.5);
     if (this.screenFade > 0) this.screenFade = Math.max(0, this.screenFade - dt * 0.55);
     this.updatePrologueScene(player);
+    this.updateMovingPillars(playerX, playerY, player);
 
     // Lever pull, then Kali's flower bridges bloom from both towers and meet in the middle
     if (this.lever.activated) {
@@ -538,14 +559,15 @@ export class Level {
       if (cp.id === 'pier' || String(cp.id).startsWith('tower_')) this.lastSafeLedge = { x: Math.max(cp.x1 + 14, Math.min(cp.x2 - 14, playerX)) };
     }
 
-    // Single spikes (floor and pillar caps)
+    // Single floor spikes
     for (const sp of this.spikes) {
       const st = this.spikeState(sp);
       if (!st.harmful) continue;
       const { x, y } = this.spikeBase(sp);
       if (Math.abs(playerX - x) < SPIKE_HALF && playerY >= y - st.reach && playerY <= y + 6 && player.invulnerableTimer <= 0) {
-        const away = playerX < x ? -1 : 1;
-        player.takeDamage(SPIKE_DAMAGE, away * 150, -340);
+        // a hit throws her back the way she came (a real shove, not cancelled by running)
+        const away = Math.abs(player.vx) > 20 ? -Math.sign(player.vx) : (playerX < x ? -1 : 1);
+        player.takeDamage(SPIKE_DAMAGE, away * 270, -300, 0.38);
         this.cameraShake = Math.max(this.cameraShake, 0.4);
       }
     }
@@ -627,64 +649,81 @@ export class Level {
     }
   }
 
-  /** One spike's cycle: hidden (only its vent shows), tips peek 0.3 s, rise 0.16 s, up 0.7 s, retract 0.34 s.
+  /** Moving pit pillars rise and sink; standing on one carries Rakti with it. */
+  updateMovingPillars(playerX, playerY, player) {
+    for (const p of this.pillars) {
+      if (!p.swing) continue;
+      const prev = p.top;
+      p.top = p.base + Math.sin((this.animTime * Math.PI * 2) / p.period + p.phase) * p.swing;
+      if (player && player.isGrounded && Math.abs(playerX - p.cx) <= this.pillarHalf(p) + 2 && Math.abs(playerY - prev) < 3) {
+        player.y = p.top;
+        if (player.currentPlatform && player.currentPlatform.id === 'pillar') player.currentPlatform.y = p.top;
+      }
+    }
+  }
+
+  /** One spike's cycle: hidden (only its vent shows), tips peek 0.45 s, rise 0.28 s, up 0.7 s, retract 0.34 s.
    *  Returns the sheet frame (-1 = hidden), whether it hurts, and how high its tip stands above the base. */
   spikeState(sp) {
-    const cycle = sp.cycle || SPIKE_CYCLE, down = cycle - 1.5;
+    const cycle = sp.cycle || SPIKE_CYCLE, down = cycle - 1.77;
     const t = (((this.animTime + sp.phase) % cycle) + cycle) % cycle;
     let frame;
     if (t < down) frame = -1;
-    else if (t < down + 0.3) frame = 2 + (Math.floor((t - down) / 0.1) % 2);
-    else if (t < down + 0.46) frame = 4 + Math.min(3, Math.floor((t - down - 0.3) / 0.04));
-    else if (t < down + 1.16) frame = 8 + (Math.floor((t - down - 0.46) / 0.1) % 4);
-    else frame = 12 + Math.min(3, Math.floor((t - down - 1.16) / 0.085));
+    else if (t < down + 0.45) frame = 2 + (Math.floor((t - down) / 0.15) % 2);
+    else if (t < down + 0.73) frame = 4 + Math.min(3, Math.floor((t - down - 0.45) / 0.07));
+    else if (t < down + 1.43) frame = 8 + (Math.floor((t - down - 0.73) / 0.1) % 4);
+    else frame = 12 + Math.min(3, Math.floor((t - down - 1.43) / 0.085));
     const reach = frame < 0 ? 0 : (SPIKE_ART.surface - SPIKE_TIP_ROW[frame]) * SPIKE_SCALE;
     return { frame, reach, harmful: reach > 16 };
   }
 
-  /** Where a spike stands: on the floor, or on the cap of its pillar. */
+  /** Where a spike stands (all on the floor now). */
   spikeBase(sp) {
-    if (sp.pillar != null) { const p = this.pillars[sp.pillar]; return { x: p.cx, y: p.top }; }
     return { x: sp.x, y: FLOOR_Y };
   }
 
-  /** Geyser cycle: calm, then bubbles and a glow (warn), then the burst. e = 0..1 column height. */
+  /** Jet cycle: calm, warn, then the jet. While it pours, `head` is its leading (lower) end and `tail` its upper
+   *  end in world y: the head drives down from the top to the deck, then the tail follows it down. */
   geyserState(g) {
     const t = (this.animTime + g.phase) % GEYSER.cycle;
     const calm = GEYSER.cycle - GEYSER.warn - GEYSER.burst;
-    if (t < calm) return { stage: 'calm', e: 0, k: t / calm };
-    if (t < calm + GEYSER.warn) return { stage: 'warn', e: 0, k: (t - calm) / GEYSER.warn };
+    if (t < calm) return { stage: 'calm', k: t / calm };
+    if (t < calm + GEYSER.warn) return { stage: 'warn', k: (t - calm) / GEYSER.warn };
     const k = (t - calm - GEYSER.warn) / GEYSER.burst;
-    const e = k < 0.15 ? k / 0.15 : (k > 0.8 ? Math.max(0, (1 - k) / 0.2) : 1);
-    return { stage: 'burst', e, k };
+    const deck = this.bridges[g.bridge].y + 8, top = GEYSER.top;
+    const ease = (u) => 1 - (1 - u) * (1 - u);
+    const head = top + (deck + 4 - top) * ease(Math.min(1, k / 0.26));
+    const tail = k > 0.78 ? top + (deck + 4 - top) * Math.min(1, (k - 0.78) / 0.22) : top;
+    return { stage: 'burst', k, head, tail, landed: k >= 0.26 };
   }
 
   updateGeysers(dt, player) {
     if (this.bridgeGrow < 1) return;
     for (const g of this.geysers) {
       const st = this.geyserState(g), by = this.bridges[g.bridge].y;
-      // bubbles rise from the deep, thickest while it is about to blow
-      const rate = st.stage === 'warn' ? 26 : (st.stage === 'burst' ? 10 : 2.5);
+      // motes drift down the line of the coming jet, thickest just before it pours
+      const rate = st.stage === 'warn' ? 22 : (st.stage === 'burst' ? 8 : 1.5);
       if (this.inView(g.x - 40, g.x + 40) && Math.random() < rate * dt && this.bubbles.length < 160) {
-        this.bubbles.push({ x: g.x + (Math.random() - 0.5) * 22, y: SCREEN_H + 4, vy: -(60 + Math.random() * 70) * (st.stage === 'warn' ? 1.6 : 1),
-          r: 1 + Math.random() * 2.2, top: by + 6, seed: Math.random() * 6 });
+        this.bubbles.push({ x: g.x + (Math.random() - 0.5) * 18, y: GEYSER.top, vy: (90 + Math.random() * 90) * (st.stage === 'warn' ? 1.5 : 1),
+          r: 0.8 + Math.random() * 1.8, bottom: by + 4, seed: Math.random() * 6 });
       }
-      if (st.stage === 'burst' && !g.burstSeen) {
+      // where it lands on the deck: a burst of petals and spray
+      if (st.stage === 'burst' && st.landed && !g.burstSeen) {
         g.burstSeen = true;
-        for (let k = 0; k < 10; k++) this.spawnPetal(g.x + (Math.random() - 0.5) * 24, by - 4, (Math.random() - 0.5) * 120, -120 - Math.random() * 120);
+        this.cameraShake = Math.max(this.cameraShake, 0.15);
+        for (let k = 0; k < 12; k++) this.spawnPetal(g.x + (Math.random() - 0.5) * 24, by - 2, (Math.random() - 0.5) * 160, -60 - Math.random() * 90);
       }
       if (st.stage !== 'burst') g.burstSeen = false;
-      // the burst throws Rakti up and away
-      if (st.stage === 'burst' && st.e > 0.3 && player && !player.isDead && player.invulnerableTimer <= 0) {
-        const top = by - GEYSER.height * st.e;
-        if (Math.abs(player.x - g.x) < GEYSER.half && player.y > top && player.y - 60 < SCREEN_H) {
-          player.takeDamage(GEYSER.damage, Math.sign(player.x - g.x || 1) * 190, -360);
+      // anything under the jet is struck and thrown aside
+      if (st.stage === 'burst' && player && !player.isDead && player.invulnerableTimer <= 0) {
+        if (Math.abs(player.x - g.x) < GEYSER.half && player.y - 64 < st.head && player.y > st.tail) {
+          player.takeDamage(GEYSER.damage, Math.sign(player.x - g.x || 1) * 230, -170);
           this.cameraShake = Math.max(this.cameraShake, 0.35);
         }
       }
     }
-    for (const q of this.bubbles) { q.y += q.vy * dt; q.x += Math.sin(q.y * 0.08 + q.seed) * 10 * dt; }
-    this.bubbles = this.bubbles.filter((q) => q.y > q.top - 70);
+    for (const q of this.bubbles) { q.y += q.vy * dt; q.x += Math.sin(q.y * 0.08 + q.seed) * 8 * dt; }
+    this.bubbles = this.bubbles.filter((q) => q.y < q.bottom);
   }
 
   // ======================================================================== rendering
@@ -876,7 +915,6 @@ export class Level {
     const c = this.cachedArt(`pillar:${p.art}:${sc}`, w, h, im.complete && im.naturalWidth > 0, (g) => g.drawImage(im, 0, 0, w, h));
     if (!c) return;
     const top = p.top - art.surface * sc;
-    if (p.spin) { this.drawSpinningPillar(ctx, p, c, w, h, top); return; }
     ctx.save();
     if (p.art === 'medium') {
       // only the part above the floor's bottom edge is visible while it rises
@@ -885,44 +923,6 @@ export class Level {
       ctx.clip();
     }
     ctx.drawImage(c, p.cx - w / 2, top, w, h);
-    ctx.restore();
-  }
-
-  /** A pillar turning on its vertical axis: squeezed by |cos|, mirrored when its back comes round, darker
-   *  edge-on, with a gold glint sweeping across its face and a ring of light on the cap while it is safe. */
-  drawSpinningPillar(ctx, p, c, w, h, top) {
-    const cs = this.spinCos(p), k = Math.max(0.06, Math.abs(cs));
-    const ang = (this.animTime / p.spin.period + p.spin.phase) * Math.PI * 2;
-    const dark = this.cachedArt(`pillarDark:${p.art}:${pillarScale(p)}`, w, h, true, (g) => {
-      g.drawImage(c, 0, 0, w, h);
-      g.globalCompositeOperation = 'source-atop';
-      g.fillStyle = 'rgb(4, 10, 28)';
-      g.fillRect(0, 0, w, h);
-    });
-    ctx.save();
-    ctx.translate(p.cx, 0);
-    ctx.scale(cs < 0 ? -k : k, 1);
-    ctx.drawImage(c, -w / 2, top, w, h);
-    ctx.globalAlpha = (1 - k) * 0.65;
-    ctx.drawImage(dark, -w / 2, top, w, h);
-    ctx.restore();
-    // glint sweeping across the face as it turns
-    const gx = p.cx + Math.sin(ang) * (w * k * 0.42);
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    const gl = ctx.createLinearGradient(gx - 5, 0, gx + 5, 0);
-    gl.addColorStop(0, 'rgba(255, 220, 140, 0)');
-    gl.addColorStop(0.5, `rgba(255, 220, 140, ${0.35 * k})`);
-    gl.addColorStop(1, 'rgba(255, 220, 140, 0)');
-    ctx.fillStyle = gl;
-    ctx.fillRect(gx - 5, p.top + 6, 10, SCREEN_H - p.top);
-    // cap ring: gold while there is room to stand, red as it turns edge-on
-    const safe = k >= 0.22;
-    ctx.strokeStyle = safe ? `rgba(255, 214, 110, ${0.25 + 0.4 * k})` : 'rgba(255, 70, 60, 0.75)';
-    ctx.lineWidth = 1.4;
-    ctx.beginPath();
-    ctx.ellipse(p.cx, p.top + 1, this.pillarHalf(p) + 4, 3, 0, 0, Math.PI * 2);
-    ctx.stroke();
     ctx.restore();
   }
 
@@ -948,86 +948,80 @@ export class Level {
     ctx.drawImage(c, x - w / 2, y - SPIKE_ART.surface * s + 1, w, h);
   }
 
-  /** Geysers: bubbles always; while warning a cold glow swells under the deck; the burst is a wobbling white-cyan
-   *  column with a foam crown. 'under' = behind the bridge (glow, bubbles), 'over' = the column in front of it. */
+  /** Water jets. 'under' (behind the bridge): the falling motes. 'over': while warning a thin shimmer from above and
+   *  a ring where it will land; while pouring the jet itself, its column tiled from the sprite between its tail and
+   *  head, a bright leading edge on the way down and the sprite's splash once it hits the deck. */
   renderGeysers(ctx, pass) {
     if (this.bridgeGrow < 1) return;
     ctx.save();
     if (pass === 'under') {
       ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = 'rgba(190, 240, 255, 0.6)';
       for (const q of this.bubbles) {
         if (!this.inView(q.x - 4, q.x + 4)) continue;
-        ctx.strokeStyle = 'rgba(190, 240, 255, 0.55)';
-        ctx.lineWidth = 0.8;
-        ctx.beginPath(); ctx.arc(q.x, q.y, q.r, 0, Math.PI * 2); ctx.stroke();
-      }
-      for (const g of this.geysers) {
-        const st = this.geyserState(g), by = this.bridges[g.bridge].y;
-        if (st.stage !== 'warn' || !this.inView(g.x - 50, g.x + 50)) continue;
-        const a = 0.25 + 0.45 * st.k + 0.1 * Math.sin(this.animTime * 30);
-        const gr = ctx.createRadialGradient(g.x, by + 8, 2, g.x, by + 8, 34 + 16 * st.k);
-        gr.addColorStop(0, `rgba(170, 245, 255, ${a})`);
-        gr.addColorStop(1, 'rgba(0, 60, 120, 0)');
-        ctx.fillStyle = gr;
-        ctx.fillRect(g.x - 52, by - 44, 104, 104);
+        ctx.fillRect(q.x - q.r / 2, q.y - q.r * 1.5, q.r, q.r * 3);   // streaks falling with the current
       }
       ctx.restore();
       return;
     }
+    const im = this.geyserImg, A = GEYSER_ART, s = A.scale;
+    const ready = im.complete && im.naturalWidth > 0;
+    const w = A.frameW * s;
     for (const g of this.geysers) {
-      const st = this.geyserState(g), by = this.bridges[g.bridge].y;
-      if (st.stage !== 'burst' || st.e <= 0 || !this.inView(g.x - 40, g.x + 40)) continue;
-      const top = by - GEYSER.height * st.e, bottom = SCREEN_H + 4;
-      const half = GEYSER.half * (0.7 + 0.3 * st.e);
-      // body: wobbling edges built from a few sine waves
+      const st = this.geyserState(g), by = this.bridges[g.bridge].y, deck = by + 8;
+      if (!this.inView(g.x - 40, g.x + 40)) continue;
+      if (st.stage === 'warn') {
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        const a = 0.12 + 0.3 * st.k + 0.06 * Math.sin(this.animTime * 26);
+        const line = ctx.createLinearGradient(0, GEYSER.top, 0, deck);
+        line.addColorStop(0, `rgba(170, 245, 255, ${a})`);
+        line.addColorStop(1, `rgba(170, 245, 255, ${a * 0.4})`);
+        ctx.fillStyle = line;
+        const lw = 2 + 6 * st.k;
+        ctx.fillRect(g.x - lw / 2, GEYSER.top, lw, deck - GEYSER.top);
+        ctx.strokeStyle = `rgba(190, 250, 255, ${0.35 + 0.5 * st.k})`;
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.ellipse(g.x, by + 2, 10 + 10 * st.k, 3 + 2 * st.k, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+        continue;
+      }
+      if (st.stage !== 'burst' || !ready || st.head <= st.tail) continue;
+      const f = Math.floor(this.animTime / 0.09) % 2 ? 5 : 4;
+      const colH = (A.colBottom - A.colTop) * s, splashH = (A.frameH - A.colBottom) * s;
+      const tile = this.cachedArt('jetcol:' + f, w, colH, true,
+        (gg) => gg.drawImage(im, f * A.frameW, A.colTop, A.frameW, A.colBottom - A.colTop, 0, 0, w, colH));
+      const splash = this.cachedArt('jetsplash:' + f, w, splashH, true,
+        (gg) => gg.drawImage(im, f * A.frameW, A.colBottom, A.frameW, A.frameH - A.colBottom, 0, 0, w, splashH));
+      const splashTop = deck - (A.base - A.colBottom) * s;
+      ctx.save();
       ctx.beginPath();
-      const steps = 18;
-      for (let i = 0; i <= steps; i++) {
-        const y = top + (bottom - top) * (i / steps);
-        const wob = Math.sin(y * 0.09 + this.animTime * 14) * 2.2 + Math.sin(y * 0.031 - this.animTime * 9) * 1.6;
-        ctx.lineTo(g.x - half - wob, y);
+      ctx.rect(g.x - w, st.tail, w * 2, st.head - st.tail);
+      ctx.clip();
+      for (let pass2 = 0; pass2 < 2; pass2++) {
+        // a normal pass, then an additive one so it glows
+        ctx.globalCompositeOperation = pass2 ? 'lighter' : 'source-over';
+        ctx.globalAlpha = pass2 ? 0.35 : 1;
+        // the column, tiled upward from where the splash begins (scrolling down, so the water reads as falling)
+        const scroll = (this.animTime * 260) % colH;
+        for (let y = splashTop - colH + scroll; y > GEYSER.top - colH; y -= colH) ctx.drawImage(tile, g.x - w / 2, y, w, colH);
+        if (st.landed) ctx.drawImage(splash, g.x - w / 2, splashTop, w, splashH);
       }
-      for (let i = steps; i >= 0; i--) {
-        const y = top + (bottom - top) * (i / steps);
-        const wob = Math.sin(y * 0.07 - this.animTime * 12) * 2.2 + Math.sin(y * 0.043 + this.animTime * 8) * 1.6;
-        ctx.lineTo(g.x + half + wob, y);
+      ctx.restore();
+      // the leading edge while it drives down
+      if (!st.landed) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        const gl = ctx.createRadialGradient(g.x, st.head, 1, g.x, st.head, 22);
+        gl.addColorStop(0, 'rgba(235, 255, 255, 0.95)');
+        gl.addColorStop(0.4, 'rgba(120, 220, 255, 0.5)');
+        gl.addColorStop(1, 'rgba(0, 80, 160, 0)');
+        ctx.fillStyle = gl;
+        ctx.fillRect(g.x - 24, st.head - 24, 48, 48);
+        ctx.restore();
       }
-      ctx.closePath();
-      const body = ctx.createLinearGradient(g.x - half, 0, g.x + half, 0);
-      body.addColorStop(0, 'rgba(90, 200, 255, 0.35)');
-      body.addColorStop(0.35, 'rgba(210, 250, 255, 0.85)');
-      body.addColorStop(0.5, 'rgba(255, 255, 255, 0.95)');
-      body.addColorStop(0.65, 'rgba(210, 250, 255, 0.85)');
-      body.addColorStop(1, 'rgba(90, 200, 255, 0.35)');
-      ctx.fillStyle = body;
-      ctx.fill();
-      // streaks rushing up the column
-      ctx.strokeStyle = 'rgba(120, 210, 255, 0.6)';
-      ctx.lineWidth = 1;
-      for (let i = 0; i < 5; i++) {
-        const sx = g.x - half * 0.6 + (i / 4) * half * 1.2;
-        const sy = bottom - ((this.animTime * 420 + i * 61) % (bottom - top));
-        ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx, Math.max(top, sy - 18)); ctx.stroke();
-      }
-      // foam crown
-      ctx.fillStyle = 'rgba(240, 255, 255, 0.9)';
-      for (let i = 0; i < 9; i++) {
-        const a = (i / 8) * Math.PI;
-        const r = 3 + (i % 3);
-        const fx = g.x - Math.cos(a) * (half + 4) + Math.sin(this.animTime * 20 + i) * 1.5;
-        const fy = top + 2 - Math.sin(a) * 7 + Math.cos(this.animTime * 17 + i * 2) * 1.5;
-        ctx.beginPath(); ctx.arc(fx, fy, r, 0, Math.PI * 2); ctx.fill();
-      }
-      // spray where it punches through the deck
-      ctx.fillStyle = 'rgba(200, 245, 255, 0.8)';
-      for (let i = 0; i < 8; i++) {
-        const u = ((this.animTime * 2.4 + i / 8) % 1);
-        const dir = i % 2 ? 1 : -1;
-        const px = g.x + dir * (half + u * 34), py = by - 6 - Math.sin(u * Math.PI) * 26;
-        ctx.globalAlpha = 1 - u;
-        ctx.beginPath(); ctx.arc(px, py, 1.6, 0, Math.PI * 2); ctx.fill();
-      }
-      ctx.globalAlpha = 1;
     }
     ctx.restore();
   }
@@ -1045,6 +1039,11 @@ export class Level {
     ctx.restore();
     if (!rl.complete || rl.naturalWidth === 0) return;
     const relicH = this.relicW * (181 / 176);
+    // like the Trishul's shrine in Level 2: light falls on it, and a marker shows it once the lever has freed it
+    if (!this.relic.collected && this.inView(this.relic.x - 60, this.relic.x + 60)) {
+      drawShrineBeacon(ctx, { x: this.relic.x, baseY: this.shrineSillY - shrineH + 4, relicY: this.relicFloatY, relicH,
+        t: this.animTime, rgb: '160, 255, 240', marker: this.lever.activated, shaftH: 70 });
+    }
     let rx = this.relic.x;
     let ry = this.relicFloatY + Math.sin(this.animTime * 2.4) * 2;
     let alpha = 1, size = 1;
@@ -1212,7 +1211,7 @@ export class Level {
         for (const f of b.blooms) {
           if (!f.landed && this.bloomProgress(f) >= 0.98) {
             f.landed = true;
-            for (let k = 0; k < 2; k++) this.spawnPetal(f.x, f.y - 2, (Math.random() - 0.5) * 50, -30 - Math.random() * 30);
+            for (let k = 0; k < 4; k++) this.spawnPetal(f.x + (Math.random() - 0.5) * f.w * 0.8, f.y - 2, (Math.random() - 0.5) * 50, -30 - Math.random() * 30);
           }
         }
         // the two halves meet: a flash and a ring of petals
@@ -1251,51 +1250,24 @@ export class Level {
       seed: Math.random() * 6, gold: Math.random() < 0.25 });
   }
 
-  /** One hibiscus bloom (Kali's flower), painted once into a cache: five ruffled crimson petals with dark veins,
-   *  a deep red eye and the long gold-tipped stamen. */
-  bloomArt(size, shade) {
-    const R = size;
-    return this.cachedArt(`hibiscus:${size}:${shade}`, R * 2 + 4, R * 2 + 4, true, (g) => {
-      g.translate(R + 2, R + 2);
-      const mid = shade ? '#c40f2c' : '#d81b34', edge = shade ? '#ff5a62' : '#ff6f6a';
-      for (let i = 0; i < 5; i++) {
-        g.save();
-        g.rotate((i / 5) * Math.PI * 2);
-        const grad = g.createLinearGradient(0, 0, 0, -R);
-        grad.addColorStop(0, '#4a0010');
-        grad.addColorStop(0.35, mid);
-        grad.addColorStop(1, edge);
-        g.fillStyle = grad;
-        g.beginPath();
-        g.moveTo(0, 0);
-        g.bezierCurveTo(-R * 0.62, -R * 0.25, -R * 0.78, -R * 0.82, -R * 0.3, -R * 0.98);
-        g.quadraticCurveTo(-R * 0.1, -R * 0.86, 0, -R * 1.0);
-        g.quadraticCurveTo(R * 0.12, -R * 0.88, R * 0.32, -R * 0.97);
-        g.bezierCurveTo(R * 0.8, -R * 0.8, R * 0.6, -R * 0.24, 0, 0);
-        g.fill();
-        g.strokeStyle = 'rgba(70, 0, 14, 0.55)';
-        g.lineWidth = R * 0.05;
-        g.beginPath();
-        g.moveTo(0, -R * 0.15); g.lineTo(0, -R * 0.78);
-        g.moveTo(0, -R * 0.3); g.lineTo(-R * 0.22, -R * 0.7);
-        g.moveTo(0, -R * 0.3); g.lineTo(R * 0.22, -R * 0.7);
-        g.stroke();
-        g.restore();
-      }
-      const eye = g.createRadialGradient(0, 0, 0, 0, 0, R * 0.38);
-      eye.addColorStop(0, '#2a0008');
-      eye.addColorStop(1, 'rgba(90, 0, 20, 0)');
-      g.fillStyle = eye;
-      g.beginPath(); g.arc(0, 0, R * 0.38, 0, Math.PI * 2); g.fill();
-      // the stamen column with its golden pollen tip
-      g.strokeStyle = '#ffd36b';
-      g.lineWidth = R * 0.09;
-      g.beginPath(); g.moveTo(0, 0); g.lineTo(R * 0.45, -R * 0.55); g.stroke();
-      g.fillStyle = '#ffe9a0';
-      for (const [dx, dy] of [[0.45, -0.6], [0.52, -0.5], [0.38, -0.66], [0.56, -0.62]]) {
-        g.beginPath(); g.arc(R * dx, R * dy, R * 0.07, 0, Math.PI * 2); g.fill();
-      }
+  /** A leaf pad of the hibiscus road, pre-scaled (and mirrored for variety). */
+  padArt(f) {
+    const im = this.hib['pad_' + f.kind];
+    return this.cachedArt(`pad:${f.kind}:${f.flip ? 1 : 0}:${Math.round(f.w)}`, f.w, f.h, im.complete && im.naturalWidth > 0, (g) => {
+      if (f.flip) { g.translate(f.w, 0); g.scale(-1, 1); }
+      g.drawImage(im, 0, 0, f.w, f.h);
     });
+  }
+
+  /** A hibiscus-sheet sprite scaled to `size` world px on its longer side; the cache canvas carries .w/.h. */
+  hibArt(name, size) {
+    const im = this.hib[name];
+    if (!im || !im.complete || !im.naturalWidth) return null;
+    const k = size / Math.max(im.naturalWidth, im.naturalHeight);
+    const w = im.naturalWidth * k, h = im.naturalHeight * k;
+    const c = this.cachedArt(`hib:${name}:${size}`, w, h, true, (g) => g.drawImage(im, 0, 0, w, h));
+    if (c) { c.w = w; c.h = h; }
+    return c;
   }
 
   /** Kali's flower bridges. While the lever's call plays out, crimson fire flares at both towers and the blooms
@@ -1366,28 +1338,34 @@ export class Level {
             const by = (1 - t) * (1 - t) * (y + 9) + 2 * (1 - t) * t * (y + 9 + sag * 2) + t * t * (y + 9);
             ctx.beginPath(); ctx.arc(bx, by, 1.4, 0, Math.PI * 2); ctx.fill();
           }
-          const hb = this.bloomArt(5, k % 2);
-          if (hb) ctx.drawImage(hb, (x0 + x1) / 2 - 7, y + 9 + sag - 7 + 3, 14, 14);
+          // a side-view hibiscus hanging at its lowest point, a leaf where the bays meet
+          const hb = this.hibArt(k % 2 ? 'hib_side_a' : 'hib_side_b', 15);
+          if (hb) {
+            ctx.save();
+            ctx.translate((x0 + x1) / 2, y + 9 + sag + 2);
+            ctx.rotate(Math.PI * 0.5 + Math.sin(this.animTime * 1.4 + k) * 0.12);   // hanging head-down
+            ctx.drawImage(hb, -hb.w / 2, -hb.h / 2, hb.w, hb.h);
+            ctx.restore();
+          }
+          const lf = this.hibArt('leaf_c', 9);
+          if (lf && k > 0) ctx.drawImage(lf, x0 - 4, y + 7, lf.w, lf.h);
         }
         ctx.restore();
       }
-      // the blooms
+      // the leaf pads: each unfurls up out of the water at its place, ends first and the middle last
       for (const f of b.blooms) {
         const p = this.bloomProgress(f);
         if (p <= 0) continue;
         const e = 1 - Math.pow(1 - p, 3);
-        const fromX = (f.u < 0.5 ? b.x1 : b.x2) + f.from;
-        const x = fromX + (f.x - fromX) * e;
-        const yy = f.y - f.lift * (1 - e) + Math.sin(this.animTime * 2 + f.rot) * (p >= 1 ? 0.6 : 0);
-        const over = p < 1 ? 0.3 + 0.7 * e + Math.sin(p * Math.PI) * 0.25 : 1 + 0.03 * Math.sin(this.animTime * 2.2 + f.rot);
-        const art = this.bloomArt(f.size, f.shade);
+        const art = this.padArt(f);
         if (!art) continue;
-        const R = f.size + 2;
+        const over = p < 1 ? 0.25 + 0.75 * e + Math.sin(p * Math.PI) * 0.12 : 1;
+        const bob = p >= 1 ? Math.sin(this.animTime * 1.8 + f.rot) * 0.5 : 0;
         ctx.save();
-        ctx.translate(x, yy);
-        ctx.rotate(f.rot + (1 - e) * 5);
-        ctx.scale(over, over * 0.7);   // seen a little from the side: the deck is a flat carpet of flowers
-        ctx.drawImage(art, -R, -R, R * 2, R * 2);
+        ctx.translate(f.x, f.y + 34 * (1 - e) + bob);
+        ctx.rotate(f.tilt + (1 - e) * (f.u < 0.5 ? -0.5 : 0.5));
+        ctx.scale(over, over);
+        ctx.drawImage(art, -f.w / 2, -f.h * PAD_SURFACE, f.w, f.h);
         ctx.restore();
       }
       // where the halves meet: a flash
@@ -1413,10 +1391,14 @@ export class Level {
         ctx.globalAlpha = Math.min(1, q.life / 0.5) * (ghost ? 0.3 : 1);
         ctx.translate(q.x, q.y);
         ctx.rotate(q.rot);
-        ctx.fillStyle = q.gold ? '#ffd36b' : '#e0263c';
-        ctx.beginPath();
-        ctx.ellipse(0, 0, 2.6, 1.3, 0, 0, Math.PI * 2);
-        ctx.fill();
+        const pa = q.gold ? null : this.hibArt(q.seed > 3 ? 'petal_c' : 'petal_d', q.seed > 3 ? 7 : 5);
+        if (pa) ctx.drawImage(pa, -pa.w / 2, -pa.h / 2, pa.w, pa.h);
+        else {
+          ctx.fillStyle = '#ffd36b';
+          ctx.beginPath();
+          ctx.ellipse(0, 0, 2.2, 1.1, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
         ctx.restore();
       }
     }

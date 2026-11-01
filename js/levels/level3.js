@@ -18,6 +18,7 @@
 import { PlatformArt } from '../render/platformArt.js';
 import { Betal } from '../entities/betal.js';
 import { EnemySpriteSheet } from '../entities/enemySprites.js';
+import { drawShrineBeacon } from '../render/shrineBeacon.js';
 
 // Backgrounds (v2) are 2171 x 724; the sunlit floor line sits at image y = 588, the roots band below it
 // reaches past the bottom of the view. (The old 2000 x 585 jungle_a/b.jpg are kept as backups.)
@@ -925,6 +926,8 @@ export class Level3 {
     let alpha = Math.min(1, r.spawnT / 1.0);
     if (r.collected) alpha *= 1 - Math.min(1, r.fly * 1.6);
     const near = Math.abs(this.px - r.x) < 110 ? 1 : 0.45;
+    // the same light as the Trishul's shrine in Level 2 (its marker is the guide chevron above)
+    if (!r.collected) drawShrineBeacon(ctx, { x: r.x, baseY: seat, relicY: cy, relicH: f.h, t: this.animTime, rgb: '120, 255, 170', marker: false, alpha, shaftH: 100 });
     if (alpha > 0.01) {
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';

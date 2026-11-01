@@ -20,6 +20,7 @@
 import { Arrow } from '../entities/archer.js';
 import { Sfx } from '../core/audio.js';
 import { FatherBoss } from '../entities/fatherBoss.js';
+import { drawShrineBeacon } from '../render/shrineBeacon.js';
 
 // ---------------------------------------------------------------------------
 // World: one 3404 x 887 panorama (assets/level4/fort_panorama.jpg) made from the two fort screens, their walls
@@ -35,17 +36,15 @@ const ARENA_MIN = 40;                    // the whole courtyard is the arena
 const ARENA_MAX = WORLD_W - 40;
 // Raised stone ledges in the arena (fort_ledge.png, 400 x 51 at 2x: drawn 200 x 25.5, feet 6 px below its top edge)
 const LEDGE_ART = { src: 'assets/level4/sprites/fort_ledge.png', w: 200, h: 25.5, deck: 6 };
-const LEDGES = [
-  { x1: 660, x2: 860, y: FLOOR_Y - 96 },
-  { x1: 980, x2: 1180, y: FLOOR_Y - 96 },
-  { x1: 1780, x2: 1980, y: FLOOR_Y - 96 }
-];
+// Removed on request: the courtyard is open floor again (the old positions are kept in this comment):
+//   { x1: 660, x2: 860 }, { x1: 980, x2: 1180 }, { x1: 1780, x2: 1980 }, all at y = FLOOR_Y - 96
+const LEDGES = [];
 
 // The Lion Throne (assets/level4/sprites/throne.png, 847 x 535) at the right end; its low platform and the
 // lion's pedestal can be stood on
 const THRONE = { src: 'assets/level4/sprites/throne.png', w: 847, h: 535, drawW: 430 };
 THRONE.k = THRONE.drawW / THRONE.w;
-THRONE.x = WORLD_W - THRONE.drawW - 380;   // in from the edge, so the camera can frame Pitaji on it
+THRONE.x = WORLD_W - THRONE.drawW - 250;   // back toward the far wall, but in far enough for the camera to frame Pitaji on it
 THRONE.y = FLOOR_Y + 4 - THRONE.h * THRONE.k;
 const tpx = (px) => THRONE.x + px * THRONE.k;
 const tpy = (py) => THRONE.y + py * THRONE.k;
@@ -110,39 +109,39 @@ const ready = (i) => i && i.complete && i.naturalWidth > 0;
 // Story lines (s: speaker, t: text, g: gesture frame)
 // ---------------------------------------------------------------------------
 const L_ARRIVE = [
-  { s: 'kali', g: 4, t: 'The Red Fort, Rakti. The last relic waits inside these walls: my own mala of skulls. Your father\'s trail ends here too.' }
+  { s: 'kali', p: 6, g: 4, t: 'The Red Fort, Rakti. The last relic waits inside these walls: my own mala of skulls. Your father\'s trail ends here too.' }
 ];
 const L_DOUBT = [
-  { s: 'rakti', g: 3, t: 'That\'s it? Maa Kali\'s mala, just sitting here by the gate, with no one guarding it?' },
-  { s: 'rakti', g: 4, t: 'Every other relic was buried behind traps and Asura. This is too easy. Something is wrong.' },
-  { s: 'kali', g: 1, t: 'Then trust that feeling, Rakti, and take it anyway. Whatever waits in this fort, you will need my mala to face it.' }
+  { s: 'rakti', p: 3, g: 3, t: 'That\'s it? Maa Kali\'s mala, just sitting here by the gate, with no one guarding it?' },
+  { s: 'rakti', p: 4, g: 4, t: 'Every other relic was buried behind traps and Asura. This is too easy. Something is wrong.' },
+  { s: 'kali', p: 7, g: 1, t: 'Then trust that feeling, Rakti, and take it anyway. Whatever waits in this fort, you will need my mala to face it.' }
 ];
 const L_MALA = [
-  { s: 'kali', g: 6, t: 'My mala is yours now. In my form [X] you no longer only leap: strike, and you will hurl my light as golden orbs.' },
-  { s: 'kali', g: 1, t: 'But my form is no longer free. Every blow you land with your own talwar or the Trishul feeds it. When the bar is full, call me.' },
-  { s: 'rakti', g: 2, focus: 'father', t: 'Wait... someone is standing on the throne at the end of the wall.' }
+  { s: 'kali', p: 6, g: 6, t: 'My mala is yours now. In my form [X] you no longer only leap: strike, and you will hurl my light as golden orbs.' },
+  { s: 'kali', p: 7, g: 1, t: 'But my form is no longer free. Every blow you land with your own talwar or the Trishul feeds it. When the bar is full, call me.' },
+  { s: 'rakti', p: 1, g: 2, focus: 'father', t: 'Wait... someone is standing on the throne at the end of the wall.' }
 ];
-// father portraits (assets/portraits/father2_N, static): 0 stern, 9 grave, 10 gentle, 11 worried, 12 grieving,
+// father portraits: lines pick a still frame with p (see PORTRAIT_FRAMES in engine.js); g is the old father2 index,
 // 13 / 14 / 15 anger (possessed)
 const L_FATHER = [
-  { s: 'rakti', g: 3, focus: 'meet', t: 'Pitaji? PITAJI! It\'s me, Rakti! I followed your trail through every realm...' },
-  { s: 'father', g: 0, focus: 'meet', t: 'Rakti. You brought me the mala. Good girl.' },
-  { s: 'rakti', g: 3, focus: 'meet', t: 'What is wrong with your eyes? Pitaji, it\'s me!' },
-  { s: 'father', g: 15, focus: 'meet', t: 'Your father is not here any more. Put the mala down, child... or I will tear it from your hands.' },
-  { s: 'kali', g: 4, focus: 'meet', t: 'That voice is not his! Something is wearing him, Rakti. Defend yourself, and do not let it near my mala!' }
+  { s: 'rakti', p: 10, g: 3, focus: 'meet', t: 'Pitaji? PITAJI! It\'s me, Rakti! I followed your trail through every realm...' },
+  { s: 'father', p: 11, g: 0, focus: 'meet', t: 'Rakti. You brought me the mala. Good girl.' },
+  { s: 'rakti', p: 2, g: 3, focus: 'meet', t: 'What is wrong with your eyes? Pitaji, it\'s me!' },
+  { s: 'father', p: 1, g: 15, focus: 'meet', t: 'Your father is not here any more. Put the mala down, child... or I will tear it from your hands.' },
+  { s: 'kali', p: 2, g: 4, focus: 'meet', t: 'That voice is not his! Something is wearing him, Rakti. Defend yourself, and do not let it near my mala!' }
 ];
 const L_TURN = [
-  { s: 'rakti', g: 3, t: 'Pitaji! Stop, please! I don\'t want to hurt you!' },
-  { s: 'demon', g: 2, t: 'Your father broke the day he reached for my mala. This body is MINE now, girl!' },
-  { s: 'demon', g: 1, t: 'Hand me the last relic, and I will let the rift swallow every realm you love.' },
-  { s: 'kali', g: 1, t: 'Strike the demon, not the man, Rakti! Burn it out of him with my light!' }
+  { s: 'rakti', p: 9, g: 3, t: 'Pitaji! Stop, please! I don\'t want to hurt you!' },
+  { s: 'demon', p: 10, g: 2, t: 'Your father broke the day he reached for my mala. This body is MINE now, girl!' },
+  { s: 'demon', p: 6, g: 1, t: 'Hand me the last relic, and I will let the rift swallow every realm you love.' },
+  { s: 'kali', p: 11, g: 1, t: 'Strike the demon, not the man, Rakti! Burn it out of him with my light!' }
 ];
 const L_FREED = [
-  { s: 'father', g: 11, t: 'Rakti...? Is it really you? I couldn\'t fight it. I heard every word it said with my mouth.' },
-  { s: 'rakti', g: 2, t: 'It\'s over, Pitaji. Maa Kali brought me all the way here. I\'m taking you home.' },
-  { s: 'father', g: 12, t: 'My brave girl. Four realms... for your foolish old father.' },
-  { s: 'father', g: 10, t: 'Come here, beti.' },
-  { s: 'kali', g: 7, t: 'The four relics are whole again, and the rift is closing. Go home together, both of you.' }
+  { s: 'father', p: 2, g: 11, t: 'Rakti...? Is it really you? I couldn\'t fight it. I heard every word it said with my mouth.' },
+  { s: 'rakti', p: 8, g: 2, t: 'It\'s over, Pitaji. Maa Kali brought me all the way here. I\'m taking you home.' },
+  { s: 'father', p: 5, g: 12, t: 'My brave girl. Four realms... for your foolish old father.' },
+  { s: 'father', p: 6, g: 10, t: 'Come here, beti.' },
+  { s: 'kali', p: 5, g: 7, t: 'The four relics are whole again, and the rift is closing. Go home together, both of you.' }
 ];
 
 // ---------------------------------------------------------------------------
@@ -383,7 +382,7 @@ export class Level4 {
       { id: 'floor', x1: 0, x2: WORLD_W, y: FLOOR_Y, oneWay: false },
       { id: 'throne_dais', x1: THRONE_DAIS.x1, x2: THRONE_DAIS.x2, y: THRONE_DAIS.y, oneWay: true },
       { id: 'throne_seat', x1: THRONE_SEAT.x1, x2: THRONE_SEAT.x2, y: THRONE_SEAT.y, oneWay: true },
-      ...LEDGES.map((l, i) => ({ id: 'ledge' + i, x1: l.x1 + 8, x2: l.x2 - 8, y: l.y, oneWay: true }))
+      ...LEDGES.map((l, i) => ({ id: 'ledge' + i, x1: l.x1 + 8, x2: l.x2 - 8, y: l.y, oneWay: true }))   // none now
     ];
     this.ladders = [];
     this.archers = WINDOWS.map((w) => new FortArcher(w));
@@ -693,6 +692,9 @@ export class Level4 {
   /** Puts Rakti and the boss at fixed spots for a scene, facing each other, with the camera snapped there. */
   placeForScene(P, raktiX, bossX) {
     Object.assign(P, { x: raktiX, y: FLOOR_Y, vx: 0, vy: 0, isGrounded: true, currentPlatform: null, facing: bossX > raktiX ? 'right' : 'left', autoWalkX: null });
+    // no swing, queued swing or slash arc carries over into the scene
+    Object.assign(P, { isAttacking: false, attackQueued: false, attackFrame: 0 });
+    if (P.slashes) P.slashes.length = 0;
     if (P.isDivine) P.divineTimer = 0;
     this.boss.x = bossX;
     this.boss.y = FLOOR_Y;
@@ -757,10 +759,17 @@ export class Level4 {
     return null;
   }
 
+  /** Surfaces the boss can stand on besides the floor: the throne's dais and seat (he climbs up after Rakti). */
+  bossPlatforms() {
+    return [THRONE_DAIS, THRONE_SEAT];
+  }
+
   bossHud() {
     if (this.fightStage < 1 || this.fightStage > 2) return null;
     const b = this.boss;
-    return { ratio: b.hp / b.maxHp, name: b.stage === 2 ? 'THE ASURA' : 'PITAJI  ·  POSSESSED', demon: b.stage === 2 };
+    // Pitaji has 100 HP on his own bar (BOSS.HP .. STAGE2_HP); the Asura's 200 fill the boss bar from full
+    if (b.stage === 1) return { ratio: (b.hp - b.stage2Hp) / (b.maxHp - b.stage2Hp), name: 'PITAJI  ·  POSSESSED', father: true };
+    return { ratio: b.hp / b.stage2Hp, name: 'THE ASURA', demon: true };
   }
 
   checkLevelComplete() {
@@ -876,6 +885,7 @@ export class Level4 {
       a = 1 - u * u;
       k = 1 - 0.4 * u;
     }
+    if (!this.malaTaken) drawShrineBeacon(ctx, { x: SHRINE.x, baseY: SHRINE.top + 4, relicY: y, relicH: h, t, rgb: '255, 120, 90', shaftH: 110 });
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     const g = ctx.createRadialGradient(x, y, 2, x, y, 44);

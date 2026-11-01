@@ -394,8 +394,10 @@ export class Player {
     this.climbTransition = { anim, frames, duration, time: 0, fromOffset, toOffset };
   }
 
-  takeDamage(amount, knockbackX = 0, knockbackY = 0) {
+  /** knockTime > 0: for that long the knockback is not cancelled by running or friction (a real shove). */
+  takeDamage(amount, knockbackX = 0, knockbackY = 0, knockTime = 0) {
     if (this.invulnerableTimer > 0 || this.isDead) return;
+    this.knockTimer = knockTime;
     this.hp = Math.max(0, this.hp - amount);
     this.invulnerableTimer = 0.85;
 
@@ -633,13 +635,13 @@ export class Player {
 
     // Movement Inputs
     let moveDir = 0;
-    if (Input.isDown('left') || Input.isDown('KeyA') || Input.isDown('ArrowLeft')) moveDir -= 1;
-    if (Input.isDown('right') || Input.isDown('KeyD') || Input.isDown('ArrowRight')) moveDir += 1;
+    if (Input.isDown('left') || Input.isDown('KeyA')) moveDir -= 1;
+    if (Input.isDown('right') || Input.isDown('KeyD')) moveDir += 1;
 
     // Check Ladder Climbing (Level 2 Ladders)
     if (level && level.ladders && !this.isCivilian) {
-      const isUp = Input.isDown('up') || Input.isDown('KeyW') || Input.isDown('ArrowUp');
-      const isDown = Input.isDown('down') || Input.isDown('KeyS') || Input.isDown('ArrowDown');
+      const isUp = Input.isDown('up') || Input.isDown('KeyW');
+      const isDown = Input.isDown('down') || Input.isDown('KeyS');
       // only Space jumps off a ladder (W / Up is the climb key, and also counts as 'jump' elsewhere)
       const spacePressed = Input.isPressed('Space');
 
@@ -934,7 +936,7 @@ export class Player {
       this.tryCastOrb();
     }
     if (!this.isCivilian && !this.isDivine && attackPressed) {
-      if (typeof window !== 'undefined' && (Input.isPressed('MouseLeft') || Input.isPressed('MouseRight'))) {
+      if (typeof window !== 'undefined' && Input.isPressed('MouseLeft')) {
         // engine.js sets screenX each frame; near map edges the camera stops following,
         // so the screen centre is not where Rakti is.
         const raktiScreenX = Number.isFinite(this.screenX) ? this.screenX : window.innerWidth / 2;
@@ -945,8 +947,10 @@ export class Player {
         }
       }
       if (this.weapon === 'trishul' && this.hasTrishul) {
-        // a mouse throw remembers where the cursor was (world px); levels with mouseAimTrishul fly it there
-        this.throwAim = (Input.isPressed('MouseLeft') || Input.isPressed('MouseRight')) && this.aimWorld ? { ...this.aimWorld } : null;
+        // Every throw (mouse or key) flies at the cursor: Rakti turns to it and the Trishul goes exactly there
+        // (no aim assist, in every mode). Without a cursor position it flies straight ahead.
+        this.throwAim = this.aimWorld ? { ...this.aimWorld } : null;
+        if (this.throwAim && Math.abs(this.throwAim.x - this.x) > 6) this.facing = this.throwAim.x < this.x ? 'left' : 'right';
         this.triggerThrow(level);
       } else this.triggerAttack();
     }
@@ -1026,8 +1030,8 @@ export class Player {
 
     // 3. Horizontal Movement
     moveDir = 0;
-    if (Input.isDown('left') || Input.isDown('KeyA') || Input.isDown('ArrowLeft')) moveDir -= 1;
-    if (Input.isDown('right') || Input.isDown('KeyD') || Input.isDown('ArrowRight')) moveDir += 1;
+    if (Input.isDown('left') || Input.isDown('KeyA')) moveDir -= 1;
+    if (Input.isDown('right') || Input.isDown('KeyD')) moveDir += 1;
     if (this.throwAnim && this.isGrounded) moveDir = 0;   // she plants her feet to throw
     if (moveDir !== 0 || !this.isGrounded) this.catchTimer = 0;
 
@@ -1040,7 +1044,11 @@ export class Player {
     this.speed = formSpeed;
 
     const targetVx = moveDir * this.speed;
-    if (this.isMoving) {
+    if (this.knockTimer > 0) {
+      // being shoved (Level 1 spikes): the knockback carries her, only slowly bleeding off
+      this.knockTimer -= dt;
+      this.vx = this.approach(this.vx, 0, 260 * dt);
+    } else if (this.isMoving) {
       this.vx = this.approach(this.vx, targetVx, this.acceleration * dt);
       this.runTimer += dt;
       if (this.runTimer >= (this.isCivilian ? this.walkFrameDuration : this.runFrameDuration)) {
@@ -1059,8 +1067,8 @@ export class Player {
     }
 
     // 4. Jump & Drop-Through Handling
-    const jumpPressed = Input.isPressed('jump') || Input.isPressed('Space') || Input.isPressed('KeyW') || Input.isPressed('ArrowUp');
-    const isDownHeld = Input.isDown('down') || Input.isDown('KeyS') || Input.isDown('ArrowDown');
+    const jumpPressed = Input.isPressed('jump') || Input.isPressed('Space');   // Space only (W climbs ladders)
+    const isDownHeld = Input.isDown('down') || Input.isDown('KeyS');
 
     if (jumpPressed && !this.isCivilian) {   // no jumping in the sari
       this.jumpBufferTimer = this.jumpBufferMax;
@@ -1087,7 +1095,7 @@ export class Player {
       }
     }
 
-    const jumpHeld = Input.isDown('jump') || Input.isDown('Space') || Input.isDown('KeyW') || Input.isDown('ArrowUp');
+    const jumpHeld = Input.isDown('jump') || Input.isDown('Space');
     if (!jumpHeld && this.vy < -160) {
       this.vy = -160;
     }
@@ -1159,7 +1167,7 @@ export class Player {
   // ==========================================================================
 
   faceMouse() {
-    if (typeof window === 'undefined' || !(Input.isPressed('MouseLeft') || Input.isPressed('MouseRight'))) return;
+    if (typeof window === 'undefined' || !Input.isPressed('MouseLeft')) return;
     const sx = Number.isFinite(this.screenX) ? this.screenX : window.innerWidth / 2;
     if (Input.mouseX > sx + 6) this.facing = 'right';
     else if (Input.mouseX < sx - 6) this.facing = 'left';
@@ -1204,7 +1212,7 @@ export class Player {
 
   updateGoldOrbs(dt, level) {
     if (this.swordCooldown > 0) this.swordCooldown -= dt;
-    if (this.attackQueued && !(this.swordCooldown > 0) && !this.isDivine && !this.isCivilian && !this.isDead) this.triggerAttack();
+    if (this.attackQueued && !this.inputLocked && !(this.swordCooldown > 0) && !this.isDivine && !this.isCivilian && !this.isDead) this.triggerAttack();
     if (this.orbCooldown > 0) this.orbCooldown -= dt;
     if (this.chargeDenied > 0) this.chargeDenied -= dt;
     if (this.chargeReadyFlash > 0) this.chargeReadyFlash -= dt;
@@ -1300,29 +1308,11 @@ export class Player {
     const dir = this.facing === 'left' ? -1 : 1;
     const sx = this.x + dir * 18, sy = this.y - 40;
     let angle = dir > 0 ? 0 : Math.PI;
-    // Auto-aim: the nearest enemy in front, within reach and within the cone (towers included)
-    let best = null, bestScore = Infinity;
-    for (const e of this.trishulTargets(level)) {
-      const tx = e.x, ty = e.y - (e.hitHeight ?? 64) * 0.55;
-      const dx = tx - sx, dy = ty - sy;
-      if (dx * dir <= 4) continue;
-      const d = Math.hypot(dx, dy);
-      const tilt = Math.atan2(Math.abs(dy), Math.abs(dx));
-      if (d > TRISHUL.aimRange || tilt > TRISHUL.aimCone) continue;
-      const score = d * (1 + tilt);
-      if (score < bestScore) { bestScore = score; best = { tx, ty }; }
-    }
-    if (best) angle = Math.atan2(best.ty - sy, best.tx - sx);
-    if (level?.mouseAimTrishul && this.throwAim) {
-      // Fly where the cursor was. An enemy near the cursor is aimed at exactly (a little magnet).
+    // Cursor aim (the unlimited mode's style, now everywhere): no auto-aim and no magnet. The range stays the
+    // level's own (story levels TRISHUL.range, the unlimited arena its longer trishulRange).
+    if (this.throwAim) {
       const m = this.throwAim;
-      let tx = m.x, ty = m.y, nearest = 52;
-      for (const e of this.trishulTargets(level)) {
-        const cx = e.x, cy = e.y - (e.hitHeight ?? 64) * 0.55;
-        const d = Math.hypot(cx - m.x, cy - m.y);
-        if (d < nearest) { nearest = d; tx = cx; ty = cy; }
-      }
-      angle = Math.atan2(ty - sy, tx - sx);
+      if (Math.hypot(m.x - sx, m.y - sy) > 4) angle = Math.atan2(m.y - sy, m.x - sx);
     }
     this.throwAim = null;
     Sfx.play('trishul_throw');
@@ -1444,12 +1434,11 @@ export class Player {
   }
 
   respawnFromPit(level = null) {
-    // Levels with checkpoints (Level 1) decide where Rakti comes back; falling also costs HP there.
+    // Levels with checkpoints decide where Rakti comes back. A fall costs nothing: she keeps exactly the
+    // health she had (only dying, to an enemy or at 0 HP, reloads the level, and that restores full health).
+    // level.pitDamage is no longer used; a moment of invulnerability covers the respawn.
     const spawn = level?.getRespawnPoint?.() || this.getLevelSpawn(level);
-    if (level?.pitDamage) {
-      this.hp = Math.max(0, this.hp - level.pitDamage);
-      this.invulnerableTimer = 1.0;
-    }
+    this.invulnerableTimer = Math.max(this.invulnerableTimer || 0, 1.0);
     this.x = spawn.x;
     this.y = spawn.y;
     this.vx = 0;
@@ -1567,6 +1556,7 @@ export class Player {
   }
 
   renderSlashes(ctx) {
+    if ((this.spawnAlpha ?? 1) < 0.5) return;   // hidden for a cutscene (Level 4's embrace draws her itself)
     ctx.save();
     for (const s of this.slashes) {
       const progress = s.life / s.maxLife;
