@@ -24,6 +24,9 @@ const SOUNDS = {
   hit:           { vol: 0.8, jitter: 0,    gap: 0.04, variants: 5, rotate: true },   // a mob is hit
   mob_swing:     { vol: 0.7, jitter: 0,    gap: 0.08, variants: 3, rotate: true },   // a Betal's or the boss's blade lands
   boss_blast:    { vol: 0.75, jitter: 0.03, gap: 0.3 },                              // the boss fires an energy blast
+  boss_gong:     { vol: 0.75, jitter: 0,   gap: 2 },                                 // the father leaves his throne and the fight begins
+  boss_land:     { vol: 0.8, jitter: 0.03, gap: 0.3 },                               // the father drops to the floor from a height
+  boss_slam:     { vol: 0.9, jitter: 0.03, gap: 0.3 },                               // the ground slam that raises the spikes
   rocket_launch: { vol: 0.7, jitter: 0.04, gap: 0.08 },                              // an archer fires a rocket
   rocket_fly:    { vol: 0.4, loop: true }                                            // a rocket is burning its way across
 };

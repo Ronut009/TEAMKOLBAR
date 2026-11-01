@@ -558,6 +558,7 @@ export class Level4 {
     this.fightStage = 1;
     this.boss.facing = 'left';
     this.boss.leapDown();
+    Sfx.play('boss_gong');
     this.waveIndex = 0;
     this.waveTimer = 1.2;
     this.toast('⚔ PITAJI ATTACKS ⚔', 2.2);

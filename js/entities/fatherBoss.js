@@ -276,6 +276,7 @@ export class FatherBoss {
         if (this.y >= land && this.vy > 0) {
           this.y = land;
           this.leapFrom = null;
+          Sfx.play('boss_land');
           L.shake(0.5);
           L.burst(this.x, land - 4, 16, ['#c8955a', '#ffd36b', '#7a2d12'], 120, 0.5);
           this.setState('recover');
@@ -331,6 +332,7 @@ export class FatherBoss {
         const land = this.surfaceAt(this.x, y0);
         if (this.vy > 0 && this.y >= land) {
           this.y = land;
+          Sfx.play('boss_land');
           L.shake(0.4);
           L.burst(this.x, land - 4, 12, ['#c8955a', '#ffd36b', '#7a2d12'], 110, 0.4);
           this.cd.jump = rand(2.2, 3.2);
@@ -389,6 +391,7 @@ export class FatherBoss {
           // aimed where she is going, not where she is
           const lead = P ? Math.max(-120, Math.min(120, (P.vx || 0) * 0.45)) : 0;
           const px = Math.max(L.arenaMin + 20, Math.min(L.arenaMax - 20, (P ? P.x : this.x + dir * 160) + lead));
+          Sfx.play('boss_slam');
           this.spikes.push({ x: px, t: -0.5, hit: false });
           this.spikes.push({ x: px - 85, t: -0.8, hit: false });
           this.spikes.push({ x: px + 85, t: -0.8, hit: false });
@@ -441,6 +444,7 @@ export class FatherBoss {
         if (u >= 1) {
           this.y = floor;
           this.rings.push({ x: this.x, y: floor, t: 0, r: 95 });
+          Sfx.play('boss_land');
           L.shake(0.7);
           L.burst(this.x, floor - 6, 24, ['#c77dff', '#3d0a6e', '#ffffff'], 150, 0.6);
           if (P && Math.abs(P.x - this.x) < 95 && P.y > floor - 40) hurt(BOSS.DIVE_DMG, 260, -230);
