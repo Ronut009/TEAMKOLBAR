@@ -7,7 +7,6 @@
  */
 
 import { Input } from './input.js';
-import { Sfx } from './audio.js';
 import { TRISHUL } from '../entities/player.js';
 import { Level2 } from '../levels/level2.js';
 import { Level3 } from '../levels/level3.js';
@@ -124,7 +123,6 @@ export class Engine {
     this.prologueComplete = false;
     this.cameraSnap = false;
 
-    for (const button of [this.startGameButton, this.endlessGameButton]) button?.addEventListener('click', () => Sfx.play('ui_click'));
     this.startGameButton?.addEventListener('click', (event) => {
       event.preventDefault();
       this.startJourney();
@@ -619,7 +617,6 @@ export class Engine {
     // 3. Update player and level (passes player for enemy & hazard collision)
     // Rakti's on-screen x (CSS pixels) so mouse-aimed attacks face the cursor correctly.
     this.player.screenX = (this.player.x - this.camX) * this.zoom;
-    Sfx.listenerX = this.player.x;
     // where the cursor is in the world (the Trishul can be thrown at it)
     this.player.aimWorld = { x: Input.mouseX / this.zoom + Math.floor(this.camX), y: Input.mouseY / this.zoom + Math.floor(this.camY) };
     this.player.update(dt, this.level, this.dialogueActive);

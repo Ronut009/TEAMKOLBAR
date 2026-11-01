@@ -8,7 +8,6 @@
  * ==========================================================================
  */
 
-import { Sfx } from '../core/audio.js';
 
 export class Betal {
   constructor(x, minX, maxX, y = 368) {
@@ -59,7 +58,6 @@ export class Betal {
     if (alive && player.isAttacking && Math.abs(dx) < 58 && closeVertically) {
       const facingHim = dx === 0 || (dx > 0 ? player.facing === 'left' : player.facing !== 'left');
       if (facingHim && player.claimSwingHit(this)) {
-        Sfx.at('sword_hit', this.x);
         if (this.takeHit(player.swordDamage, player.x, level)) return;
       }
     }
@@ -98,7 +96,6 @@ export class Betal {
         this.isMoving = false;
         if (this.attackCooldown <= 0) {
           this.isAttacking = true;
-          Sfx.at('betal_swing', this.x);
           this.attackAnimTimer = 0;
           this.attackHitDone = false;
         }
@@ -122,9 +119,7 @@ export class Betal {
     this.x = this.clampX(this.x + (fromX > this.x ? -10 : 10));
     if (this.isAttacking && this.attackAnimTimer < this.attackHitAt) this.isAttacking = false;  // stagger cancels the swing
     if (level) level.cameraShake = Math.max(level.cameraShake || 0, 0.25);
-    if (this.hp > 0) Sfx.at('betal_hurt', this.x);
     if (this.hp <= 0) {
-      Sfx.at('enemy_death', this.x);
       this.dead = true;
       this.isAttacking = false;
       this.isMoving = false;

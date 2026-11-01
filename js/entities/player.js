@@ -7,7 +7,6 @@
  */
 
 import { Input } from '../core/input.js';
-import { Sfx } from '../core/audio.js';
 
 // ---------------------------------------------------------------------------
 // Rakti sprite skin. Every frame of a set shares one canvas; (anchorX, anchorY) is the
@@ -303,7 +302,6 @@ export class Player {
     if (this.isDivine) {
       // Kali herself needs no gesture: the stone answers at once
       this.isCasting = false;
-      Sfx.play('mud_cast');
       onRelease?.();
       this.castCallback = null;
     }
@@ -399,7 +397,6 @@ export class Player {
     if (this.invulnerableTimer > 0 || this.isDead) return;
     this.hp = Math.max(0, this.hp - amount);
     this.invulnerableTimer = 0.85;
-    Sfx.play(this.hp <= 0 ? 'player_death' : 'hurt');
 
     if (this.hp <= 0) {
       this.hp = 0;
@@ -463,7 +460,6 @@ export class Player {
       return;
     }
     this.swordCooldown = SWORD_COOLDOWN;
-    Sfx.play('sword_swing');
     this.attackQueued = false;
     this.isAttacking = true;
     this.attackFrame = 0;
@@ -498,7 +494,6 @@ export class Player {
   triggerDivineTransformation() {
     if (this.isTransforming || this.isDivine || this.isReverting) return;
     this.isTransforming = true;
-    Sfx.play('divine');
     this.transFrame = 0;
     this.transTimer = 0;
     this.vx = 0;
@@ -824,7 +819,6 @@ export class Player {
       if (before < CAST_RELEASE_FRAME && after >= CAST_RELEASE_FRAME && this.castCallback) {
         const cb = this.castCallback;
         this.castCallback = null;
-        Sfx.play('mud_cast');
         cb();
       }
       if (after >= 5 && Math.random() < 0.7) {
@@ -1084,7 +1078,6 @@ export class Player {
         } else {
           const impulse = this.isDivine ? this.divineJumpImpulse : this.jumpImpulse;
           this.vy = impulse;
-          Sfx.play('jump');
           this.isGrounded = false;
           this.currentPlatform = null;
           this.spawnPoof(8);
@@ -1330,7 +1323,6 @@ export class Player {
       angle = Math.atan2(ty - sy, tx - sx);
     }
     this.throwAim = null;
-    Sfx.play('trishul_throw');
     this.trishul = {
       x: sx, y: sy, vx: Math.cos(angle) * TRISHUL.speed, vy: Math.sin(angle) * TRISHUL.speed,
       state: 'out', dist: 0, t: 0, hit: new Set(), trail: []
@@ -1390,7 +1382,6 @@ export class Player {
       const hw = (e.hitHalfW ?? 16) + 8, hh = e.hitHeight ?? 64;
       if (Math.abs(tr.x - e.x) > hw || tr.y < e.y - hh - 6 || tr.y > e.y + 6) continue;
       tr.hit.add(e);
-      Sfx.play('trishul_hit');
       if (e.takeHit) {
         e.takeHit(this.trishulDamage, this.x, level);
       } else if (e.takeDamage) {
