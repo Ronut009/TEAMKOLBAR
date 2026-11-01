@@ -11,13 +11,15 @@ import { TRISHUL } from '../entities/player.js';
 import { Level2 } from '../levels/level2.js';
 import { Level3 } from '../levels/level3.js';
 import { Level4 } from '../levels/level4.js';
+import { EndlessLevel } from '../levels/endless.js';
 
 // Shown under the sigil on the loading screen
 const LEVEL_NAMES = {
   1: 'Level I  ·  Drowned Dwaraka',
   2: 'Level II  ·  The Sun Wastes',
   3: 'Level III  ·  The Forest Heart',
-  4: 'Level IV  ·  The Archer Fort'
+  4: 'Level IV  ·  The Archer Fort',
+  5: 'Unlimited Mode  ·  The Siege Wall'
 };
 
 export class Engine {
@@ -31,6 +33,7 @@ export class Engine {
     this.level2 = new Level2();
     this.level3 = new Level3();
     this.level4 = new Level4();
+    this.levelEndless = new EndlessLevel();
     this.currentLevelIndex = 1;
     this.level = this.level1;
 
@@ -98,6 +101,8 @@ export class Engine {
 
     this.titleScreen = document.getElementById('titleScreen');
     this.startGameButton = document.getElementById('startGameButton');
+    this.endlessGameButton = document.getElementById('endlessGameButton');
+    this.endlessHud = document.getElementById('endlessHud');
     this.loadingScreen = document.getElementById('loadingScreen');
     this.loadingLevel = document.getElementById('loadingLevel');
     this.isLoading = false;
@@ -112,6 +117,11 @@ export class Engine {
     this.startGameButton?.addEventListener('click', (event) => {
       event.preventDefault();
       this.startJourney();
+    });
+
+    this.endlessGameButton?.addEventListener('click', (event) => {
+      event.preventDefault();
+      this.startEndless();
     });
 
     this.playerDying = false;
@@ -163,7 +173,8 @@ export class Engine {
   loadLevel(index) {
     this.isGameStarted = true;
     this.currentLevelIndex = index;
-    this.level = index === 4 ? this.level4
+    this.level = index === 5 ? this.levelEndless
+      : index === 4 ? this.level4
       : index === 3 ? this.level3
       : index === 2 ? this.level2
       : this.level1;
@@ -176,7 +187,13 @@ export class Engine {
       this.levelCompleteModal.classList.remove('active');
     }
 
-    if (index === 4) {
+    if (index === 5) {
+      // Unlimited mode: the arena's centre, every power and weapon from the start
+      const spawn = this.levelEndless.getRespawnPoint();
+      this.player.x = spawn.x;
+      this.player.y = spawn.y;
+      this.player.hasDivineUnlocked = true;
+    } else if (index === 4) {
       // The archer fort: Rakti steps onto the platform below the wall
       const spawn = this.level4.getRespawnPoint();
       this.player.x = spawn.x;
@@ -287,10 +304,16 @@ export class Engine {
     this.beginLoadingTransition(1);
   }
 
+  /** Title screen: Unlimited mode (endless rounds in one arena). */
+  startEndless() {
+    if (this.isGameStarted || this.isLoading) return;
+    this.beginLoadingTransition(5);
+  }
+
   beginLoadingTransition(destinationIndex) {
     if (this.isLoading) return;
     // Arriving in a level from outside (not a death or [R]) clears its checkpoints
-    const dest = [null, this.level1, this.level2, this.level3, this.level4][destinationIndex];
+    const dest = [null, this.level1, this.level2, this.level3, this.level4, this.levelEndless][destinationIndex];
     dest?.freshStart?.();
     this.isLoading = true;
     this.isGameStarted = false;
@@ -310,6 +333,7 @@ export class Engine {
     this.closeDialogue();
     this.titleScreen?.classList.add('active');
     this.hudEl?.classList.add('menu-hidden');
+    this.endlessHud?.classList.remove('active');
   }
 
   update(dt) {
@@ -411,6 +435,12 @@ export class Engine {
         this.beginLoadingTransition(index);
         return;
       }
+    }
+
+    // Unlimited mode: [Esc] leaves for the title screen
+    if (this.currentLevelIndex === 5 && Input.isPressed('Escape') && !this.dialogueActive) {
+      this.returnToTitle();
+      return;
     }
 
     // Restart [R]
@@ -573,6 +603,8 @@ export class Engine {
     // 3. Update player and level (passes player for enemy & hazard collision)
     // Rakti's on-screen x (CSS pixels) so mouse-aimed attacks face the cursor correctly.
     this.player.screenX = (this.player.x - this.camX) * this.zoom;
+    // where the cursor is in the world (the Trishul can be thrown at it)
+    this.player.aimWorld = { x: Input.mouseX / this.zoom + Math.floor(this.camX), y: Input.mouseY / this.zoom + Math.floor(this.camY) };
     this.player.update(dt, this.level, this.dialogueActive);
     this.level.update(this.player.x, this.player.y, dt, this.player.isDivine, this.player);
 
@@ -785,6 +817,13 @@ export class Engine {
     put(this.hudWeapon, 'away', String(trishulOn && Boolean(this.player.trishul)), v => this.hudWeapon.classList.toggle('away', v === 'true'));
     put(this.hudWeaponKeys, 'show', String(Boolean(this.player.hasTrishul)), v => this.hudWeaponKeys.classList.toggle('show', v === 'true'));
     put(this.hudWeaponKeys, 'sel', this.player.weapon, v => this.hudWeaponKeys.dataset.weapon = v);
+
+    // Unlimited mode: round and crowd counter
+    if (this.endlessHud) {
+      const show = this.currentLevelIndex === 5 && this.isGameStarted;
+      put(this.endlessHud, 'show', String(show), (v) => this.endlessHud.classList.toggle('active', v === 'true'));
+      if (show) put(this.endlessHud, 'text', this.level.hudText, (v) => { this.endlessHud.textContent = v; });
+    }
 
     // Keep combat notifications separate from the minimal persistent HUD.
     if (this.killToast) {

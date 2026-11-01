@@ -38,6 +38,14 @@ export const PLATFORM_STYLES = {
     scale: 0.75,       // ~70 world px below the walking surface
     capLeft: 311,
     capRight: 583
+  },
+  // Unlimited mode grass slab: one long rounded tile (1994 x 230), tufts along the top
+  grass: {
+    src: 'assets/endless/floor_grass.png',
+    surfaceY: 84,
+    scale: 0.55,
+    capLeft: 220,
+    capRight: 1774
   }
 };
 

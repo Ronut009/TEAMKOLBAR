@@ -243,6 +243,8 @@ export class Player {
     this.weapon = 'sword';
     this.trishul = null;          // the thrown Trishul while it is away from her hand
     this.throwAnim = null;        // { t, released }
+    this.throwAim = null;         // cursor point of the current mouse throw (world px)
+    this.aimWorld = null;         // the engine keeps this on the cursor's world position
     this.catchTimer = 0;
     this.trishulImg = new Image();
     this.trishulImg.src = 'assets/weapons/trishul_throw.png';   // 240 x 60, points right
@@ -913,8 +915,11 @@ export class Player {
           this.facing = 'left';
         }
       }
-      if (this.weapon === 'trishul' && this.hasTrishul) this.triggerThrow(level);
-      else this.triggerAttack();
+      if (this.weapon === 'trishul' && this.hasTrishul) {
+        // a mouse throw remembers where the cursor was (world px); levels with mouseAimTrishul fly it there
+        this.throwAim = (Input.isPressed('MouseLeft') || Input.isPressed('MouseRight')) && this.aimWorld ? { ...this.aimWorld } : null;
+        this.triggerThrow(level);
+      } else this.triggerAttack();
     }
 
     // 1b. Trishul throw animation: the weapon leaves her hand on the release frame
@@ -1156,6 +1161,18 @@ export class Player {
       if (score < bestScore) { bestScore = score; best = { tx, ty }; }
     }
     if (best) angle = Math.atan2(best.ty - sy, best.tx - sx);
+    if (level?.mouseAimTrishul && this.throwAim) {
+      // Fly where the cursor was. An enemy near the cursor is aimed at exactly (a little magnet).
+      const m = this.throwAim;
+      let tx = m.x, ty = m.y, nearest = 52;
+      for (const e of this.trishulTargets(level)) {
+        const cx = e.x, cy = e.y - (e.hitHeight ?? 64) * 0.55;
+        const d = Math.hypot(cx - m.x, cy - m.y);
+        if (d < nearest) { nearest = d; tx = cx; ty = cy; }
+      }
+      angle = Math.atan2(ty - sy, tx - sx);
+    }
+    this.throwAim = null;
     this.trishul = {
       x: sx, y: sy, vx: Math.cos(angle) * TRISHUL.speed, vy: Math.sin(angle) * TRISHUL.speed,
       state: 'out', dist: 0, t: 0, hit: new Set(), trail: []
@@ -1179,7 +1196,7 @@ export class Player {
       tr.y += tr.vy * dt;
       tr.dist += TRISHUL.speed * dt;
       const minX = (level?.minX || 0) - 40, maxX = (level?.width ?? 99999) + 40;
-      if (tr.dist >= TRISHUL.range || tr.x < minX || tr.x > maxX || tr.y < -60 || tr.y > (level?.deathY ?? 600)) {
+      if (tr.dist >= (level?.trishulRange ?? TRISHUL.range) || tr.x < minX || tr.x > maxX || tr.y < -60 || tr.y > (level?.deathY ?? 600)) {
         tr.state = 'back';
         tr.t = 0;
       }

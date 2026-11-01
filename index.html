@@ -39,6 +39,9 @@
     <div class="hud-weapon-keys" id="hudWeaponKeys" data-weapon="sword" aria-hidden="true"><span class="k-sword">[1] TALWAR</span><span class="k-trishul">[2] TRISHUL</span></div>
   </div>
 
+  <!-- Unlimited mode: round / crowd / mud counter -->
+  <div class="endless-hud" id="endlessHud" aria-live="polite"></div>
+
   <!-- Kill Notification Toast Banner -->
   <div class="kill-toast sands-toast" id="killToast">
     <span class="kill-toast-icon">⚔</span>
@@ -105,7 +108,10 @@
       <img class="title-logo-image" src="assets/title/rakti-logo.png" alt="Rakti: The Last Guardian">
       <div class="title-actions">
         <button class="menu-button" id="startGameButton" type="button">
-          <span>NEW GAME</span>
+          <span>CAMPAIGN MODE</span>
+        </button>
+        <button class="menu-button" id="endlessGameButton" type="button">
+          <span>UNLIMITED MODE</span>
         </button>
       </div>
     </div>

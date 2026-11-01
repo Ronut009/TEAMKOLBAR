@@ -954,3 +954,25 @@ html, body {
 /* Level 1 prologue: no HUD while Rakti is in her sari; it fades in after Maa Kali's blessing. */
 .sands-hud { transition: opacity 0.8s ease, visibility 0.8s; }
 .sands-hud.prologue-hidden { opacity: 0; visibility: hidden; transition: none; }
+
+
+/* Unlimited mode counter: a column under the health / ability / weapon HUD, top left */
+.endless-hud {
+  position: absolute;
+  top: 168px;
+  left: 16px;
+  z-index: 26;
+  display: none;
+  padding: 8px 14px 8px 12px;
+  border-left: 2px solid rgba(205, 162, 78, 0.8);
+  background: linear-gradient(90deg, rgba(20, 10, 6, 0.78), rgba(20, 10, 6, 0));
+  color: #f4dca0;
+  font: 700 clamp(10px, 0.95vw, 13px)/1.55 'Cinzel', serif;
+  letter-spacing: 0.12em;
+  text-shadow: 0 1px 2px #080705;
+  white-space: pre-line;
+  text-align: left;
+  pointer-events: none;
+}
+.endless-hud.active { display: block; }
+@media (max-width: 600px) { .endless-hud { top: 120px; left: 8px; } }
