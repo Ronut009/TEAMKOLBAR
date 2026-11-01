@@ -15,20 +15,21 @@ export class InputManager {
     this.mouseY = 0;
 
     this.aliases = {
-      // Platformer Controls
-      left: ['KeyA', 'ArrowLeft'],
-      right: ['KeyD', 'ArrowRight'],
-      up: ['KeyW', 'ArrowUp'],
-      down: ['KeyS', 'ArrowDown'],
-      jump: ['Space', 'KeyW', 'ArrowUp'],
+      // Controls (remapped): A / D move, Space jumps, W / S climb ladders, S + Space drops through a thin platform,
+      // left click attacks (and aims), E interacts, C skips a conversation, Esc opens the pause menu, R restarts.
+      left: ['KeyA'],
+      right: ['KeyD'],
+      up: ['KeyW'],
+      down: ['KeyS'],
+      jump: ['Space'],
 
-      // Combat: Left Click, Right Click, Z, J
-      attack: ['MouseLeft', 'MouseRight', 'KeyZ', 'KeyJ'],
-      parry: ['MouseRight'],
+      // Combat: left click only
+      attack: ['MouseLeft'],
+      parry: [],
 
       // Interactions & Abilities
-      interact: ['KeyE', 'Enter', 'KeyF'],
-      cancel: ['KeyC', 'Escape'],
+      interact: ['KeyE'],
+      cancel: ['KeyC'],
       divine: ['KeyX'],
       morph: ['KeyQ'],
       reset: ['KeyR'],

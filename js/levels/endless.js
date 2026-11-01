@@ -115,7 +115,7 @@ export class EndlessLevel {
   constructor() {
     this.levelIndex = 5;
     this.mouseAimTrishul = true;     // the Trishul flies to the cursor (an enemy under it is aimed at directly)
-    this.trishulRange = 700;         // reaches the archers on the wall from anywhere in the arena
+    // the Trishul's reach is the same as in the story levels (TRISHUL.range); it used to be 700 here
     this.minX = 0;
     this.width = WORLD_W;
     this.height = WORLD_H;

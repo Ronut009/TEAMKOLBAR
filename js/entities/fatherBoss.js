@@ -16,8 +16,8 @@
 import { Arrow } from './archer.js';
 
 export const BOSS = {
-  HP: 300,
-  STAGE2_HP: 200,
+  HP: 300,            // Pitaji fights from 300 down to 200: 100 HP, shown on his own bar
+  STAGE2_HP: 200,     // the Asura then has 200, on the boss bar
   F_SPEED: 78,
   D_SPEED: 92,
   FLY_Y: 175,                 // hover height above the floor
@@ -78,6 +78,9 @@ export function drawBossFrame(ctx, name, i, x, y, facing = 'right', alpha = 1, f
 }
 
 /** The Asura's purple orb: it hunts Rakti exactly like the archers' homing arrows (and her blade can cut it). */
+// states in which he is on foot (he stands on the floor or a throne platform and drops off its edge)
+const GROUNDED = new Set(['walk', 'slash', 'energy', 'recover', 'stagger', 'blast', 'slam', 'lunge', 'dodge', 'land']);
+
 export class PurpleOrb extends Arrow {
   constructor(x, y, owner) {
     super(x, y, owner);
@@ -133,6 +136,7 @@ export class FatherBoss {
     this.stage = stage;
     this.hp = stage === 1 ? BOSS.HP : BOSS.STAGE2_HP;
     this.maxHp = BOSS.HP;
+    this.stage2Hp = BOSS.STAGE2_HP;   // Pitaji: HP .. STAGE2_HP (100 on his own bar); the Asura: STAGE2_HP .. 0
     this.x = stage === 1 ? this.home.x : this.home.x - 300;
     this.y = stage === 1 ? this.home.y : this.level.floorY;
     this.vy = 0;
@@ -233,7 +237,9 @@ export class FatherBoss {
     const hurt = (dmg, kx = 210, ky = -170) => { if (P && P.invulnerableTimer <= 0) { P.takeDamage(dmg, Math.sign(dx || dir) * kx, ky); L.shake(0.35); } };
     this.swordCheck(P, dx);
     this.recentDmg = Math.max(0, this.recentDmg - dt * 12);
-    const onLedge = P && P.isGrounded && P.y < floor - 30;
+    // she is standing above him (the throne's dais or seat): after a moment he jumps up after her
+    const onLedge = P && P.isGrounded && P.y < this.y - 30;
+    const below = P && P.isGrounded && P.y > this.y + 30;   // she has dropped down past him
     this.perchTime = onLedge ? this.perchTime + dt : 0;
     const speedK = this.enraged ? 0.75 : 1;   // the Asura's cooldowns shrink once it is badly hurt
 
@@ -258,13 +264,17 @@ export class FatherBoss {
         break;
       case 'leapdown': {
         // from the throne down to the floor, toward Rakti
+        if (this.leapFrom == null) this.leapFrom = this.y;   // never lands back on what he leapt from
+        const y0 = Math.max(this.y, this.leapFrom + 4);
         this.vy += 900 * dt;
         this.y += this.vy * dt;
         this.x += (this.facing === 'left' ? -1 : 1) * 190 * dt;
-        if (this.y >= floor && this.vy > 0) {
-          this.y = floor;
+        const land = this.surfaceAt(this.x, y0);
+        if (this.y >= land && this.vy > 0) {
+          this.y = land;
+          this.leapFrom = null;
           L.shake(0.5);
-          L.burst(this.x, floor - 4, 16, ['#c8955a', '#ffd36b', '#7a2d12'], 120, 0.5);
+          L.burst(this.x, land - 4, 16, ['#c8955a', '#ffd36b', '#7a2d12'], 120, 0.5);
           this.setState('recover');
         }
         break;
@@ -275,13 +285,16 @@ export class FatherBoss {
         const d = Math.abs(dx);
         const kali = P && P.isDivine;          // Rakti in Kali form, hurling orbs from range: close the gap fast
         if (this.stage === 1) {
-          if (this.perchTime > 1.0 && this.cd.jump <= 0) { this.jumpTo = P.x; this.setState('jumpslash'); this.vy = -520; }
+          if (this.perchTime > 0.6 && this.cd.jump <= 0) this.jumpAfter(P);
+          else if (below && Math.abs(dx) < 160) { this.setState('leapdown'); this.vy = -160; }
           else if (d < 62 && this.cd.attack <= 0) { this.combo = Math.random() < 0.4 ? 1 : 0; this.setState('slash'); }
           else if (d > 110 && d < 260 && this.cd.lunge <= 0 && P && P.isGrounded && !onLedge) this.setState('lunge');
-          else if (d > 200 && this.cd.energy <= 0 && !onLedge) { this.doubleWave = this.hp < 250; this.setState('energy'); }
+          else if (d > 200 && this.cd.energy <= 0 && !onLedge && this.y >= floor - 2) { this.doubleWave = this.hp < 250; this.setState('energy'); }
           else if (d > 46) this.x += Math.sign(dx) * BOSS.F_SPEED * (kali ? 1.6 : 1) * dt;
         } else {
           if (this.cd.fly <= 0 || (this.perchTime > 1.0 && this.cd.fly < 4)) { this.setState('takeoff'); this.casts = 0; }
+          else if (this.perchTime > 0.6 && this.cd.jump <= 0 && this.y >= floor - 2 && Math.abs(dx) < 260) this.jumpAfter(P);
+          else if (below && Math.abs(dx) < 160) { this.setState('leapdown'); this.vy = -160; }
           else if (d < 80 && this.recentDmg > 14 && this.cd.blast <= 0) this.setState('blast');   // she is hammering him: blast her off
           else if (d < 78 && this.cd.attack <= 0) { this.combo = Math.random() < 0.35 ? 1 : 0; this.setState(this.cd.blast <= 0 && Math.random() < 0.4 ? 'blast' : 'slash'); }
           else if (d > 120 && d < 480 && this.cd.slam <= 0) this.setState('slam');
@@ -302,7 +315,8 @@ export class FatherBoss {
         if (this.t >= 0.4 || Math.abs(dx) < 54) { this.cd.lunge = rand(3.2, 4.6) * speedK; this.combo = 0; this.setState('slash'); }
         break;
       case 'jumpslash': {
-        // he leaps up after her when she hides on a ledge or the throne
+        // he leaps up after her when she climbs the throne, and lands on it (dais or seat) beside her
+        const y0 = this.y;
         this.vy += 1100 * dt;
         this.y += this.vy * dt;
         this.x += Math.max(-260 * dt, Math.min(260 * dt, this.jumpTo - this.x));
@@ -311,11 +325,12 @@ export class FatherBoss {
           hurt(BOSS.SLASH_DMG + 1, 240, -200);
           L.burst(this.x, this.y - 40, 8, ['#ffffff', '#ffd36b'], 90, 0.3);
         }
-        if (this.vy > 0 && this.y >= floor) {
-          this.y = floor;
+        const land = this.surfaceAt(this.x, y0);
+        if (this.vy > 0 && this.y >= land) {
+          this.y = land;
           L.shake(0.4);
-          L.burst(this.x, floor - 4, 12, ['#c8955a', '#ffd36b', '#7a2d12'], 110, 0.4);
-          this.cd.jump = rand(3, 4.5);
+          L.burst(this.x, land - 4, 12, ['#c8955a', '#ffd36b', '#7a2d12'], 110, 0.4);
+          this.cd.jump = rand(2.2, 3.2);
           this.setState('recover');
         }
         break;
@@ -442,6 +457,29 @@ export class FatherBoss {
         break;
     }
     this.x = Math.max(L.arenaMin, Math.min(L.arenaMax, this.x));
+    // On foot he stands on whatever is under him: the floor, or the throne's dais / seat. Walking off an edge he drops.
+    if (GROUNDED.has(this.state)) {
+      const s = this.surfaceAt(this.x, this.y);
+      if (this.y < s - 1) { this.fallV = (this.fallV || 0) + 1100 * dt; this.y = Math.min(s, this.y + this.fallV * dt); }
+      else { this.y = s; this.fallV = 0; }
+    }
+  }
+
+  /** The highest surface at x that is at or below height y: a throne platform (level.bossPlatforms) or the floor. */
+  surfaceAt(x, y) {
+    let best = this.level.floorY;
+    for (const p of this.level.bossPlatforms?.() || []) {
+      if (x >= p.x1 && x <= p.x2 && p.y >= y - 3 && p.y < best) best = p.y;
+    }
+    return best;
+  }
+
+  /** A leap up to Rakti's height (onto the throne after her), slashing on the way. */
+  jumpAfter(P) {
+    const rise = Math.max(60, this.y - P.y + 46);
+    this.jumpTo = P.x - Math.sign(P.x - this.x || 1) * 30;
+    this.vy = -Math.sqrt(2 * 1100 * rise);
+    this.setState('jumpslash');
   }
 
   /** Rakti's blade (one hit per swing, she must face him; Kali form cannot use the blade). */
@@ -490,7 +528,7 @@ export class FatherBoss {
     const once = (n, ft) => Math.min(n - 1, Math.floor(a / ft));
     switch (st) {
       case 'throne': case 'throneShow': return ['f_walk', 0];
-      case 'leapdown': return ['f_slash', 2];
+      case 'leapdown': return s1 ? ['f_slash', 2] : ['d_fly', loop(6, 0.09)];
       case 'walk': return s1 ? ['f_walk', loop(6, 0.11)] : ['d_walk', loop(6, 0.1)];
       case 'slash': return s1 ? ['f_slash', once(6, 0.1)] : ['d_slash', once(6, 0.085)];
       case 'energy': return ['f_energy', once(6, 0.11)];
@@ -498,7 +536,7 @@ export class FatherBoss {
       case 'stagger': return s1 ? ['f_fall', 0] : ['d_slam', 3];
       case 'dodge': return s1 ? ['f_walk', 5 - loop(6, 0.06)] : ['d_walk', 5 - loop(6, 0.06)];
       case 'lunge': return s1 ? ['f_slash', 1] : ['d_slash', 1];
-      case 'jumpslash': return ['f_slash', this.vy < 0 ? 2 : 3];
+      case 'jumpslash': return s1 ? ['f_slash', this.vy < 0 ? 2 : 3] : ['d_fly', loop(6, 0.09)];
       case 'blast': return ['d_blast', once(6, 0.12)];
       case 'slam': return ['d_slam', once(6, 0.12)];
       case 'takeoff': case 'hover': return ['d_fly', loop(6, 0.09)];
@@ -517,12 +555,13 @@ export class FatherBoss {
     if (this.state === 'hidden') return;
     const [name, i] = this.frame();
     // shadow on the floor
-    const air = Math.max(0, this.level.floorY - this.y);
+    const ground = this.surfaceAt(this.x, this.y);
+    const air = Math.max(0, ground - this.y);
     ctx.save();
     ctx.globalAlpha = this.alpha * Math.max(0.15, 0.4 - air / 500);
     ctx.fillStyle = '#1a0805';
     ctx.beginPath();
-    ctx.ellipse(this.x, this.level.floorY + 2, this.demon ? 34 : 26, 6, 0, 0, Math.PI * 2);
+    ctx.ellipse(this.x, ground + 2, this.demon ? 34 : 26, 6, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
     if (this.demon) {

@@ -70,7 +70,7 @@ const CHASM_PILLAR_SCALE = 0.33;   // full pillar art, its stepped base standing
 const SAND_Y = 404;
 // Quicksand fills every pit except those marked sand: false. Rakti wades at QS_SLOW of her speed and sinks:
 // QS_SINK px/s standing still, QS_SINK_MOVING while wading. She cannot jump out of it: at QS_MAX she is
-// swallowed (pit damage, back to the checkpoint). Kali's form floats on it.
+// swallowed (back to the checkpoint with the health she had). Kali's form floats on it.
 const QS_SLOW = 0.3;
 const QS_SINK = 120;          // swallowed in about half a second
 const QS_SINK_MOVING = 95;
@@ -83,7 +83,7 @@ const PIER_SINK_SPEED = 34;     // hall piers sink this fast (px/s) while Rakti 
 const PIER_RISE_SPEED = 18;     // and rise back this fast once she leaves
 const PIER_SINK_MAX = 70;       // by then the top is under the sand
 const SLAB_ROCK_BOTTOM = 232;   // lowest row of the raw rock (frame 0)
-const SLAB_REST_SINK = 30;      // how deep the raw rocks sit in the quicksand (about a third of the rock)
+const SLAB_REST_SINK = 4;       // the raw rocks rest ON the quicksand, only their very bottom pressed into it (was 30: a third sunk)
 // center / upCenter: where the drawn arrow sits in the full-draw frames (aim_3 / aimup_3), in world px from
 // the feet when facing right; the released arrow starts there, pointing the way the bow points.
 const ARCHER_ART = {
@@ -230,7 +230,8 @@ export class Level2 {
       A: archer('A', this.towers[0].cx, TOWER_ROOF_Y),
       B: archer('B', this.towers[1].cx, TOWER_ROOF_Y),
       C: archer('C', this.towers[2].cx, TOWER_ROOF_Y),
-      H1: archer('H1', ROOM_X + 700, FLOOR_Y),     // the horde's archers step out at both ends of the hall
+      H1: archer('H1', ROOM_X + 960, FLOOR_Y),     // the horde's archers step out at both ends of the hall (H1 was at
+                                                   // +700, pressed against the last sinking pier; now in the open between the shrine and the tower)
       H2: archer('H2', ROOM_X + 1430, FLOOR_Y)
     };
     this.archers.H1.x0 = this.archers.H1.x;   // their posts (they run / leap in to them with the horde)
@@ -1551,7 +1552,7 @@ export class Level2 {
     const k = SLAB.scale, w = SLAB.frameW * k, h = SLAB.frameH * k;
     if (!this.inView(s.cx - w, s.cx + w)) return;
     let frame = 0, bob = 0, glow = 0;
-    // Before [Q] the rocks rest half sunk in the quicksand (its surface is drawn over them, in front);
+    // Before [Q] the rocks rest on top of the quicksand (just their bottom edge pressed into its surface);
     // [Q] lifts them out while they break open into slabs.
     const rest = SAND_Y + SLAB_REST_SINK - (s.top + (SLAB_ROCK_BOTTOM - SLAB.anchorY) * k);
     if (s.state === 'raw') {
