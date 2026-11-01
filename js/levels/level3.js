@@ -143,7 +143,7 @@ export class Level3 {
     // Jungle spikes: packs of two, x = left edge of the pack (none placed for now)
     this.spikes = [].map((x, i) => ({ x, phase: i * 1.3 }));
     // Jungle vines: always one at a time
-    this.vines = [470, 985, 1290, 2110, 3360, 4010].map((x, i) => ({ x, phase: i * 0.9, state: 'hidden', t: 0, wait: 0.6 + (i % 3) * 0.5, hp: VINE_HP, cool: 0, flash: 0, removed: false }));
+    this.vines = [470, 1130, 1340, 2110, 3360].map((x, i) => ({ x, phase: i * 0.9, state: 'hidden', t: 0, wait: 0.6 + (i % 3) * 0.5, hp: VINE_HP, cool: 0, flash: 0, removed: false }));
     this.fx = [];
 
     this.checkpoints = [970, 1960, 2310, 3050, 3940];
@@ -161,8 +161,18 @@ export class Level3 {
       new Betal(3990, 3930, 4060),
       new Betal(4080, 4020, 4120)
     ];
+    for (const b of this.betals) b.wave = 'first';
+    // Touching the door brings two more in from the far right (the ambush). Once they fall, the Forest Heart
+    // wakes at the start, and a fresh pack has crept in along the way back (each one steps out of the jungle
+    // as Rakti comes near it from the right).
+    const ambush = [new Betal(4235, 4175, 4290), new Betal(4275, 4190, 4295)];
+    ambush.forEach((b, i) => { b.wave = 'ambush'; b.entryDelay = i * 0.55; });
+    const back = [new Betal(3250, 3120, 3420), new Betal(2160, 1960, 2340), new Betal(1240, 1010, 1380),
+      new Betal(1080, 960, 1200), new Betal(420, 280, 540)];
+    for (const b of back) b.wave = 'return';
+    this.betals.push(...ambush, ...back);
 
-    // The Forest Heart awakens at the start of the map once every Betal is dead; the door is there from the beginning
+    // The Forest Heart awakens at the start of the map once the door's ambush has been beaten; the door is there from the beginning
     this.relic = { x: 150, collected: false, fly: 0, spawned: false, spawnT: 0 };
     this.clearTimer = 0;
     this.door = { x: 4150, opening: false, openT: 0 };
@@ -183,17 +193,45 @@ export class Level3 {
   }
 
   // ======================================================================== state
+  /** Level 3 keeps its progress through deaths (and [R]): Betal already slain stay dead, the heart stays awake or
+   *  carried, and the door's ambush stays done. Only arriving from outside (freshStart) starts it all over.
+   *  phase: 'first' (the first Betal) -> 'ambush' (door touched) -> 'return' (heart awake) -> 'carry' (heart taken) */
   reset() {
+    const fresh = !this.phase;
+    if (fresh) this.phase = 'first';
     this.pendingDialogue = null;
-    Object.assign(this.relic, { collected: false, fly: 0, spawned: false, spawnT: 0 });
+    if (fresh) {
+      Object.assign(this.relic, { collected: false, fly: 0, spawned: false, spawnT: 0 });
+      Object.assign(this.door, { opening: false, openT: 0 });
+    } else {
+      if (this.relic.spawned) this.relic.spawnT = Math.max(this.relic.spawnT, 2);
+      if (this.relic.collected) this.relic.fly = 1;
+    }
     this.clearTimer = 0;
-    Object.assign(this.door, { opening: false, openT: 0 });
     this.cameraShake = 0;
     this.killToastTimer = 0;
     this.screenFade = 0;
     this.isCompleted = false;
     this.animTime = 0;
-    for (const b of this.betals) b.reset();
+    const spawn = this.getRespawnPoint();
+    for (const b of this.betals) {
+      const slain = !fresh && (b.dead || b.removed);
+      b.reset();
+      b.entry = null;
+      if (slain) { b.dead = true; b.removed = true; continue; }
+      if (b.wave === 'ambush') {
+        // the ambush (re)starts from the far right once it has been triggered: never on top of her
+        b.hidden = true;
+        if (this.phase === 'ambush') this.startEntry(b, 1.4 + b.entryDelay);
+      } else if (b.wave === 'return') {
+        b.hidden = true;          // they step out when she comes near (see revealReturnWave)
+        b.revealed = false;
+      } else if (this.phase !== 'first') {
+        b.dead = true; b.removed = true;     // the first Betal are gone once the door has been touched
+      }
+      // no spawn camping: a Betal waiting near where she comes back to life is gone
+      if (!fresh && !b.hidden && !b.dead && !b.entry && Math.abs(b.x - spawn.x) < 450) { b.dead = true; b.removed = true; }
+    }
     for (const p of this.pillars) if (p.crumble) Object.assign(p, { st: 'idle', t: 0, dy: 0, vy: 0 });
     for (const s of this.pathStones) Object.assign(s, { open: 0, m: 0 });
     for (const f of this.fallers) Object.assign(f, { state: 'idle', t: 0, dy: 0, vy: 0, alpha: 1 });
@@ -201,10 +239,43 @@ export class Level3 {
     this.fx = [];
   }
 
+  /** A Betal walks in from beyond the right edge of the map to his post. */
+  startEntry(b, delay = 0) {
+    b.hidden = false;
+    b.fadeAlpha = 1;
+    b.x = this.width + 40 + delay * 20;
+    b.entry = { delay, toX: b.spawn.x };
+    b.facing = 'left';
+  }
+
+  /** [E] at the door before Rakti has the heart: the forest answers, and two Betal come for her from the right. */
+  triggerAmbush() {
+    if (this.phase !== 'first') return;
+    this.phase = 'ambush';
+    this.cameraShake = 0.7;
+    this.killToastText = '⚔ THE FOREST STIRS';
+    this.killToastTimer = 2.2;
+    // whoever of the first Betal is still about melts back into the jungle
+    for (const b of this.betals) {
+      if (b.wave !== 'first' || b.dead) continue;
+      if (this.inView(b.x - 30, b.x + 30)) this.leafBurst(b.x, b.y - 30, 14);
+      b.dead = true; b.removed = true;
+    }
+    for (const b of this.betals) if (b.wave === 'ambush') this.startEntry(b, 0.6 + b.entryDelay);
+  }
+
+  leafBurst(x, y, n) {
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2, sp = 40 + Math.random() * 90;
+      this.fx.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 50, life: 0.6 + Math.random() * 0.4, maxLife: 1, c: Math.random() > 0.4 ? '#4f9a2a' : '#9acd4a' });
+    }
+  }
+
   /** Called by the engine when Rakti arrives from another level (or the [O] test key), not on death or [R]:
    *  back to the very start, and she walks in from the edge of the forest. */
   freshStart() {
     this.checkpointIndex = -1;
+    this.phase = null;          // the next reset() starts the level over completely
     this.kaliHintShown = false;
     this.introQueued = true;
     this.intro = null;
@@ -234,7 +305,8 @@ export class Level3 {
     this.cameraShake = 0.6;
   }
 
-  get enemiesLeft() { return this.betals.some((b) => !b.dead); }
+  get enemiesLeft() { return this.betals.some((b) => !b.dead && !b.hidden); }
+  waveAlive(wave) { return this.betals.some((b) => b.wave === wave && !b.dead); }
   get doorOpenReady() { return this.door.opening && this.door.openT * DOOR_FPS >= DOOR_ART.openFrame + 0.5; }
 
   // ======================================================================== geometry
@@ -303,11 +375,18 @@ export class Level3 {
           onInteract: () => this.openDoor()
         };
       }
+      if (this.phase === 'first') {
+        return {
+          type: 'inspection', x: this.door.x, y: FLOOR_Y, prompt: '[E] EXAMINE THE DOOR', speaker: 'kali', title: '⚜ THE SEALED DOOR ⚜',
+          text: 'Living roots seal this door, Rakti, and only the Forest Heart will part them. But your touch has woken the jungle. Behind you, to the east: they are coming!',
+          onInteract: () => this.triggerAmbush()
+        };
+      }
       return {
         type: 'inspection', x: this.door.x, y: FLOOR_Y, prompt: '[E] EXAMINE THE DOOR', speaker: 'stele', title: '⚜ THE SEALED DOOR ⚜',
-        text: this.enemiesLeft
-          ? 'The door is sealed by living roots. Something in the forest still stirs. The guardians must fall first.'
-          : 'I need the Forest Heart to open. It has awakened far to the west, where your journey began.'
+        text: this.phase === 'ambush'
+          ? 'The roots hold fast. The guardians the door has called must fall first.'
+          : 'The door waits for the Forest Heart. It has awakened far to the west, where your journey began.'
       };
     }
     return null;
@@ -347,6 +426,23 @@ export class Level3 {
         this.fx.push({ x: s.cx, y: s.y - 10, vx: Math.cos(a) * 80, vy: Math.sin(a) * 80 - 30, life: 0.5, maxLife: 0.5, c: i % 2 ? '#9ff6c8' : '#e6ffb0' });
       }
     }, s.cx);
+  }
+
+  /** The return pack steps out of the jungle when Rakti, heading back west, comes within reach of each one. */
+  revealReturnWave(player) {
+    if (!player || (this.phase !== 'return' && this.phase !== 'carry')) return;
+    for (const b of this.betals) {
+      if (b.wave !== 'return' || b.revealed || b.dead) continue;
+      const dx = player.x - b.x;
+      if (dx < 420 && dx > -60) {
+        b.revealed = true;
+        b.hidden = false;
+        b.fadeAlpha = 0;          // Betal.update fades him in before he acts
+        b.facing = dx < 0 ? 'left' : 'right';
+        this.leafBurst(b.x, b.y - 30, 16);
+        this.cameraShake = Math.max(this.cameraShake, 0.2);
+      }
+    }
   }
 
   updateFaller(f, dt, player) {
@@ -449,7 +545,22 @@ export class Level3 {
       if (this.doorOpenReady) this.cameraShake = Math.max(this.cameraShake, 0.1);
     }
 
-    for (const b of this.betals) b.update(dt, player, this, true);
+    const talking = Boolean(player?.dialogueOpen);
+    for (const b of this.betals) {
+      if (b.entry) {
+        if (talking) continue;
+        const e = b.entry;
+        if (e.delay > 0) { e.delay -= dt; continue; }
+        b.animTime = (b.animTime || 0) + dt;
+        b.isMoving = true;
+        b.facing = 'left';
+        b.x = Math.max(e.toX, b.x - 120 * dt);
+        if (b.x <= e.toX) { b.entry = null; b.isMoving = false; }
+        continue;
+      }
+      b.update(dt, player, this, !talking);
+    }
+    this.revealReturnWave(player);
     this.updateVines(dt, player);
     for (let i = this.fx.length - 1; i >= 0; i--) {
       const q = this.fx[i];
@@ -457,10 +568,11 @@ export class Level3 {
       if (q.life <= 0) this.fx.splice(i, 1);
     }
 
-    // Every Betal slain: the Forest Heart awakens at the start of the map
-    if (!this.relic.spawned && !this.enemiesLeft) {
+    // The door's ambush beaten: the Forest Heart awakens at the start of the map, and a new pack waits on the way
+    if (this.phase === 'ambush' && !this.waveAlive('ambush')) {
       this.clearTimer += dt;
       if (this.clearTimer > 1.2) {
+        this.phase = 'return';
         this.relic.spawned = true;
         this.relic.spawnT = 0;
         this.cameraShake = 0.7;
@@ -468,10 +580,11 @@ export class Level3 {
         this.killToastTimer = 2.6;
         this.pendingDialogue = {
           speaker: 'kali', title: '⚜ THE FOREST HEART ⚜',
-          text: 'The guardians are fallen, Rakti. The Forest Heart has awakened where your journey began. Follow the arrow back to it, then bring it to the door.'
+          text: 'The door\'s guardians are fallen, Rakti, and the Forest Heart has awakened where your journey began. But the jungle is sending more of them. They are already on the path behind you. Follow the arrow back to the heart, then bring it here.'
         };
       }
     }
+    if (this.phase === 'return' && this.relic.collected) this.phase = 'carry';
 
     if (!this.kaliHintShown && playerX >= this.kaliHintX) {
       this.kaliHintShown = true;
@@ -483,6 +596,12 @@ export class Level3 {
 
     if (!player || player.isDead) return;
 
+    if (player.isGrounded && (this.phase === 'return' || this.phase === 'carry')) {
+      // on the way back west the checkpoints follow her too
+      for (let i = 0; i < this.checkpointIndex; i++) {
+        if (playerX <= this.checkpoints[i] + 30) { this.checkpointIndex = i; break; }
+      }
+    }
     if (player.isGrounded) {
       for (let i = this.checkpointIndex + 1; i < this.checkpoints.length; i++) {
         if (playerX >= this.checkpoints[i]) {

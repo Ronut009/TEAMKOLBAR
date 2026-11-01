@@ -1,15 +1,17 @@
 /**
  * ==========================================================================
  * LEVEL 1: DROWNED DWARAKA (js/levels/level1.js)
- * Five screens, left to right (each background is 1926x817, drawn at 368/655):
- *   0. Rift portal   - Rakti wakes up in her sari (prologue)
- *   1. Maa Kali idol - [E] at the idol: outfit change, HUD appears
- *   2. Ruins         - checkpoint, pit crossed on two pillars, one timed spike trap
- *   3. Ruins (mirrored) - checkpoint, double spike strip (must be timed), three-pillar pit
- *   4. Shrine        - checkpoint, Kali grants her form [X] near the lever tower. No floor between the
+ * Six screens, left to right (each background is 1926x817, drawn at 368/655):
+ *   0. Rift portal   - Rakti wakes up in her sari, hears a voice (prologue)
+ *   1. Kali sanctum  - the idol (separate sprite) near the start: conversation, armour, then Kali's
+ *                      first test: one Betal steps out of the dark and must be slain before she can go on
+ *   2. Ruins         - two-pillar pit (spike on a pillar), a ripple of single spikes, a Betal
+ *   3. Sun wall      - checkpoint, alternating spike gauntlet, Betal, pit with alternating pillar spikes
+ *   4. Ruins (mirrored) - checkpoint, rolling spike wave, three-pillar pit whose middle pillar SPINS
+ *   5. Shrine        - checkpoint, Kali grants her form [X] near the lever tower. No floor between the
  *                      three towers: leap up to the lever tower as Kali, defeat its Betal, pull the
- *                      lever -> Kali's hibiscus flower bridges bloom between the towers (walkable only as Kali)
- *                      -> relic tower (Betal) -> claim the relic -> door opens -> walk through
+ *                      lever -> Kali's hibiscus bridges bloom tower -> stone pier -> tower (walkable only as Kali),
+ *                      geysers from the deep burst through them -> relic tower (Betal) -> relic -> door
  * (The old single-screen temple level is archived in unused_assets/old_code/js/level.js.)
  * ==========================================================================
  */
@@ -48,18 +50,28 @@ const TOWER_ART = {
 };
 const TOWER_W = 1024, TOWER_H = 1536;
 const BRIDGE_SUMMON_TIME = 1.9;  // the flower bridges take this long to bloom across
-const TOWER_GAP = 170;          // open water between arm tips, spanned by Kali's flower bridges
+const TOWER_GAP = 520;          // open water between arm tips: a stone pier stands in the middle of each gap,
+                                // so every hibiscus span (~225 px) is longer than a mortal jump
+const PIER_SCALE = 0.27;        // the piers use the tall pillar art; tall enough that their base sinks into the dark
 
-// Spike trap frames are a 4x4 sheet of 420x200 transparent spike art. The floor
-// remains the shared temple platform tile, so the trap has no mismatched slab.
-// 0-1 closed, 2-3 warning, 4-7 rising, 8-11 up, 12-15 retracting.
-const SPIKE_ART = { frameW: 420, frameH: 200, blockLeft: 30, blockW: 360, surface: 161 };
-const SPIKE_SHEET_COLUMNS = 4;
-const SPIKE_SCALE = 0.5;                       // one block = 180 world px (just jumpable with a running start)
-const SPIKE_BLOCK_W = SPIKE_ART.blockW * SPIKE_SCALE;
-const SPIKE_CYCLE = 6;                          // seconds: ~3 s down, ~3 s up
-const SPIKE_DAMAGE = 4;
+// Kali's idol (assets/level1/kali_idol.png, 560x840 from the 1024x1536 original): pillared shrine whose
+// plinth stands on the floor. footRow = the plinth's bottom row, faceRow = her eyes.
+const IDOL_ART = { src: 'assets/level1/kali_idol.png', w: 560, h: 840, footRow: 826, faceRow: 180, worldH: 338 };
+
+// Single spikes: assets/level1/spikes/single_spike_sheet.png is one spike cut from each frame of the old
+// 4-spike trap sheet: 16 frames of 68x140, base on row 130. 0-1 hidden, 2-3 tips peek, 4-7 rising, 8-11 up,
+// 12-15 retracting. Each spike runs its own fast cycle; rows of them are phased into ripples or alternation.
+const SPIKE_ART = { frameW: 68, frameH: 140, surface: 130 };
+const SPIKE_TIP_ROW = [140, 140, 125, 116, 103, 82, 51, 25, 7, 9, 7, 9, 38, 69, 96, 121];   // top row per frame
+const SPIKE_SCALE = 0.62;       // one spike ~32 world px wide, ~76 tall when up
+const SPIKE_HALF = 17;          // harmful half-width
+const SPIKE_CYCLE = 2.4;        // default seconds per cycle (the rise/up/retract part always takes 1.5 s)
+const SPIKE_DAMAGE = 3;
 const PIT_DAMAGE = 3;
+
+// Geysers that replace the old bridge orbs: the deep breathes up through the middle of each hibiscus span.
+// Bubbles and a glow warn first; the column then bursts ~130 px above the deck. Kali can leap over it.
+const GEYSER = { cycle: 3.4, warn: 0.85, burst: 0.75, height: 132, half: 17, damage: 3 };
 
 // ---------------------------------------------------------------- prologue conversation
 // s: speaker ('kali' | 'rakti' | 'voice'), t: text, g: gesture (0-7, row 3 of the portrait sheet)
@@ -86,8 +98,15 @@ const PROLOGUE_IDOL = [
   { s: 'rakti', g: 7, t: 'I\'m ready, Maa.' }
 ];
 const PROLOGUE_AFTER = [
-  { s: 'rakti', g: 2, t: 'This armour... it moves with me, as if it was always mine.' },
-  { s: 'kali', g: 0, t: 'The first relic, the Pearl of the Tide, waits past the towers to the east. Go, Rakti. I am with you.' }
+  { s: 'rakti', g: 2, t: 'This armour... it moves with me, as if it was always mine. And this blade is so light.' },
+  { s: 'kali', g: 1, t: 'A blade is only as good as the hand that holds it. Now comes your first test, Rakti.' },
+  { s: 'kali', g: 3, t: 'Something in the dark has smelled a mortal. A Betal. Do not run from it. Face it, and strike when it raises its blade.' },
+  { s: 'rakti', g: 3, t: 'Then let it come.' }
+];
+const TEST_DONE = [
+  { s: 'rakti', g: 2, t: 'I... I did it. It\'s gone.' },
+  { s: 'kali', g: 4, t: 'Well struck. That was your first test, and you met it. There will be many more.' },
+  { s: 'kali', g: 0, t: 'The first relic, the Pearl of the Tide, waits past the towers to the east. The ruins between are full of traps. Watch the floor, Rakti. I am with you.' }
 ];
 
 export class Level {
@@ -103,65 +122,89 @@ export class Level {
     // ------------------------------------------------------------------ backgrounds
     this.bg = {
       portal: img('assets/level1/prologue_portal.jpg'),
-      idol: img('assets/level1/prologue_idol.jpg'),
+      sanctum: img('assets/level1/sanctum_clean.jpg'),   // the idol is a separate sprite on it (prologue_idol.jpg kept as backup)
       ruins: img('assets/level1/filler_ruins.jpg'),
-      towers: img('assets/level1/towers_bg.jpg')      // open water behind the shrine towers (screens 4-5)
+      suns: img('assets/level1/sanctum_suns.jpg'),       // the sun wall (screen 3)
+      towers: img('assets/level1/towers_bg.jpg')      // open water behind the shrine towers (screens 5+)
     };
+    this.idolImg = img(IDOL_ART.src);
     this.towerImgs = Object.fromEntries(Object.entries(TOWER_ART).map(([k, v]) => [k, img(v.src)]));
 
     this.platformArt = new PlatformArt('temple');
     this.pillarImgs = Object.fromEntries(Object.entries(PILLAR_ART).map(([k, v]) => [k, img(v.src)]));
-    this.spikeSheet = img('assets/level1/spikes/spike-trap-sheet.png');
+    this.spikeSheet = img('assets/level1/spikes/single_spike_sheet.png');
     this.relicImg = img('assets/level1/relic.png');
     this.columnImg = img('assets/level1/column.png');   // 300x1324, stands over every screen seam
-    this.seamColumns = [1, 2, 3, 4].map((n) => X(n) + FEATHER / 2);
+    this.seamColumns = [1, 2, 3, 4, 5].map((n) => X(n) + FEATHER / 2);
     this.enemySprites = new EnemySpriteSheet();
     this.shrineImg = img('assets/level1/shrine.png');
 
     // ------------------------------------------------------------------ prologue (screens 0-1)
+    // The idol stands near the start of the sanctum screen; its face glows while Kali speaks.
+    const idolScale = IDOL_ART.worldH / IDOL_ART.h;
     this.prologue = {
       wakeX: X(0, 430),
-      idolX: X(1, 1330),
-      idolFaceY: 150 * BG_SCALE,
+      idolX: X(1, 520),
+      idolScale,
+      idolFaceY: FLOOR_Y + 2 - (IDOL_ART.footRow - IDOL_ART.faceRow) * idolScale,
       idolRange: 95
     };
     this.idolBlessed = false;
     this.idolGlow = 0;
     this.screenFade = 0;
+    // Kali's first test: a Betal in the sanctum, after the outfit change. Passing it is kept across deaths.
+    this.testArenaMaxX = X(1) + 900;
+    this.testDone = false;
 
     // ------------------------------------------------------------------ floor & pits
     this.floors = [
       { x1: 0, x2: X(2) + 190 },
-      { x1: X(2) + 560, x2: X(3) + 540 },
-      { x1: X(3) + 960, x2: X(4) + 300 }    // ends at the lever tower; beyond it only the towers rise from the deep
+      { x1: X(2) + 560, x2: X(3) + 640 },
+      { x1: X(3) + 930, x2: X(4) + 540 },
+      { x1: X(4) + 960, x2: X(5) + 300 }    // ends at the lever tower; beyond it only the towers rise from the deep
     ];
     this.pits = [
       { x1: X(2) + 190, x2: X(2) + 560 },
-      { x1: X(3) + 540, x2: X(3) + 960 },
-      { x1: X(4) + 300, x2: X(6) }           // the abyss under the towers
+      { x1: X(3) + 640, x2: X(3) + 930 },
+      { x1: X(4) + 540, x2: X(4) + 960 },
+      { x1: X(5) + 300, x2: X(8) }           // the abyss under the towers
     ];
 
     // Pillars: `top` is where feet stand. Pit pillars use the tall art and sink into the abyss.
+    // `spin`: the pillar turns on its axis; seen edge-on it is too thin to stand on (see spinCos).
     this.pillars = [
       { art: 'tall', cx: X(2) + 275, top: 335, scale: PIT_PILLAR_SCALE },
       { art: 'tall', cx: X(2) + 455, top: 305, scale: PIT_PILLAR_SCALE },
-      { art: 'tall', cx: X(3) + 610, top: 322, scale: PIT_PILLAR_SCALE },
-      { art: 'tall', cx: X(3) + 760, top: 284, scale: PIT_PILLAR_SCALE },
-      { art: 'tall', cx: X(3) + 905, top: 318, scale: PIT_PILLAR_SCALE }
+      { art: 'tall', cx: X(3) + 725, top: 320, scale: PIT_PILLAR_SCALE },
+      { art: 'tall', cx: X(3) + 845, top: 298, scale: PIT_PILLAR_SCALE },
+      { art: 'tall', cx: X(4) + 610, top: 322, scale: PIT_PILLAR_SCALE },
+      { art: 'tall', cx: X(4) + 760, top: 290, scale: PIT_PILLAR_SCALE, spin: { period: 3.6, phase: 0 } },
+      { art: 'tall', cx: X(4) + 905, top: 318, scale: PIT_PILLAR_SCALE }
     ];
 
-    // Spike traps: `blocks` side by side; `phase` offsets the 6 s cycle so traps don't all move together.
+    // Single spikes. `x` = centre; `pillar` = index of the pillar whose cap it sits on (else the floor);
+    // `cycle` in seconds; `phase` offsets it so rows ripple or alternate instead of moving together.
+    const row = (x0, n, step, cycle, phaseOf) => Array.from({ length: n }, (_, i) => ({ x: x0 + i * step, cycle, phase: phaseOf(i) }));
     this.spikes = [
-      { x: X(2) + 700, blocks: 1, phase: 0 },
-      { x: X(3) + 120, blocks: 2, phase: 1.5 }
+      // screen 2: a ripple of three after the first pit (each rises a beat after the one before it)
+      ...row(X(2) + 650, 3, 52, 2.2, (i) => -i * 0.28),
+      { pillar: 1, cycle: 2.4, phase: 0.6 },
+      // screen 3: the gauntlet alternates: odd spikes are up while even ones are down; hop from gap to gap
+      ...row(X(3) + 150, 6, 60, 1.8, (i) => (i % 2) * 0.9),
+      // its pit: the two pillars' spikes alternate, so one of them is always armed
+      { pillar: 2, cycle: 2.0, phase: 0 },
+      { pillar: 3, cycle: 2.0, phase: 1.0 },
+      // screen 4: a rolling wave that runs toward Rakti (right to left), then a spike on the last pit pillar
+      ...row(X(4) + 130, 5, 58, 2.4, (i) => i * 0.3),
+      { pillar: 6, cycle: 2.6, phase: 1.3 }
     ];
 
-    // Shrine room (screen 4): lever tower -> bridge -> relic tower -> bridge -> door tower.
+    // Shrine room (screen 5): lever tower -> bridge -> pier -> bridge -> relic tower -> bridge -> pier -> bridge -> door tower.
     // All three arms are ~129 px above the floor, so only Kali's leap reaches the first one.
     this.ledgeY = 239;
     const s = TOWER_SCALE, A = TOWER_ART.shrine, D = TOWER_ART.doorClosed;
     const armHalf = (art) => ({ l: (art.cx - art.armL) * s, r: (art.armR - art.cx) * s });
-    const cx1 = X(4) + 380;            // its left arm overhangs the floor's end, so Kali can leap straight up onto it
+    const cx1 = X(5) + 380;            // its left arm overhangs the floor's end, so Kali can leap straight up onto it
     const cx2 = cx1 + armHalf(A).r + TOWER_GAP + armHalf(A).l;
     const cx3 = cx2 + armHalf(A).r + TOWER_GAP + armHalf(D).l;
     this.towers = [
@@ -175,6 +218,13 @@ export class Level {
       const h = armHalf(TOWER_ART[t.art]);
       return { id: 'tower_' + t.id, x1: t.cx - h.l + 6, x2: t.cx + h.r - 6, y: this.ledgeY };
     });
+    // Stone piers in the middle of each gap: solid for everyone, so Rakti can rest on them, let Kali's
+    // form go and take it again. Their caps sit at deck height.
+    const pierHalf = PILLAR_ART.tall.w * PIER_SCALE * 0.4;
+    this.piers = [0, 1].map((i) => {
+      const cx = (this.ledges[i].x2 + this.ledges[i + 1].x1) / 2;
+      return { art: 'tall', cx, top: this.ledgeY, scale: PIER_SCALE, x1: cx - pierHalf, x2: cx + pierHalf };
+    });
     this.doorSillY = this.ledgeY;
     this.door = { x1: cx3 + (D.doorL - D.cx) * s, x2: cx3 + (D.doorR - D.cx) * s, cx: cx3,
       midY: this.towerY(D, (D.doorTop + D.doorSill) / 2) };
@@ -182,15 +232,17 @@ export class Level {
 
     // the lever stands in the lever tower's niche, at Rakti's chest height
     this.lever = { x: cx1, y: this.towerY(A, A.nicheSill), activated: false, pullTime: 0 };
-    this.leverMessage = "The lever locks into place, and my flowers answer it. Red hibiscus strung on gold now spans the gap between the towers. That bridge is woven from my power, Rakti, and it holds only for my form [X].";
+    this.leverMessage = "The lever locks into place, and my flowers answer it. Red hibiscus strung on gold now spans the water from tower to pier to tower. That bridge is woven from my power, Rakti, and it holds only for my form [X]. Rest on the stone piers when you must, and beware the deep: it breathes up through the flowers.";
     this.leverImgs = [0, 1, 2].map((i) => img(`assets/level1/lever_${i}.png`));   // idle, moving, pulled
 
-    // Kali's flower bridges between the towers: the lever calls them, and red hibiscus blooms (her sacred
-    // flower) strung on a gold thread fly in from both towers and meet in the middle. Solid only in Kali form;
-    // a mortal Rakti sees just their ghost. (The old golden_bridge_a/b.png art stays in assets as a backup.)
+    // Kali's flower bridges: four spans (tower -> pier -> tower -> pier -> tower). The lever calls them, and red
+    // hibiscus blooms (her sacred flower) strung on a gold thread fly in from both ends and meet in the middle.
+    // Solid only in Kali form; a mortal Rakti sees just their ghost. (The old golden_bridge_a/b.png art stays as a backup.)
     this.bridges = [
-      { x1: this.ledges[0].x2 - 4, x2: this.ledges[1].x1 + 4, y: this.ledgeY },
-      { x1: this.ledges[1].x2 - 4, x2: this.ledges[2].x1 + 4, y: this.ledgeY }
+      { x1: this.ledges[0].x2 - 4, x2: this.piers[0].x1 + 3, y: this.ledgeY },
+      { x1: this.piers[0].x2 - 3, x2: this.ledges[1].x1 + 4, y: this.ledgeY },
+      { x1: this.ledges[1].x2 - 4, x2: this.piers[1].x1 + 3, y: this.ledgeY },
+      { x1: this.piers[1].x2 - 3, x2: this.ledges[2].x1 + 4, y: this.ledgeY }
     ];
     let seed = 7;
     const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
@@ -205,21 +257,17 @@ export class Level {
     }
     this.petals = [];
     this.bridgeGrow = 0;
-    // Golden orbs that sweep along the bridges: they exist only in Kali form, like the bridges themselves.
-    // They float at chest height, so Rakti has to hop over them. Touching one costs 2 HP and knocks her back.
-    this.bridgeSentries = [
-      { bridge: 0, t: 0.25, dir: 1, speed: 105, phase: 0 },
-      { bridge: 0, t: 0.8, dir: -1, speed: 135, phase: 2.4 },
-      { bridge: 1, t: 0.5, dir: 1, speed: 95, phase: 1.1 }
-    ];
-    this.sentryStart = this.bridgeSentries.map(o => ({ ...o }));
+    // The geysers that replaced the old bridge orbs: one in the middle of each span, out of step with each other.
+    this.geysers = this.bridges.map((b, i) => ({ x: (b.x1 + b.x2) / 2 + (i % 2 ? 18 : -18), bridge: i, phase: [0, 1.7, 0.85, 2.55][i], burstSeen: false }));
+    this.bubbles = [];
+    this.lastSafeLedge = null;   // the tower / pier Rakti last stood on once the bridges are out (pit-fall respawn)
 
     // Art is pre-scaled once to the size it appears on screen (see cachedArt), so each frame is a cheap 1:1 copy
     this.artCache = new Map();
     this.artScale = 0;
 
     // Kali grants her form [X] when Rakti nears the lever tower (kept across deaths until a New Game)
-    this.abilityGrantX = X(4) - 30;
+    this.abilityGrantX = X(5) - 30;
     this.abilityGranted = false;
     this.pendingDialogue = null;
 
@@ -232,18 +280,19 @@ export class Level {
     this.doorOpen = 0;          // 0 closed .. 1 open (door tower crossfade)
     this.doorOpenDelay = 0;
 
-    // Checkpoints: pit falls and deaths after the prologue respawn here
-    this.checkpoints = [X(1, 1330) + 100, X(3) + 20, X(3) + 970];
+    // Checkpoints: pit falls and deaths after the prologue respawn here (before the first: at the idol)
+    this.checkpoints = [this.testArenaMaxX + 20, X(3) + 20, X(4) + 20, X(4) + 970];
 
-    // Betal: one right after Kali's blessing, two later. (spawn x, patrol min x, patrol max x)
-    // The first stays hidden until Kali's blessing is complete, then steps out of the dark.
+    // Betal: [0] is Kali's first test in the sanctum (hidden until the test starts), then one per ruin screen
+    // and one on each of the first two towers. (spawn x, patrol min x, patrol max x)
     this.betals = [
-      new Betal(X(2) + 150, X(2) + 60, X(2) + 182),
-      new Betal(X(2) + 640, X(2) + 572, X(2) + 690),
+      new Betal(X(1) + 640, X(1) + 340, this.testArenaMaxX - 20),
+      new Betal(X(2) + 900, X(2) + 820, X(2) + 960),
+      new Betal(X(3) + 560, X(3) + 500, X(3) + 610),
       new Betal(cx1 + 70, this.ledges[0].x1 + 12, this.ledges[0].x2 - 12, this.ledgeY),   // lever tower
       new Betal(cx2 + 50, this.ledges[1].x1 + 12, this.ledges[1].x2 - 12, this.ledgeY)    // relic tower
     ];
-    this.firstBetalShown = false;
+    this.test = { started: false, doneT: 0 };
     this.checkpointIndex = -1;
 
     this.animTime = 0;
@@ -261,9 +310,11 @@ export class Level {
     this.bridgeGrow = 0;
     this.petals = [];
     for (const b of this.bridges) { b.met = false; for (const f of b.blooms) f.landed = false; }
-    this.bridgeSentries.forEach((o, i) => Object.assign(o, this.sentryStart[i]));
+    for (const g of this.geysers) g.burstSeen = false;
+    this.bubbles = [];
+    this.lastSafeLedge = null;
     this.pendingDialogue = null;
-    this.firstBetalShown = false;
+    this.test = { started: false, doneT: 0 };
     this.relic.collected = false;
     this.relic.fly = 0;
     this.doorOpen = 0;
@@ -276,10 +327,22 @@ export class Level {
     this.isCompleted = false;
     this.animTime = 0;      // spike traps restart their cycle
     for (const b of this.betals) b.reset();
+    // the first-test Betal stays hidden until Kali calls him (and stays gone once the test is passed)
+    this.betals[0].hidden = true;
+    if (this.testDone) { this.betals[0].dead = true; this.betals[0].removed = true; }
+  }
+
+  /** Arriving from outside (new game, level select): the prologue test and checkpoints start over. */
+  freshStart() {
+    this.checkpointIndex = -1;
+    this.abilityGranted = false;
+    this.testDone = false;
   }
 
   /** Where Rakti appears after a pit fall, death or restart once the prologue is done. */
   getRespawnPoint() {
+    // Once the bridges are out, a fall into the abyss puts her back on the tower or pier she last stood on
+    if (this.lastSafeLedge) return { x: this.lastSafeLedge.x, y: this.ledgeY };
     if (this.checkpointIndex >= 0) return { x: this.checkpoints[this.checkpointIndex] + 30, y: FLOOR_Y };
     return { x: this.prologue.idolX + 70, y: FLOOR_Y };
   }
@@ -308,10 +371,12 @@ export class Level {
     const list = [];
     for (const f of this.floors) list.push({ id: 'floor', x1: f.x1, x2: f.x2, y: FLOOR_Y, oneWay: false });
     for (const p of this.pillars) {
+      if (p.spin && Math.abs(this.spinCos(p)) < 0.22) continue;   // edge-on: nothing to stand on
       const half = this.pillarHalf(p);
-      list.push({ id: 'pillar', x1: p.cx - half, x2: p.cx + half, y: Math.round(p.top), oneWay: false });
+      list.push({ id: p.spin ? 'spin_pillar' : 'pillar', x1: p.cx - half, x2: p.cx + half, y: Math.round(p.top), oneWay: false });
     }
     for (const l of this.ledges) list.push({ ...l, oneWay: true });
+    for (const q of this.piers) list.push({ id: 'pier', x1: q.x1, x2: q.x2, y: q.top, oneWay: false });
     if (this.bridgeGrow >= 1) {
       for (const b of this.bridges) list.push({ id: 'golden_bridge', x1: b.x1, x2: b.x2, y: b.y, oneWay: true, divineOnly: true });
     }
@@ -319,7 +384,13 @@ export class Level {
   }
 
   pillarHalf(p) {
-    return PILLAR_ART[p.art].w * pillarScale(p) * 0.4;   // the cap is a little narrower than the base
+    const half = PILLAR_ART[p.art].w * pillarScale(p) * 0.4;   // the cap is a little narrower than the base
+    return p.spin ? half * Math.max(0.06, Math.abs(this.spinCos(p))) : half;
+  }
+
+  /** A spinning pillar turns on its vertical axis: cos of its angle (1 = face on, 0 = edge on). */
+  spinCos(p) {
+    return Math.cos((this.animTime / p.spin.period + p.spin.phase) * Math.PI * 2);
   }
 
   checkPlatformLanding(prevY, currY, x, droppingThrough = false, isDivine = false) {
@@ -340,10 +411,11 @@ export class Level {
     return null;
   }
 
-  /** Solid pillar sides, plus an invisible wall past the idol until Kali's blessing. */
+  /** Solid pillar sides, plus an invisible wall past the idol until Kali's blessing and her first test. */
   resolvePitWallCollision(x, y) {
     if (!this.idolBlessed) x = Math.min(x, this.prologue.idolX + 140);
-    for (const p of this.pillars) {
+    else if (!this.testDone) x = Math.min(x, this.testArenaMaxX);
+    for (const p of [...this.pillars, ...this.piers]) {
       const half = this.pillarHalf(p) + 7;
       if (y > p.top + 5 && Math.abs(x - p.cx) < half) {
         x = x < p.cx ? p.cx - half : p.cx + half;
@@ -414,22 +486,8 @@ export class Level {
     }
     this.updateBridgeBlooms(dt, isDivine);
 
-    // Bridge orbs patrol while the bridges are out and Rakti is in Kali form
-    if (this.bridgeGrow >= 1 && isDivine) {
-      for (const o of this.bridgeSentries) {
-        const b = this.bridges[o.bridge], margin = 14 / (b.x2 - b.x1);
-        o.t += (o.speed * o.dir * dt) / (b.x2 - b.x1);
-        if (o.t > 1 - margin) { o.t = 1 - margin; o.dir = -1; }
-        if (o.t < margin) { o.t = margin; o.dir = 1; }
-        o.phase += dt * 4.5;
-        if (player && !player.isDead) {
-          const p = this.sentryPos(o);
-          if (Math.abs(playerX - p.x) < 15 && Math.abs((playerY - 28) - p.y) < 18) {
-            player.takeDamage(2, Math.sign(playerX - p.x || 1) * 125, -165);
-          }
-        }
-      }
-    }
+    // Geysers burst up through the spans once the bridges are out
+    this.updateGeysers(dt, player);
 
     // Relic flies into Rakti's hands, then the door opens
     if (this.relic.collected && this.relic.fly < 1) this.relic.fly = Math.min(1, this.relic.fly + dt * 1.4);
@@ -446,14 +504,9 @@ export class Level {
       }
     }
 
-    // Betal: the first one stays out of sight until Kali's blessing (outfit change) is complete
+    // Betal: the first one is Kali's test and stays out of sight until she calls it
     const blessingDone = this.idolBlessed && player && !player.isCivilian;
-    this.betals[0].hidden = !blessingDone;
-    if (blessingDone && !this.firstBetalShown) {
-      this.firstBetalShown = true;
-      this.killToastText = '⚔ A BETAL STIRS';
-      this.killToastTimer = 1.8;
-    }
+    this.updateFirstTest(player, blessingDone, dt);
     for (const b of this.betals) b.update(dt, player, this, blessingDone);
 
     // Kali grants her form [X] as Rakti nears the lever tower
@@ -479,22 +532,60 @@ export class Level {
       }
     }
 
-    // Spike traps
-    for (const trap of this.spikes) {
-      const state = this.spikeState(trap);
-      if (!state.harmful) continue;
-      const x1 = trap.x + 6, x2 = trap.x + trap.blocks * SPIKE_BLOCK_W - 6;
-      if (playerX > x1 && playerX < x2 && playerY >= FLOOR_Y - state.reach && playerY <= FLOOR_Y + 6) {
-        const away = playerX < (x1 + x2) / 2 ? -1 : 1;
-        if (player.invulnerableTimer <= 0) {
-          player.takeDamage(SPIKE_DAMAGE, away * 150, -340);
-          this.cameraShake = Math.max(this.cameraShake, 0.4);
-        }
+    // Once the bridges are out, remember the last tower or pier she stood on (a fall puts her back there)
+    if (this.bridgeGrow >= 1 && player.isGrounded && player.currentPlatform) {
+      const cp = player.currentPlatform;
+      if (cp.id === 'pier' || String(cp.id).startsWith('tower_')) this.lastSafeLedge = { x: Math.max(cp.x1 + 14, Math.min(cp.x2 - 14, playerX)) };
+    }
+
+    // Single spikes (floor and pillar caps)
+    for (const sp of this.spikes) {
+      const st = this.spikeState(sp);
+      if (!st.harmful) continue;
+      const { x, y } = this.spikeBase(sp);
+      if (Math.abs(playerX - x) < SPIKE_HALF && playerY >= y - st.reach && playerY <= y + 6 && player.invulnerableTimer <= 0) {
+        const away = playerX < x ? -1 : 1;
+        player.takeDamage(SPIKE_DAMAGE, away * 150, -340);
+        this.cameraShake = Math.max(this.cameraShake, 0.4);
       }
     }
   }
 
-  /** Spike cycle (6 s): closed 2.3 s, holes open as a warning 0.4 s, rise 0.5 s, up 2.4 s, retract 0.4 s. */
+  /** Kali's first test: after the conversation a Betal steps out of the dark in the sanctum. Rakti cannot go
+   *  on until it falls; then Kali speaks once more. A death during the test brings it straight back. */
+  updateFirstTest(player, blessingDone, dt) {
+    const b = this.betals[0], t = this.test;
+    if (this.testDone || !player) return;
+    if (!t.started) {
+      // after a death (prologue already played) the Betal returns at once
+      if (blessingDone && this.scene.stage === 'wake' && !this.pendingDialogue) this.startFirstTest();
+      return;
+    }
+    if (b.dead) {
+      t.doneT += dt;
+      if (t.doneT > 0.9 && !this.pendingDialogue) {
+        this.testDone = true;
+        this.killToastText = '✦ FIRST TEST PASSED ✦';
+        this.killToastTimer = 2.2;
+        this.pendingDialogue = { lines: TEST_DONE };
+      }
+    }
+  }
+
+  startFirstTest() {
+    const b = this.betals[0];
+    this.test.started = true;
+    b.reset();
+    b.hidden = false;
+    b.fadeAlpha = 0;
+    b.noticeRange = 640;    // it has her scent: it comes straight for her
+    b.chaseSpeed = 84;
+    b.facing = 'left';
+    this.killToastText = '⚔ FIRST TEST: SLAY THE BETAL';
+    this.killToastTimer = 2.6;
+    this.cameraShake = Math.max(this.cameraShake, 0.3);
+  }
+
   /** The prologue: Rakti wakes up lost, hears Kali's voice, walks to the idol, talks with Kali,
    *  and is changed into her battle outfit. Every step waits for the one before it. */
   updatePrologueScene(player) {
@@ -531,21 +622,69 @@ export class Level {
     } else if (sc.stage === 'outfit') {
       if (player.isCivilian || player.isChangingOutfit) return;
       sc.stage = 'done';
-      this.pendingDialogue = { lines: PROLOGUE_AFTER };
+      // Kali announces the first test; the Betal steps out when the conversation ends
+      this.pendingDialogue = { lines: PROLOGUE_AFTER, onDone: () => { if (!this.test.started && !this.testDone) this.startFirstTest(); } };
     }
   }
 
-  spikeState(trap) {
-    const t = (this.animTime + trap.phase) % SPIKE_CYCLE;
-    if (t < 2.3) return { frame: Math.floor(t / 0.6) % 2, harmful: false, reach: 0 };
-    if (t < 2.7) return { frame: 2 + Math.min(1, Math.floor((t - 2.3) / 0.2)), harmful: false, reach: 0 };
-    if (t < 3.2) {
-      const f = Math.min(3, Math.floor((t - 2.7) / 0.125));
-      return { frame: 4 + f, harmful: f >= 2, reach: f >= 3 ? 46 : 30 };
+  /** One spike's cycle: hidden (only its vent shows), tips peek 0.3 s, rise 0.16 s, up 0.7 s, retract 0.34 s.
+   *  Returns the sheet frame (-1 = hidden), whether it hurts, and how high its tip stands above the base. */
+  spikeState(sp) {
+    const cycle = sp.cycle || SPIKE_CYCLE, down = cycle - 1.5;
+    const t = (((this.animTime + sp.phase) % cycle) + cycle) % cycle;
+    let frame;
+    if (t < down) frame = -1;
+    else if (t < down + 0.3) frame = 2 + (Math.floor((t - down) / 0.1) % 2);
+    else if (t < down + 0.46) frame = 4 + Math.min(3, Math.floor((t - down - 0.3) / 0.04));
+    else if (t < down + 1.16) frame = 8 + (Math.floor((t - down - 0.46) / 0.1) % 4);
+    else frame = 12 + Math.min(3, Math.floor((t - down - 1.16) / 0.085));
+    const reach = frame < 0 ? 0 : (SPIKE_ART.surface - SPIKE_TIP_ROW[frame]) * SPIKE_SCALE;
+    return { frame, reach, harmful: reach > 16 };
+  }
+
+  /** Where a spike stands: on the floor, or on the cap of its pillar. */
+  spikeBase(sp) {
+    if (sp.pillar != null) { const p = this.pillars[sp.pillar]; return { x: p.cx, y: p.top }; }
+    return { x: sp.x, y: FLOOR_Y };
+  }
+
+  /** Geyser cycle: calm, then bubbles and a glow (warn), then the burst. e = 0..1 column height. */
+  geyserState(g) {
+    const t = (this.animTime + g.phase) % GEYSER.cycle;
+    const calm = GEYSER.cycle - GEYSER.warn - GEYSER.burst;
+    if (t < calm) return { stage: 'calm', e: 0, k: t / calm };
+    if (t < calm + GEYSER.warn) return { stage: 'warn', e: 0, k: (t - calm) / GEYSER.warn };
+    const k = (t - calm - GEYSER.warn) / GEYSER.burst;
+    const e = k < 0.15 ? k / 0.15 : (k > 0.8 ? Math.max(0, (1 - k) / 0.2) : 1);
+    return { stage: 'burst', e, k };
+  }
+
+  updateGeysers(dt, player) {
+    if (this.bridgeGrow < 1) return;
+    for (const g of this.geysers) {
+      const st = this.geyserState(g), by = this.bridges[g.bridge].y;
+      // bubbles rise from the deep, thickest while it is about to blow
+      const rate = st.stage === 'warn' ? 26 : (st.stage === 'burst' ? 10 : 2.5);
+      if (this.inView(g.x - 40, g.x + 40) && Math.random() < rate * dt && this.bubbles.length < 160) {
+        this.bubbles.push({ x: g.x + (Math.random() - 0.5) * 22, y: SCREEN_H + 4, vy: -(60 + Math.random() * 70) * (st.stage === 'warn' ? 1.6 : 1),
+          r: 1 + Math.random() * 2.2, top: by + 6, seed: Math.random() * 6 });
+      }
+      if (st.stage === 'burst' && !g.burstSeen) {
+        g.burstSeen = true;
+        for (let k = 0; k < 10; k++) this.spawnPetal(g.x + (Math.random() - 0.5) * 24, by - 4, (Math.random() - 0.5) * 120, -120 - Math.random() * 120);
+      }
+      if (st.stage !== 'burst') g.burstSeen = false;
+      // the burst throws Rakti up and away
+      if (st.stage === 'burst' && st.e > 0.3 && player && !player.isDead && player.invulnerableTimer <= 0) {
+        const top = by - GEYSER.height * st.e;
+        if (Math.abs(player.x - g.x) < GEYSER.half && player.y > top && player.y - 60 < SCREEN_H) {
+          player.takeDamage(GEYSER.damage, Math.sign(player.x - g.x || 1) * 190, -360);
+          this.cameraShake = Math.max(this.cameraShake, 0.35);
+        }
+      }
     }
-    if (t < 5.6) return { frame: 8 + (Math.floor((t - 3.2) / 0.12) % 4), harmful: true, reach: 52 };
-    const f = Math.min(3, Math.floor((t - 5.6) / 0.1));
-    return { frame: 12 + f, harmful: f <= 1, reach: f === 0 ? 40 : 24 };
+    for (const q of this.bubbles) { q.y += q.vy * dt; q.x += Math.sin(q.y * 0.08 + q.seed) * 10 * dt; }
+    this.bubbles = this.bubbles.filter((q) => q.y > q.top - 70);
   }
 
   // ======================================================================== rendering
@@ -623,15 +762,20 @@ export class Level {
     ctx.save();
     // 1. Screens
     this.drawScreen(ctx, this.screenCanvas('portal', this.bg.portal, { feather: false }), 0);
-    this.drawScreen(ctx, this.screenCanvas('idol', this.bg.idol), 1);
+    this.drawScreen(ctx, this.screenCanvas('sanctum', this.bg.sanctum), 1);
     this.drawScreen(ctx, this.screenCanvas('ruins', this.bg.ruins), 2);
-    this.drawScreen(ctx, this.screenCanvas('ruins_m', this.bg.ruins, { mirror: true }), 3);
-    this.drawScreen(ctx, this.screenCanvas('towers', this.bg.towers), 4);
-    // mirrored copy butted edge to edge: the seam is a perfect reflection, so it needs no feather
-    this.drawScreen(ctx, this.screenCanvas('towers_m', this.bg.towers, { mirror: true, feather: false }), 4, 1, X(4) + SCREEN_W - 1);
+    this.drawScreen(ctx, this.screenCanvas('suns', this.bg.suns), 3);
+    this.drawScreen(ctx, this.screenCanvas('ruins_m', this.bg.ruins, { mirror: true }), 4);
+    this.drawScreen(ctx, this.screenCanvas('towers', this.bg.towers), 5);
+    // mirrored copies butted edge to edge: each seam is a perfect reflection, so it needs no feather
+    this.drawScreen(ctx, this.screenCanvas('towers_m', this.bg.towers, { mirror: true, feather: false }), 5, 1, X(5) + SCREEN_W - 1);
+    this.drawScreen(ctx, this.screenCanvas('towers_n', this.bg.towers, { feather: false }), 5, 1, X(5) + SCREEN_W * 2 - 2);
 
-    this.renderIdolGlow(ctx);
+    this.renderIdolGlow(ctx, 'back');
+    this.renderIdol(ctx);
+    this.renderIdolGlow(ctx, 'front');
     this.renderTowers(ctx);
+    for (const q of this.piers) this.drawPillar(ctx, q);
     this.renderPits(ctx);
 
 
@@ -645,11 +789,12 @@ export class Level {
     // 4. Pillars, seam columns and spike traps
     for (const p of this.pillars) this.drawPillar(ctx, p);
     this.renderSeamColumns(ctx);
-    for (const trap of this.spikes) this.drawSpikeTrap(ctx, trap);
+    for (const sp of this.spikes) this.drawSpike(ctx, sp);
 
     // 5. Shrine room props
+    this.renderGeysers(ctx, 'under');
     this.renderBridges(ctx, isDivine);
-    this.renderBridgeSentries(ctx, isDivine);
+    this.renderGeysers(ctx, 'over');
     this.renderLever(ctx);
     this.renderShrineAndRelic(ctx);
     this.renderDoorGlow(ctx);
@@ -669,19 +814,46 @@ export class Level {
     for (const cx of this.seamColumns) if (this.inView(cx - w / 2, cx + w / 2)) ctx.drawImage(c, cx - w / 2, FLOOR_Y + 3 - h, w, h);
   }
 
-  renderIdolGlow(ctx) {
+  /** Kali's idol: the pillared shrine sprite, standing on the floor near the start of the sanctum. */
+  renderIdol(ctx) {
+    const p = this.prologue, im = this.idolImg;
+    const w = IDOL_ART.w * p.idolScale, h = IDOL_ART.h * p.idolScale;
+    if (!this.inView(p.idolX - w / 2, p.idolX + w / 2)) return;
+    const c = this.cachedArt('idol', w, h, im.complete && im.naturalWidth > 0, (g) => {
+      g.drawImage(im, 0, 0, w, h);
+      // a cool wash so the gold sits in the same deep-water light as the background
+      g.globalCompositeOperation = 'source-atop';
+      g.fillStyle = 'rgba(10, 40, 110, 0.16)';
+      g.fillRect(0, 0, w, h);
+    });
+    if (!c) return;
+    const top = FLOOR_Y + 2 - IDOL_ART.footRow * p.idolScale;
+    // soft dark pool where the plinth meets the floor
+    ctx.save();
+    const sh = ctx.createRadialGradient(p.idolX, FLOOR_Y, 4, p.idolX, FLOOR_Y, w * 0.6);
+    sh.addColorStop(0, 'rgba(0, 6, 20, 0.45)');
+    sh.addColorStop(1, 'rgba(0, 6, 20, 0)');
+    ctx.fillStyle = sh;
+    ctx.fillRect(p.idolX - w * 0.6, FLOOR_Y - 20, w * 1.2, 30);
+    ctx.drawImage(c, p.idolX - w / 2, top, w, h);
+    ctx.restore();
+  }
+
+  /** The idol's light: a halo behind her ('back') while she calls Rakti / speaks, and a glow on her face ('front'). */
+  renderIdolGlow(ctx, pass) {
     const p = this.prologue;
-    const pulse = this.idolBlessed ? 0 : 0.18 + Math.sin(this.animTime * 2.2) * 0.08;
+    const pulse = this.idolBlessed ? 0.08 : 0.2 + Math.sin(this.animTime * 2.2) * 0.08;
     const glow = Math.max(pulse, Math.min(1, this.idolGlow));
-    if (glow <= 0.01) return;
+    if (glow <= 0.01 || !this.inView(p.idolX - 160, p.idolX + 160)) return;
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    const g = ctx.createRadialGradient(p.idolX, p.idolFaceY, 4, p.idolX, p.idolFaceY, 120);
-    g.addColorStop(0, `rgba(255, 214, 120, ${0.55 * glow})`);
-    g.addColorStop(0.45, `rgba(120, 200, 255, ${0.22 * glow})`);
+    const y = p.idolFaceY + (pass === 'back' ? 30 : 0), r = pass === 'back' ? 170 : 60;
+    const g = ctx.createRadialGradient(p.idolX, y, 4, p.idolX, y, r);
+    g.addColorStop(0, `rgba(255, 214, 120, ${(pass === 'back' ? 0.5 : 0.35) * glow})`);
+    g.addColorStop(0.45, `rgba(120, 200, 255, ${(pass === 'back' ? 0.2 : 0.08) * glow})`);
     g.addColorStop(1, 'rgba(0, 0, 0, 0)');
     ctx.fillStyle = g;
-    ctx.fillRect(p.idolX - 130, p.idolFaceY - 130, 260, 260);
+    ctx.fillRect(p.idolX - r, y - r, r * 2, r * 2);
     ctx.restore();
   }
 
@@ -704,6 +876,7 @@ export class Level {
     const c = this.cachedArt(`pillar:${p.art}:${sc}`, w, h, im.complete && im.naturalWidth > 0, (g) => g.drawImage(im, 0, 0, w, h));
     if (!c) return;
     const top = p.top - art.surface * sc;
+    if (p.spin) { this.drawSpinningPillar(ctx, p, c, w, h, top); return; }
     ctx.save();
     if (p.art === 'medium') {
       // only the part above the floor's bottom edge is visible while it rises
@@ -715,21 +888,148 @@ export class Level {
     ctx.restore();
   }
 
-  drawSpikeTrap(ctx, trap) {
-    const { frame } = this.spikeState(trap);
-    const im = this.spikeSheet;
-    const s = SPIKE_SCALE;
+  /** A pillar turning on its vertical axis: squeezed by |cos|, mirrored when its back comes round, darker
+   *  edge-on, with a gold glint sweeping across its face and a ring of light on the cap while it is safe. */
+  drawSpinningPillar(ctx, p, c, w, h, top) {
+    const cs = this.spinCos(p), k = Math.max(0.06, Math.abs(cs));
+    const ang = (this.animTime / p.spin.period + p.spin.phase) * Math.PI * 2;
+    const dark = this.cachedArt(`pillarDark:${p.art}:${pillarScale(p)}`, w, h, true, (g) => {
+      g.drawImage(c, 0, 0, w, h);
+      g.globalCompositeOperation = 'source-atop';
+      g.fillStyle = 'rgb(4, 10, 28)';
+      g.fillRect(0, 0, w, h);
+    });
+    ctx.save();
+    ctx.translate(p.cx, 0);
+    ctx.scale(cs < 0 ? -k : k, 1);
+    ctx.drawImage(c, -w / 2, top, w, h);
+    ctx.globalAlpha = (1 - k) * 0.65;
+    ctx.drawImage(dark, -w / 2, top, w, h);
+    ctx.restore();
+    // glint sweeping across the face as it turns
+    const gx = p.cx + Math.sin(ang) * (w * k * 0.42);
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const gl = ctx.createLinearGradient(gx - 5, 0, gx + 5, 0);
+    gl.addColorStop(0, 'rgba(255, 220, 140, 0)');
+    gl.addColorStop(0.5, `rgba(255, 220, 140, ${0.35 * k})`);
+    gl.addColorStop(1, 'rgba(255, 220, 140, 0)');
+    ctx.fillStyle = gl;
+    ctx.fillRect(gx - 5, p.top + 6, 10, SCREEN_H - p.top);
+    // cap ring: gold while there is room to stand, red as it turns edge-on
+    const safe = k >= 0.22;
+    ctx.strokeStyle = safe ? `rgba(255, 214, 110, ${0.25 + 0.4 * k})` : 'rgba(255, 70, 60, 0.75)';
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.ellipse(p.cx, p.top + 1, this.pillarHalf(p) + 4, 3, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  /** One spike: its vent is always marked (a dark slot with a thin gold rim), and the spike rises out of it. */
+  drawSpike(ctx, sp) {
+    const { x, y } = this.spikeBase(sp);
+    if (!this.inView(x - 30, x + 30)) return;
+    const { frame } = this.spikeState(sp);
+    // the vent
+    ctx.save();
+    ctx.fillStyle = 'rgba(4, 8, 18, 0.85)';
+    ctx.beginPath(); ctx.ellipse(x, y + 1.5, 15, 2.6, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = frame >= 2 && frame <= 3 ? 'rgba(255, 120, 70, 0.9)' : 'rgba(214, 170, 80, 0.55)';   // glows red as it is about to fire
+    ctx.lineWidth = 0.9;
+    ctx.stroke();
+    ctx.restore();
+    if (frame < 0) return;
+    const im = this.spikeSheet, s = SPIKE_SCALE;
     const w = SPIKE_ART.frameW * s, h = SPIKE_ART.frameH * s;
-    if (!this.inView(trap.x - w, trap.x + trap.blocks * SPIKE_BLOCK_W + w)) return;
-    const sx = (frame % SPIKE_SHEET_COLUMNS) * SPIKE_ART.frameW;
-    const sy = Math.floor(frame / SPIKE_SHEET_COLUMNS) * SPIKE_ART.frameH;
-    const c = this.cachedArt('spike:' + frame, w, h, im.complete && im.naturalWidth > 0,
-      (g) => g.drawImage(im, sx, sy, SPIKE_ART.frameW, SPIKE_ART.frameH, 0, 0, w, h));
+    const c = this.cachedArt('spike1:' + frame, w, h, im.complete && im.naturalWidth > 0,
+      (g) => g.drawImage(im, frame * SPIKE_ART.frameW, 0, SPIKE_ART.frameW, SPIKE_ART.frameH, 0, 0, w, h));
     if (!c) return;
-    for (let b = 0; b < trap.blocks; b++) {
-      const bx = trap.x + b * SPIKE_BLOCK_W;
-      ctx.drawImage(c, bx - SPIKE_ART.blockLeft * s, FLOOR_Y - SPIKE_ART.surface * s + 1, w, h);
+    ctx.drawImage(c, x - w / 2, y - SPIKE_ART.surface * s + 1, w, h);
+  }
+
+  /** Geysers: bubbles always; while warning a cold glow swells under the deck; the burst is a wobbling white-cyan
+   *  column with a foam crown. 'under' = behind the bridge (glow, bubbles), 'over' = the column in front of it. */
+  renderGeysers(ctx, pass) {
+    if (this.bridgeGrow < 1) return;
+    ctx.save();
+    if (pass === 'under') {
+      ctx.globalCompositeOperation = 'lighter';
+      for (const q of this.bubbles) {
+        if (!this.inView(q.x - 4, q.x + 4)) continue;
+        ctx.strokeStyle = 'rgba(190, 240, 255, 0.55)';
+        ctx.lineWidth = 0.8;
+        ctx.beginPath(); ctx.arc(q.x, q.y, q.r, 0, Math.PI * 2); ctx.stroke();
+      }
+      for (const g of this.geysers) {
+        const st = this.geyserState(g), by = this.bridges[g.bridge].y;
+        if (st.stage !== 'warn' || !this.inView(g.x - 50, g.x + 50)) continue;
+        const a = 0.25 + 0.45 * st.k + 0.1 * Math.sin(this.animTime * 30);
+        const gr = ctx.createRadialGradient(g.x, by + 8, 2, g.x, by + 8, 34 + 16 * st.k);
+        gr.addColorStop(0, `rgba(170, 245, 255, ${a})`);
+        gr.addColorStop(1, 'rgba(0, 60, 120, 0)');
+        ctx.fillStyle = gr;
+        ctx.fillRect(g.x - 52, by - 44, 104, 104);
+      }
+      ctx.restore();
+      return;
     }
+    for (const g of this.geysers) {
+      const st = this.geyserState(g), by = this.bridges[g.bridge].y;
+      if (st.stage !== 'burst' || st.e <= 0 || !this.inView(g.x - 40, g.x + 40)) continue;
+      const top = by - GEYSER.height * st.e, bottom = SCREEN_H + 4;
+      const half = GEYSER.half * (0.7 + 0.3 * st.e);
+      // body: wobbling edges built from a few sine waves
+      ctx.beginPath();
+      const steps = 18;
+      for (let i = 0; i <= steps; i++) {
+        const y = top + (bottom - top) * (i / steps);
+        const wob = Math.sin(y * 0.09 + this.animTime * 14) * 2.2 + Math.sin(y * 0.031 - this.animTime * 9) * 1.6;
+        ctx.lineTo(g.x - half - wob, y);
+      }
+      for (let i = steps; i >= 0; i--) {
+        const y = top + (bottom - top) * (i / steps);
+        const wob = Math.sin(y * 0.07 - this.animTime * 12) * 2.2 + Math.sin(y * 0.043 + this.animTime * 8) * 1.6;
+        ctx.lineTo(g.x + half + wob, y);
+      }
+      ctx.closePath();
+      const body = ctx.createLinearGradient(g.x - half, 0, g.x + half, 0);
+      body.addColorStop(0, 'rgba(90, 200, 255, 0.35)');
+      body.addColorStop(0.35, 'rgba(210, 250, 255, 0.85)');
+      body.addColorStop(0.5, 'rgba(255, 255, 255, 0.95)');
+      body.addColorStop(0.65, 'rgba(210, 250, 255, 0.85)');
+      body.addColorStop(1, 'rgba(90, 200, 255, 0.35)');
+      ctx.fillStyle = body;
+      ctx.fill();
+      // streaks rushing up the column
+      ctx.strokeStyle = 'rgba(120, 210, 255, 0.6)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < 5; i++) {
+        const sx = g.x - half * 0.6 + (i / 4) * half * 1.2;
+        const sy = bottom - ((this.animTime * 420 + i * 61) % (bottom - top));
+        ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx, Math.max(top, sy - 18)); ctx.stroke();
+      }
+      // foam crown
+      ctx.fillStyle = 'rgba(240, 255, 255, 0.9)';
+      for (let i = 0; i < 9; i++) {
+        const a = (i / 8) * Math.PI;
+        const r = 3 + (i % 3);
+        const fx = g.x - Math.cos(a) * (half + 4) + Math.sin(this.animTime * 20 + i) * 1.5;
+        const fy = top + 2 - Math.sin(a) * 7 + Math.cos(this.animTime * 17 + i * 2) * 1.5;
+        ctx.beginPath(); ctx.arc(fx, fy, r, 0, Math.PI * 2); ctx.fill();
+      }
+      // spray where it punches through the deck
+      ctx.fillStyle = 'rgba(200, 245, 255, 0.8)';
+      for (let i = 0; i < 8; i++) {
+        const u = ((this.animTime * 2.4 + i / 8) % 1);
+        const dir = i % 2 ? 1 : -1;
+        const px = g.x + dir * (half + u * 34), py = by - 6 - Math.sin(u * Math.PI) * 26;
+        ctx.globalAlpha = 1 - u;
+        ctx.beginPath(); ctx.arc(px, py, 1.6, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+    ctx.restore();
   }
 
   renderShrineAndRelic(ctx) {
@@ -1120,40 +1420,5 @@ export class Level {
         ctx.restore();
       }
     }
-  }
-
-  sentryPos(o) {
-    const b = this.bridges[o.bridge];
-    return { x: b.x1 + (b.x2 - b.x1) * o.t, y: b.y - 26 + Math.sin(o.phase) * 5 };
-  }
-
-  /** The bridge orbs from the original temple level: a hot golden core with a spinning ring. */
-  renderBridgeSentries(ctx, isDivine) {
-    if (!isDivine || this.bridgeGrow < 1) return;
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    for (const o of this.bridgeSentries) {
-      const { x, y } = this.sentryPos(o);
-      if (!this.inView(x - 20, x + 20)) continue;
-      const pulse = 0.72 + Math.sin(o.phase * 1.7) * 0.18;
-      const glow = ctx.createRadialGradient(x, y, 2, x, y, 20);
-      glow.addColorStop(0, `rgba(255, 247, 202, ${0.9 * pulse})`);
-      glow.addColorStop(0.32, `rgba(255, 190, 61, ${0.65 * pulse})`);
-      glow.addColorStop(1, 'rgba(255, 122, 34, 0)');
-      ctx.fillStyle = glow;
-      ctx.beginPath();
-      ctx.arc(x, y, 20, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = `rgba(255, 230, 145, ${0.72 * pulse})`;
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.arc(x, y, 9, o.phase, o.phase + Math.PI * 1.55);
-      ctx.stroke();
-      ctx.fillStyle = '#fff5d1';
-      ctx.beginPath();
-      ctx.arc(x, y, 4, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.restore();
   }
 }

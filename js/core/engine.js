@@ -22,6 +22,9 @@ const LEVEL_NAMES = {
   5: 'Unlimited Mode  ·  The Siege Wall'
 };
 
+const SPEAKER_NAMES = { kali: '⚜ MAA KALI ⚜', rakti: '⚜ RAKTI ⚜', father: '⚜ PITAJI ⚜', demon: '⚜ THE ASURA ⚜' };
+const divineActiveNow = (p) => p.isDivine || p.isTransforming;
+
 export class Engine {
   constructor(canvas, level, player) {
     this.canvas = canvas;
@@ -74,11 +77,17 @@ export class Engine {
     this.dialoguePortraitImg = document.getElementById('dialoguePortraitImg');
     this.dialoguePortraitBack = document.getElementById('dialoguePortraitBack');   // the previous pose, under a crossfade
     this.dialogueDismiss = document.getElementById('dialogueDismiss');
+    this.bossHud = document.getElementById('bossHud');
+    this.bossFill = document.getElementById('bossFill');
+    this.bossFillLag = document.getElementById('bossFillLag');
+    this.bossName = document.getElementById('bossName');
     this.dialoguePortraitName = document.getElementById('dialoguePortraitName');
 
     // Dialogue portraits: 24 frames per character (row 0 idle + blinks, row 1 talking, row 2 gestures)
     const frames = (prefix) => Array.from({ length: 24 }, (_, i) => { const im = new Image(); im.src = `assets/portraits/${prefix}_${i}.png`; return im; });
-    this.portraitSets = { kali: frames('kali2'), rakti: frames('rakti'), rakti_sari: frames('rakti_sari') };
+    this.portraitSets = { kali: frames('kali2'), rakti: frames('rakti'), rakti_sari: frames('rakti_sari'), father: Array.from({ length: 16 }, (_, i) => { const im = new Image(); im.src = `assets/portraits/father2_${i}.png`; return im; }),   // static expressions
+      // the Asura's 6 expressions: 0 glare, 1 snarl, 2 roar, 3 stern, 4 grit, 5 pained
+      demon: Array.from({ length: 6 }, (_, i) => { const im = new Image(); im.src = `assets/level4/sprites/demon_portrait_${i}.png`; return im; }) };
     this.portraitAnim = 0;
     this.portraitFrame = -1;
     this.dialogueSpeaker = null;
@@ -239,7 +248,12 @@ export class Engine {
     this.player.spawnAlpha = introHidden ? 0 : 1;
     // The Trishul is found in Level 2's sun shrine and kept from then on
     this.player.hasTrishul = index >= 3 || Boolean(this.level.playerHasTrishul?.());
+    // Kali's gold orbs and the damage charge belong to Level 4 (it switches them on once the mala is taken)
+    this.player.kaliOrbs = false;
+    this.player.chargeMode = false;
+    this.player.divineDuration = 6;
     this.player.resetWeapons();
+    this.level.onPlayerSpawn?.(this.player);
     this.playerDying = false;
     if (this.deathScreen) {
       this.deathScreen.classList.remove('active');
@@ -722,6 +736,9 @@ export class Engine {
 
     let targetX = this.player.x - viewW / 2;
     let targetY = this.player.y - viewH / 2 - 20;
+    // a level can frame something else for a moment (Level 4: her father on the throne, the reunion)
+    const focus = this.level.cameraFocus?.(this.dialogueActive && this.convo ? this.convo.lines[this.convo.i] : null);
+    if (focus) { targetX = focus.x - viewW / 2; targetY = focus.y - viewH / 2; }
 
     const maxCamX = Math.max(minX, this.level.width - viewW);
     const maxCamY = Math.max(0, this.level.height - viewH);
@@ -729,6 +746,7 @@ export class Engine {
     targetX = Math.max(minX, Math.min(targetX, maxCamX));
     targetY = Math.max(0, Math.min(targetY, maxCamY));
 
+    if (this.level.snapCamera) { this.cameraSnap = true; this.level.snapCamera = false; }   // a level's scene cut (fade)
     if (this.cameraSnap) {
       // Jump straight to the player after a level load instead of panning across the map.
       this.camX = targetX;
@@ -787,11 +805,12 @@ export class Engine {
 
     const divineUnlocked = this.player.hasDivineUnlocked;
     const divineActive = this.player.isDivine || this.player.isTransforming;
+    const charging = this.player.chargeMode && !divineActiveNow(this.player);
     const divineRatio = this.player.isTransforming
       ? 1
       : this.player.isDivine
         ? Math.max(0, Math.min(1, this.player.divineTimer / this.player.divineDuration))
-        : 1;
+        : charging ? Math.max(0, Math.min(1, this.player.divineCharge)) : 1;
     const divinePercent = divineUnlocked ? divineRatio * 100 : 0;
 
     put(this.divineBarFill, 'w', `${divinePercent.toFixed(1)}%`, v => { this.divineBarFill.style.width = v; });
@@ -800,12 +819,25 @@ export class Engine {
       ? 'X ability locked'
       : divineActive
         ? `${Math.ceil(this.player.divineTimer)} seconds remain`
-        : 'X ability ready', v => this.divineTrack.setAttribute('aria-valuetext', v));
+        : charging && this.player.divineCharge < 1 ? 'X ability charging' : 'X ability ready', v => this.divineTrack.setAttribute('aria-valuetext', v));
     if (this.divineMeter) {
+      this.divineMeter.classList.toggle('charging', charging && this.player.divineCharge < 1);
+      this.divineMeter.classList.toggle('charged', charging && this.player.divineCharge >= 1);
+      this.divineMeter.classList.toggle('denied', (this.player.chargeDenied || 0) > 0);
       this.divineMeter.classList.toggle('locked', !divineUnlocked);
       this.divineMeter.classList.toggle('active', divineActive);
     }
     this.hudEl.classList.toggle('divine-mode', divineActive);
+
+    // Level 4 boss bar
+    const boss = this.isGameStarted ? this.level?.bossHud?.() : null;
+    put(this.bossHud, 'show', String(Boolean(boss)), v => this.bossHud?.classList.toggle('show', v === 'true'));
+    if (boss) {
+      const w = `${(Math.max(0, Math.min(1, boss.ratio)) * 100).toFixed(1)}%`;
+      put(this.bossFill, 'w', w, v => { this.bossFill.style.width = v; this.bossFillLag.style.width = v; });
+      put(this.bossName, 'n', boss.name, v => { this.bossName.textContent = v; });
+      put(this.bossHud, 'demon', String(Boolean(boss.demon)), v => this.bossHud.classList.toggle('demon', v === 'true'));
+    }
 
     // Equipped weapon: talwar [1] or Trishul [2]; the Trishul icon dims while it is in flight
     const trishulOn = this.player.hasTrishul && this.player.weapon === 'trishul';
@@ -857,16 +889,16 @@ export class Engine {
     this.dlgRestNode.textContent = text;
     this.dialogueText.append(this.dlgShownNode, this.dlgRestNode);
     if (this.dialogueTitle) {
-      this.dialogueTitle.textContent = title || (speaker === 'kali' ? '⚜ MAA KALI ⚜' : speaker === 'rakti' ? '⚜ RAKTI ⚜' : '⚜ WHISPER OF SURYA ⚜');
+      this.dialogueTitle.textContent = title || SPEAKER_NAMES[speaker] || '⚜ WHISPER OF SURYA ⚜';
     }
     const set = this.portraitSetFor(speaker);
     if (this.dialoguePortraitContainer) {
       this.dialogueBox.classList.toggle('has-portrait', Boolean(set));
       this.dialogueBox.classList.toggle('portrait-left', speaker === 'rakti');
-      this.dialogueBox.classList.toggle('speaker-rakti', speaker === 'rakti');
+      for (const sp of ['rakti', 'father', 'demon']) this.dialogueBox.classList.toggle('speaker-' + sp, speaker === sp);
       this.dialoguePortraitContainer.style.display = set ? 'flex' : 'none';
-      if (set && this.dialoguePortraitName) this.dialoguePortraitName.textContent = speaker === 'kali' ? '⚜ MAA KALI ⚜' : '⚜ RAKTI ⚜';
-      if (set && this.dialoguePortraitImg) this.dialoguePortraitImg.alt = speaker === 'kali' ? 'Maa Kali' : 'Rakti';
+      if (set && this.dialoguePortraitName) this.dialoguePortraitName.textContent = SPEAKER_NAMES[speaker];
+      if (set && this.dialoguePortraitImg) this.dialoguePortraitImg.alt = SPEAKER_NAMES[speaker].replace(/⚜/g, '').trim();
       if (set && speaker !== prevSpeaker) {
         // a new speaker slides up into view (no crossfade from the last speaker's face)
         if (this.dialoguePortraitBack) this.dialoguePortraitBack.style.opacity = '0';
@@ -883,7 +915,7 @@ export class Engine {
   portraitSetFor(speaker) {
     if (speaker === 'kali') return this.portraitSets.kali;
     if (speaker === 'rakti') return this.player.isCivilian ? this.portraitSets.rakti_sari : this.portraitSets.rakti;
-    return null;
+    return this.portraitSets[speaker] || null;
   }
 
   /** A sequence of lines between Kali and Rakti: [{ s: 'kali' | 'rakti', t: text, g: gesture }]. [E] steps through it. */
@@ -909,7 +941,14 @@ export class Engine {
     this.portraitAnim += dt;
     // While the line types she talks (row 2); then she holds the line's gesture (row 3), or idles and blinks (row 1).
     let f, pose;
-    if (d.shown < d.text.length) {
+    if (set.length === 16) {
+      // Rakti's father: a still portrait, one expression per line
+      pose = 'idle'; f = d.gesture ?? 0;
+    } else if (set.length === 6) {
+      // the Asura: snarls and roars while speaking, then holds the line's expression (or glares)
+      if (d.shown < d.text.length) { pose = 'talk'; f = [1, 2, 1, 4][Math.floor(this.portraitAnim / 0.14) % 4]; }
+      else { pose = 'idle'; f = d.gesture ?? 0; }
+    } else if (d.shown < d.text.length) {
       pose = 'talk';
       f = 8 + (Math.floor(this.portraitAnim / 0.12) % 8);
     } else if (d.gesture !== null && d.gesture !== undefined) {
@@ -973,7 +1012,7 @@ export class Engine {
     this.dlg = null;
     this.convo = null;
     if (this.dialogueBox) {
-      this.dialogueBox.classList.remove('has-portrait', 'portrait-left', 'speaker-rakti');
+      this.dialogueBox.classList.remove('has-portrait', 'portrait-left', 'speaker-rakti', 'speaker-father', 'speaker-demon');
       this.dialogueBox.style.display = 'none';
     }
   }
