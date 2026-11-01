@@ -79,7 +79,7 @@ const QS = { src: 'quicksand.png', w: 1178, h: 187, surface: 13, scale: 0.5 };
 // Stone sheets: 6 frames each. Ball frames are centred; slab frames are aligned on the stone's top edge.
 const BALL = { frameW: 196, frameH: 256, anchorX: 97.5, anchorY: 129, bottom: 254, scale: 0.25 };
 const SLAB = { frameW: 202, frameH: 234, anchorX: 101, anchorY: 3, slabL: 24, slabR: 178, scale: 0.42 };
-const PIER_SINK_SPEED = 26;     // hall piers sink this fast (px/s) while Rakti stands on them
+const PIER_SINK_SPEED = 34;     // hall piers sink this fast (px/s) while Rakti stands on them
 const PIER_RISE_SPEED = 18;     // and rise back this fast once she leaves
 const PIER_SINK_MAX = 70;       // by then the top is under the sand
 const SLAB_ROCK_BOTTOM = 232;   // lowest row of the raw rock (frame 0)
@@ -181,9 +181,10 @@ export class Level2 {
       { pier: true, cx: 380, top: 330, w: 72, base: 330, swing: 26, period: 3.2, phase: 0 },
       { pier: true, cx: 560, top: 310, w: 72, base: 312, swing: 26, period: 3.2, phase: Math.PI },
       // the hall's piers stand in quicksand: they sink while Rakti stands on them, so she cannot wait
-      { pier: true, cx: ROOM_X + 336, top: 340, w: 72, sinks: true },
-      { pier: true, cx: ROOM_X + 486, top: 294, w: 72, sinks: true },
-      { pier: true, cx: ROOM_X + 632, top: 316, w: 72, sinks: true }
+      // (harder: wider gaps, the middle one also rises and falls, and the last one stands high)
+      { pier: true, cx: ROOM_X + 340, top: 338, w: 72, sinks: true },
+      { pier: true, cx: ROOM_X + 502, top: 300, w: 72, sinks: true, base: 300, swing: 34, period: 2.6, phase: 0 },
+      { pier: true, cx: ROOM_X + 656, top: 280, w: 72, sinks: true }
     ];
     for (const p of this.pillars) {
       p.top0 = p.top;
@@ -766,7 +767,7 @@ export class Level2 {
       if (p.sinks) {
         const on = player && player.isGrounded && player.currentPlatform?.pierRef === p;
         p.sinkD = on ? Math.min(PIER_SINK_MAX, p.sinkD + PIER_SINK_SPEED * dt) : Math.max(0, p.sinkD - PIER_RISE_SPEED * dt);
-        p.top = p.top0 + p.sinkD;
+        p.top = p.top0 + p.sinkD + (p.swing ? Math.sin((this.animTime * Math.PI * 2) / p.period + p.phase) * p.swing : 0);
         if (on && Math.random() < dt * 14) this.burst(p.cx + (Math.random() - 0.5) * p.w, SAND_Y - 2, 2, ['#dca15c', '#c3823f', '#ffe1a8'], 40, 0.5);
         if (on && p.sinkD >= PIER_SINK_MAX) { player.isGrounded = false; player.currentPlatform = null; }   // swallowed: she drops into the sand
       } else {

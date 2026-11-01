@@ -61,9 +61,20 @@ const ABILITY_SPRITES = {
   metrics: {
     qcast: { frameW: 355, frameH: 294, anchorX: 93, anchorY: 289, count: 10 },
     tthrow: { frameW: 422, frameH: 253, anchorX: 144, anchorY: 250, count: 5 },
-    tcatch: { frameW: 302, frameH: 293, anchorX: 104, anchorY: 289, count: 4 }
+    tcatch: { frameW: 302, frameH: 293, anchorX: 104, anchorY: 289, count: 4 },
+    kcast: { frameW: 212, frameH: 293, anchorX: 76.4, anchorY: 275.8, count: 6 }   // Kali form: hurling a gold orb
   }
 };
+// Maa Kali's gold orbs (Level 4, after the skull mala): Kali form [X] attacks with them instead of the blade
+export const KALI_ORB = {
+  damage: 8, speed: 700, cooldown: 0.5, range: 760, aimRange: 620, aimCone: 1.35,
+  castFrame: 0.06, releaseFrame: 3,
+  art: { src: 'assets/level4/sprites/orb_gold_', count: 6, frameW: 76, frameH: 47, anchorX: 50.6, anchorY: 23.2, scale: 0.5 }
+};
+// Level 4: after the mala, Kali form needs a full charge, filled by the damage Rakti deals with blade and Trishul
+export const KALI_CHARGE_FULL = 100;
+const SWORD_COOLDOWN = 0.6;    // seconds from one talwar swing to the next (the swing itself is ~0.39 s)
+const SWORD_BUFFER = 0.15;     // a click this close to the end of the cooldown is kept and swings when it ends
 const CAST_FRAME_TIME = 0.075;                       // 10 frames = 0.75 s
 const CAST_RELEASE_FRAME = 7;                         // the stone answers when the green burst leaves her hand
 const THROW_FRAME_TIMES = [0.05, 0.08, 0.06, 0.09, 0.12];   // ready, wind-up, thrust, release, follow-through
@@ -207,6 +218,13 @@ export class Player {
     this.isDivine = false;
     this.divineDuration = 6.0;
     this.divineTimer = 0.0;
+    this.kaliOrbs = false;        // Level 4 (skull mala): Kali form hurls gold orbs and lasts 10 s
+    this.chargeMode = false;      // Level 4: Kali form needs divineCharge >= 1 (filled by dealing damage)
+    this.divineCharge = 0;
+    this.goldOrbs = [];
+    this.orbCooldown = 0;
+    this.orbCast = null;
+    this.orbImgs = Array.from({ length: KALI_ORB.art.count }, (_, i) => { const im = new Image(); im.src = `${KALI_ORB.art.src}${i}.png`; return im; });
     this.divinePulse = 0.0;
 
     // Preload Animation Sprite Frames
@@ -264,6 +282,8 @@ export class Player {
     this.catchTimer = 0;
     this.isCasting = false;
     this.castCallback = null;
+    this.goldOrbs = [];
+    this.orbCast = null;
     if (!this.hasTrishul) this.weapon = 'sword';
   }
 
@@ -431,12 +451,13 @@ export class Player {
   }
 
   triggerAttack() {
-    // Mashing used to restart the swing every click, so enemies took a hit per click.
-    // Clicks during the first half of a swing now queue the next swing instead.
-    if (this.isAttacking && this.attackFrame < 3) {
-      this.attackQueued = true;
+    // The talwar has a cooldown (SWORD_COOLDOWN from the start of one swing to the next), so it cannot be
+    // spammed. A click in the last moment of the cooldown is remembered and swings as soon as it is over.
+    if ((this.swordCooldown || 0) > 0) {
+      if (this.swordCooldown <= SWORD_BUFFER) this.attackQueued = true;
       return;
     }
+    this.swordCooldown = SWORD_COOLDOWN;
     this.attackQueued = false;
     this.isAttacking = true;
     this.attackFrame = 0;
@@ -820,6 +841,7 @@ export class Player {
       }
       this.updateParticles(dt);
       this.updateTrishul(dt, level);
+      this.updateGoldOrbs(dt, level);
       return;
     }
 
@@ -901,8 +923,13 @@ export class Player {
     }
 
     // 1. Attack on Left Click or Right Click Parry / Deflection Strike
-    // (no attacks in Kali form: it only lends her Kali's leap)
-    if (!this.isCivilian && !this.isDivine && (Input.isPressed('attack') || Input.isPressed('parry'))) {
+    // Kali form: no blade (it only lends her Kali's leap), but with the skull mala she hurls gold orbs
+    const attackPressed = Input.isPressed('attack') || Input.isPressed('parry');
+    if (attackPressed && this.isDivine && this.kaliOrbs) {
+      this.faceMouse();
+      this.tryCastOrb();
+    }
+    if (!this.isCivilian && !this.isDivine && attackPressed) {
       if (typeof window !== 'undefined' && (Input.isPressed('MouseLeft') || Input.isPressed('MouseRight'))) {
         // engine.js sets screenX each frame; near map edges the camera stops following,
         // so the screen centre is not where Rakti is.
@@ -933,9 +960,7 @@ export class Player {
       if (this.attackTimer >= this.attackFrameDuration) {
         this.attackTimer = 0;
         this.attackFrame++;
-        if (this.attackQueued && this.attackFrame >= 3) {
-          this.triggerAttack();
-        } else if (this.attackFrame >= 6) {
+        if (this.attackFrame >= 6) {
           this.isAttacking = false;
           this.attackFrame = 0;
         }
@@ -946,7 +971,13 @@ export class Player {
     //    could accidentally trigger Kali form.)
     if ((Input.isPressed('KeyX') || Input.isPressed('x')) && !dialogueActive) {
       if (!this.isDivine && !this.isTransforming && this.hasDivineUnlocked && !this.isCivilian) {
-        this.triggerDivineTransformation();
+        if (this.chargeMode && this.divineCharge < 1) {
+          this.chargeDenied = 0.7;          // the HUD bar shakes: not charged yet
+        } else {
+          if (this.chargeMode) this.divineCharge = 0;
+          this.divineDuration = this.kaliOrbs ? 10 : 6;
+          this.triggerDivineTransformation();
+        }
       } else if (this.isDivine && this.isGrounded && !(this.currentPlatform && this.currentPlatform.divineOnly)) {
         this.divineTimer = 0;   // [X] again on solid ground: back to Rakti early (Kali form cannot fight)
       }
@@ -1113,6 +1144,125 @@ export class Player {
     this.updateParticles(dt);
     this.updateSlashes(dt);
     this.updateTrishul(dt, level);
+    this.updateGoldOrbs(dt, level);
+  }
+
+  // ==========================================================================
+  // KALI'S GOLD ORBS (Level 4, Kali form after the skull mala)
+  // ==========================================================================
+
+  faceMouse() {
+    if (typeof window === 'undefined' || !(Input.isPressed('MouseLeft') || Input.isPressed('MouseRight'))) return;
+    const sx = Number.isFinite(this.screenX) ? this.screenX : window.innerWidth / 2;
+    if (Input.mouseX > sx + 6) this.facing = 'right';
+    else if (Input.mouseX < sx - 6) this.facing = 'left';
+  }
+
+  tryCastOrb() {
+    if (this.orbCooldown > 0 || this.orbCast) return;
+    this.orbCast = { t: 0, released: false };
+    this.orbCooldown = KALI_ORB.cooldown;
+  }
+
+  /** Damage dealt by blade or Trishul fills Kali's charge (Level 4). */
+  addCharge(amount) {
+    if (!this.chargeMode || this.isDivine || this.isTransforming) return;
+    const before = this.divineCharge;
+    this.divineCharge = Math.min(1, this.divineCharge + amount / KALI_CHARGE_FULL);
+    if (before < 1 && this.divineCharge >= 1) this.chargeReadyFlash = 1.2;
+  }
+
+  releaseOrb(level) {
+    const dir = this.facing === 'left' ? -1 : 1;
+    const sx = this.x + dir * 22, sy = this.y - 44 - this.kaliHoverLift;
+    let angle = dir > 0 ? 0 : Math.PI;
+    let best = null, bestScore = Infinity;
+    for (const e of this.trishulTargets(level)) {
+      const tx = e.x, ty = e.y - (e.hitHeight ?? 64) * 0.55;
+      const dx = tx - sx, dy = ty - sy;
+      if (dx * dir <= 4) continue;
+      const d = Math.hypot(dx, dy), tilt = Math.atan2(Math.abs(dy), Math.abs(dx));
+      if (d > KALI_ORB.aimRange || tilt > KALI_ORB.aimCone) continue;
+      const score = d * (1 + tilt);
+      if (score < bestScore) { bestScore = score; best = { tx, ty }; }
+    }
+    if (best) angle = Math.atan2(best.ty - sy, best.tx - sx);
+    this.goldOrbs.push({ x: sx, y: sy, vx: Math.cos(angle) * KALI_ORB.speed, vy: Math.sin(angle) * KALI_ORB.speed, angle, dist: 0, t: 0 });
+    for (let i = 0; i < 8; i++) {
+      this.particles.push({ x: sx, y: sy, vx: Math.cos(angle) * (40 + Math.random() * 80) + (Math.random() - 0.5) * 50,
+        vy: Math.sin(angle) * (40 + Math.random() * 80) + (Math.random() - 0.5) * 50,
+        life: 0.3, maxLife: 0.3, size: 2 + Math.random() * 1.5, color: i % 2 ? '#ffd36b' : '#fff3c4' });
+    }
+  }
+
+  updateGoldOrbs(dt, level) {
+    if (this.swordCooldown > 0) this.swordCooldown -= dt;
+    if (this.attackQueued && !(this.swordCooldown > 0) && !this.isDivine && !this.isCivilian && !this.isDead) this.triggerAttack();
+    if (this.orbCooldown > 0) this.orbCooldown -= dt;
+    if (this.chargeDenied > 0) this.chargeDenied -= dt;
+    if (this.chargeReadyFlash > 0) this.chargeReadyFlash -= dt;
+    if (this.orbCast) {
+      if (!this.isDivine) this.orbCast = null;
+      else {
+        this.orbCast.t += dt;
+        if (!this.orbCast.released && this.orbCast.t >= KALI_ORB.castFrame * KALI_ORB.releaseFrame) {
+          this.orbCast.released = true;
+          this.releaseOrb(level);
+        }
+        if (this.orbCast.t >= KALI_ORB.castFrame * 6) this.orbCast = null;
+      }
+    }
+    for (let i = this.goldOrbs.length - 1; i >= 0; i--) {
+      const o = this.goldOrbs[i];
+      o.t += dt;
+      o.x += o.vx * dt; o.y += o.vy * dt;
+      o.dist += KALI_ORB.speed * dt;
+      let gone = o.dist > KALI_ORB.range || o.x < (level?.minX || 0) - 40 || o.x > (level?.width ?? 99999) + 40 || o.y < -60;
+      if (!gone && level?.isSolidPoint?.(o.x, o.y)) gone = true;
+      if (!gone) {
+        for (const e of this.trishulTargets(level)) {
+          const hw = (e.hitHalfW ?? 16) + 8, hh = e.hitHeight ?? 64;
+          if (Math.abs(o.x - e.x) > hw || o.y < e.y - hh - 6 || o.y > e.y + 6) continue;
+          if (e.takeHit) e.takeHit(KALI_ORB.damage, this.x, level, 'orb');
+          else if (e.takeDamage) { const k = e.takeDamage(KALI_ORB.damage, this.x); if (k && level?.registerKill) level.registerKill(e); }
+          if (level) level.cameraShake = Math.max(level.cameraShake || 0, 0.25);
+          gone = true;
+          break;
+        }
+      }
+      if (gone) {
+        for (let k = 0; k < 12; k++) {
+          const a = Math.random() * Math.PI * 2;
+          this.particles.push({ x: o.x, y: o.y, vx: Math.cos(a) * (40 + Math.random() * 90), vy: Math.sin(a) * (40 + Math.random() * 90),
+            life: 0.35, maxLife: 0.35, size: 2 + Math.random() * 2, color: k % 3 ? '#ffd36b' : '#ffffff' });
+        }
+        this.goldOrbs.splice(i, 1);
+      }
+    }
+  }
+
+  renderGoldOrbs(ctx) {
+    if (!this.goldOrbs.length) return;
+    const A = KALI_ORB.art;
+    for (const o of this.goldOrbs) {
+      // the trailing frame (4) while it streaks, flickering with the spinning ones
+      const f = Math.floor(o.t * 20) % 3 === 2 ? [0, 1, 2, 5][Math.floor(o.t * 16) % 4] : 4;
+      const im = this.orbImgs[f];
+      if (!im || !im.complete || !im.naturalWidth) continue;
+      ctx.save();
+      ctx.translate(o.x, o.y);
+      ctx.rotate(o.angle);
+      ctx.globalCompositeOperation = 'lighter';
+      const g = ctx.createRadialGradient(0, 0, 1, 0, 0, 16);
+      g.addColorStop(0, 'rgba(255, 220, 120, 0.55)');
+      g.addColorStop(1, 'rgba(255, 160, 40, 0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(-16, -16, 32, 32);
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(im, -A.anchorX * A.scale, -A.anchorY * A.scale, A.frameW * A.scale, A.frameH * A.scale);
+      ctx.restore();
+    }
   }
 
   // ==========================================================================
@@ -1458,7 +1608,9 @@ export class Player {
       this.drawFrame(ctx, 'kaliRevert', this.revertFrame, -lift * (1 - progress));
     } else if (this.isDivine) {
       const bob = this.isMoving ? 0 : Math.sin(this.animTime * 3.5) * 2.5;
-      if (this.isMoving) {
+      if (this.orbCast) {
+        this.drawFrame(ctx, 'kcast', Math.min(5, Math.floor(this.orbCast.t / KALI_ORB.castFrame)), -lift + bob);
+      } else if (this.isMoving) {
         this.drawFrame(ctx, 'kaliHoverMove', this.hoverFrame, -lift);
       } else {
         this.drawFrame(ctx, 'kaliHoverIdle', this.hoverFrame, -lift + bob);
@@ -1477,6 +1629,7 @@ export class Player {
 
     // 4. The thrown Trishul (world space)
     this.renderTrishul(ctx);
+    this.renderGoldOrbs(ctx);
   }
 
   /** Which frame set + index to draw for the mortal form this frame. */

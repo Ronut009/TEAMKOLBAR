@@ -116,7 +116,7 @@ export class Arrow {
         vy: -this.vy * 0.12 + (Math.random() - 0.5) * 15,
         life: 0.32,
         maxLife: 0.32,
-        color: Math.random() > 0.4 ? '#ff3b30' : '#ffd700',
+        color: Math.random() > 0.4 ? (this.trailA || '#ff3b30') : (this.trailB || '#ffd700'),
         size: 2.0 + Math.random() * 2.0
       });
     }
