@@ -18,6 +18,7 @@
  */
 
 import { Arrow } from '../entities/archer.js';
+import { Sfx } from '../core/audio.js';
 import { FatherBoss } from '../entities/fatherBoss.js';
 
 // ---------------------------------------------------------------------------
@@ -196,6 +197,7 @@ class FortArcher {
 
   takeHit(damage, fromX, level = null, source = null) {
     if (!this.alive || this.hidden || this.hitCooldown > 0) return false;
+    Sfx.play('hit');
     const dealt = Math.min(damage, this.hp);
     this.hp = Math.max(0, this.hp - damage);
     this.hitFlash = 0.25;

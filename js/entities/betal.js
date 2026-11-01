@@ -8,6 +8,7 @@
  * ==========================================================================
  */
 
+import { Sfx } from '../core/audio.js';
 
 export class Betal {
   constructor(x, minX, maxX, y = 368) {
@@ -69,6 +70,7 @@ export class Betal {
       this.attackAnimTimer += dt;
       if (!this.attackHitDone && this.attackAnimTimer >= this.attackHitAt) {
         this.attackHitDone = true;
+        Sfx.play('mob_swing');
         const inFront = this.facing === 'left' ? dx < 8 : dx > -8;
         if (alive && closeVertically && inFront && Math.abs(dx) <= this.attackRange + 14 && player.invulnerableTimer <= 0) {
           player.takeDamage(this.damage, dx < 0 ? -170 : 170, -140);
@@ -113,6 +115,7 @@ export class Betal {
   /** Damage from any source (sword swing, thrown Trishul). Returns true if it killed him. */
   takeHit(damage, fromX, level = null) {
     if (this.dead || this.hidden) return false;
+    Sfx.play('hit');
     this.hp -= damage;
     this.hitFlash = 0.18;
     this.hurtTimer = 0.3;

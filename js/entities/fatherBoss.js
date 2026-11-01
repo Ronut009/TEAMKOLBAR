@@ -14,6 +14,7 @@
  */
 
 import { Arrow } from './archer.js';
+import { Sfx } from '../core/audio.js';
 
 export const BOSS = {
   HP: 300,
@@ -82,6 +83,7 @@ export class PurpleOrb extends Arrow {
   constructor(x, y, owner) {
     super(x, y, owner);
     this.damage = BOSS.ORB_DMG;
+    this.sfx = false;
     this.width = 26; this.height = 26;
     this.trailA = '#b04dff';
     this.trailB = '#f0c8ff';
@@ -171,6 +173,7 @@ export class FatherBoss {
   /** Any hit from Rakti. source 'orb' = Kali's gold orbs (they do not refill the charge). */
   takeHit(damage, fromX, level = this.level, source = null) {
     if (this.invulnerable) return false;
+    Sfx.play('hit');
     const floor = this.stage === 1 ? BOSS.STAGE2_HP : 0;
     const dealt = Math.min(damage, this.hp - floor);
     this.hp = Math.max(floor, this.hp - damage);
@@ -324,6 +327,7 @@ export class FatherBoss {
         const ft = this.stage === 1 ? 0.1 : 0.085;
         if (this.anim >= ft * 3 && !this.hitDone) {
           this.hitDone = true;
+          Sfx.play('mob_swing');
           if (inFront(this.stage === 1 ? 80 : 98)) hurt(this.stage === 1 ? BOSS.SLASH_DMG : BOSS.D_SLASH_DMG);
           L.burst(this.x + dir * 50, this.y - 40, 6, this.stage === 1 ? ['#ffffff', '#ffd36b'] : ['#c77dff', '#ffffff'], 70, 0.3);
         }
@@ -339,6 +343,7 @@ export class FatherBoss {
         if (this.anim >= 0.11 * 4 && !this.hitDone) {
           this.hitDone = true;
           this.waves.push({ x: this.x + dir * 40, dir, t: 0 });
+          Sfx.play('boss_blast');
           if (this.doubleWave) this.waves.push({ x: this.x + dir * 40, dir, t: -0.45 });   // a second one behind it
           L.shake(0.2);
         }
@@ -355,6 +360,7 @@ export class FatherBoss {
         if (this.anim >= 0.12 * 3 && !this.hitDone) {
           this.hitDone = true;
           this.rings.push({ x: this.x, y: floor, t: 0, r: 125 });
+          Sfx.play('boss_blast');
           L.shake(0.6);
           L.burst(this.x, floor - 6, 26, ['#c77dff', '#3d0a6e', '#ffffff'], 160, 0.6);
           if (P && Math.abs(dx) < 125 && P.y > floor - 30) hurt(BOSS.BLAST_DMG, 260, -230);

@@ -12,6 +12,7 @@
  * ==========================================================================
  */
 
+import { Sfx } from '../core/audio.js';
 
 export class Arrow {
   constructor(x, y, owner = null) {
@@ -32,6 +33,7 @@ export class Arrow {
     this.offsetY = -66;
     this.hasHit = false;
     this.trailParticles = [];
+    this.sfx = true;      // launch and flight sounds (the boss's purple orbs switch them off)
   }
 
   attachTo(archer, offsetX = -24, offsetY = -66) {
@@ -49,6 +51,7 @@ export class Arrow {
 
   release(speed = 230, targetAngle = Math.PI) {
     this.isAttached = false;
+    if (this.sfx) Sfx.play('rocket_launch');
     this.speed = speed;
     this.angle = targetAngle;
     this.vx = Math.cos(this.angle) * this.speed;
@@ -68,6 +71,8 @@ export class Arrow {
       }
       return true; // Remains active while attached
     }
+
+    if (this.sfx && !this.hasHit && this.life > 0) Sfx.hold('rocket_fly');   // one burning sound however many are in the air
 
     // HOMING / TRACKING MECHANISM: Arrow curves and follows Rakti!
     if (player && !player.isDead) {
@@ -312,6 +317,7 @@ export class Archer {
   takeDamage(damage, fromX = null) {
     if (!this.alive || this.hitCooldown > 0) return false;
 
+    Sfx.play('hit');
     this.hp = Math.max(0, this.hp - damage);
     this.hitCooldown = 0.38; // Invulnerability window between sword swings
     this.hurtTimer = 0.32;

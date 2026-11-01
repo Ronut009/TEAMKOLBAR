@@ -7,6 +7,7 @@
  */
 
 import { Input } from '../core/input.js';
+import { Sfx } from '../core/audio.js';
 
 // ---------------------------------------------------------------------------
 // Rakti sprite skin. Every frame of a set shares one canvas; (anchorX, anchorY) is the
@@ -460,6 +461,7 @@ export class Player {
       return;
     }
     this.swordCooldown = SWORD_COOLDOWN;
+    Sfx.play('sword_swing');
     this.attackQueued = false;
     this.isAttacking = true;
     this.attackFrame = 0;
@@ -920,8 +922,8 @@ export class Player {
 
     // 1a. Weapon choice: [1] talwar, [2] Trishul (once she has it)
     if (this.hasTrishul && !this.isCivilian) {
-      if (Input.isPressed('weapon1')) this.weapon = 'sword';
-      if (Input.isPressed('weapon2')) this.weapon = 'trishul';
+      if (Input.isPressed('weapon1') && this.weapon !== 'sword') { this.weapon = 'sword'; Sfx.play('sword_draw'); }
+      if (Input.isPressed('weapon2') && this.weapon !== 'trishul') { this.weapon = 'trishul'; Sfx.play('trishul_draw'); }
     }
 
     // 1. Attack on Left Click or Right Click Parry / Deflection Strike
@@ -1323,6 +1325,7 @@ export class Player {
       angle = Math.atan2(ty - sy, tx - sx);
     }
     this.throwAim = null;
+    Sfx.play('trishul_throw');
     this.trishul = {
       x: sx, y: sy, vx: Math.cos(angle) * TRISHUL.speed, vy: Math.sin(angle) * TRISHUL.speed,
       state: 'out', dist: 0, t: 0, hit: new Set(), trail: []
