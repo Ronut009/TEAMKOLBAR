@@ -969,26 +969,36 @@ html, body {
 .sands-hud { transition: opacity 0.8s ease, visibility 0.8s; }
 .sands-hud.prologue-hidden { opacity: 0; visibility: hidden; transition: none; }
 
-/* Unlimited mode counter: a column under the health / ability / weapon HUD, top left */
+/* Unlimited mode counter: a column down the right side, the score row highlighted */
 .endless-hud {
   position: absolute;
-  top: 168px;
-  left: 16px;
+  top: 18px;
+  right: 18px;
   z-index: 26;
   display: none;
-  padding: 8px 14px 8px 12px;
-  border-left: 2px solid rgba(205, 162, 78, 0.8);
-  background: linear-gradient(90deg, rgba(20, 10, 6, 0.78), rgba(20, 10, 6, 0));
+  padding: 8px 12px 8px 14px;
+  border-right: 2px solid rgba(205, 162, 78, 0.8);
+  background: linear-gradient(270deg, rgba(20, 10, 6, 0.78), rgba(20, 10, 6, 0));
   color: #f4dca0;
   font: 700 clamp(10px, 0.95vw, 13px)/1.55 'Cinzel', serif;
   letter-spacing: 0.12em;
   text-shadow: 0 1px 2px #080705;
-  white-space: pre-line;
-  text-align: left;
+  text-align: right;
   pointer-events: none;
 }
 .endless-hud.active { display: block; }
-@media (max-width: 600px) { .endless-hud { top: 120px; left: 8px; } }
+.endless-hud .score-row {
+  margin: 4px -6px 4px 0;
+  padding: 3px 10px;
+  border: 1px solid rgba(255, 214, 120, 0.85);
+  border-radius: 3px;
+  background: linear-gradient(270deg, rgba(120, 70, 12, 0.85), rgba(60, 30, 6, 0.55));
+  color: #fff1b8;
+  font-size: 1.35em;
+  letter-spacing: 0.1em;
+  text-shadow: 0 0 8px rgba(255, 200, 90, 0.8), 0 1px 2px #080705;
+}
+@media (max-width: 600px) { .endless-hud { top: 10px; right: 8px; } }
 
 /* ==========================================================================
    LEVEL 4 BOSS HEALTH BAR (top centre)

@@ -854,7 +854,15 @@ export class Engine {
     if (this.endlessHud) {
       const show = this.currentLevelIndex === 5 && this.isGameStarted;
       put(this.endlessHud, 'show', String(show), (v) => this.endlessHud.classList.toggle('active', v === 'true'));
-      if (show) put(this.endlessHud, 'text', this.level.hudText, (v) => { this.endlessHud.textContent = v; });
+      if (show) put(this.endlessHud, 'text', this.level.hudText, (v) => {
+        this.endlessHud.textContent = '';
+        for (const line of v.split('\n')) {
+          const row = document.createElement('div');
+          row.textContent = line;
+          if (line.startsWith('SCORE')) row.className = 'score-row';
+          this.endlessHud.appendChild(row);
+        }
+      });
     }
 
     // Keep combat notifications separate from the minimal persistent HUD.
