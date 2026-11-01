@@ -742,14 +742,15 @@ export class Engine {
 
     // Levels can ask for a story dialogue (e.g. Level 1: Kali grants her form near the lever tower)
     const p = this.player;
-    const settled = p.isGrounded && !p.isClimbing && !p.climbTransition && !p.isTransforming && !p.isReverting
-      && !p.isCasting && !p.throwAnim && !p.inputLocked && Math.abs(p.vx) < 30 && Math.abs(p.vy) < 1;
-    if (settled) this.settledTime = (this.settledTime || 0) + dt; else this.settledTime = 0;
-    // Kali's story lines wait until Rakti is standing still on solid ground (never mid-jump or mid-climb)
+    // Story lines open as soon as Rakti is on solid ground (running is fine: she simply stops). They still wait
+    // out a jump, a climb or a transformation, which is only a moment.
+    const ready = p.isGrounded && !p.isClimbing && !p.climbTransition && !p.isTransforming && !p.isReverting
+      && !p.isCasting && !p.throwAnim && !p.inputLocked;
     const pend = this.level.pendingDialogue;
-    if (pend && !this.dialogueActive && (this.settledTime >= 0.12 || (pend.whenLocked && p.isGrounded))) {
+    if (pend && !this.dialogueActive && (ready || (pend.whenLocked && p.isGrounded))) {
       const d = pend;
       this.level.pendingDialogue = null;
+      p.vx = 0;   // she stops where she is while the line plays
       if (d.lines) this.openConversation(d.lines, d.onDone, d.title);
       else this.openDialogue(d.text, d.speaker || 'kali', d.title, d.gesture, d.portrait);
       if (d.flash) {
