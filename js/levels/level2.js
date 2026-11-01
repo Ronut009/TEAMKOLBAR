@@ -817,6 +817,7 @@ export class Level2 {
           if (s.delay > 0) { s.delay -= dt; continue; }
           if (!s.pulled) {   // it tears free of the quicksand
             s.pulled = true;
+            Sfx.play('ground_rise');   // it tears free of the quicksand
             this.burst(s.cx, SAND_Y - 2, 16, ['#dca15c', '#c3823f', '#ffe1a8'], 90, 0.6);
           }
           s.t += dt;

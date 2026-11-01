@@ -33,6 +33,12 @@ const SOUNDS = {
   door_open:     { vol: 0.8, jitter: 0.02, gap: 0.5 },                               // a door unlocks and swings open
   portal_open:   { vol: 0.7, jitter: 0, gap: 3 },                                    // the portal behind it starts up
   item_get:      { vol: 0.8, jitter: 0, gap: 1 },                                    // Rakti takes an item she needs to go on
+  morph:         { vol: 0.7, jitter: 0, gap: 0.8 },                                  // Rakti takes Kali's form
+  footsteps:     { vol: 0.55, loop: true, fade: 0.04, fadeOut: 0.1 },                // Rakti runs: sped up to her stride
+  ground_land:   { vol: 0.8, jitter: 0.04, gap: 0.12 },                              // Rakti lands on the ground
+  ground_rise:   { vol: 0.7, jitter: 0.05, gap: 0.1, maxOverlap: 3, overlapGain: [1, 0.7, 0.5] },   // something rises out of the ground
+  stone_move:    { vol: 0.35, loop: true, fade: 0.3, fadeOut: 0.5 },                 // a stone pier grinds up and down nearby
+  stone_shake:   { vol: 0.7, jitter: 0.05, gap: 0.15 },                              // a stone starts to give way
   stone_open:    { vol: 0.8, jitter: 0.04, gap: 0.25 },                              // a jungle stone breaks open into a platform
   stone_close:   { vol: 0.7, jitter: 0.04, gap: 0.25 },                              // it slides shut into a rock again
   boss_gong:     { vol: 0.75, jitter: 0,   gap: 2 },                                 // the father leaves his throne and the fight begins
@@ -59,27 +65,60 @@ class MusicPlayer {
     this.audio = null;
     this.name = null;
     this.fade = null;
+    if (typeof window !== 'undefined') {
+      // The music is a media element like a YouTube tab: switching to another tab never pauses it. If the browser
+      // held it back at load (autoplay blocked), try again whenever the page is shown, focused or restored; some
+      // browsers allow it by then (a site the player has used before, or a tab opened by a click).
+      const retry = () => this.tryStart();
+      document.addEventListener('visibilitychange', retry);
+      window.addEventListener('focus', retry);
+      window.addEventListener('pageshow', retry);
+    }
+  }
+
+  /** Starts the wanted track if it is sitting paused because an earlier play() was refused. */
+  tryStart() {
+    const audio = this.audio;
+    if (!audio || !this.name || !audio.paused) return;
+    audio.play().then(() => this.showHint(false)).catch(() => {});
+  }
+
+  /** Lets the browser treat the page as a media player: it shows in the media controls and stays alive in a background tab. */
+  announce(name) {
+    if (typeof navigator === 'undefined' || !('mediaSession' in navigator) || typeof MediaMetadata === 'undefined') return;
+    navigator.mediaSession.metadata = new MediaMetadata({ title: 'Rakti: The Last Guardian', artist: name === 'title' ? 'Main Theme' : name });
+    navigator.mediaSession.playbackState = 'playing';
   }
 
   play(name) {
     if (typeof Audio === 'undefined') return;
     clearInterval(this.fade);
-    if (this.name === name && this.audio && !this.audio.paused) { this.audio.volume = this.muted ? 0 : this.volume; return; }
+    if (this.name === name && this.audio) { this.audio.volume = this.muted ? 0 : this.volume; return; }   // already playing, or waiting for the first click
     this.stopNow();
     this.name = name;
     const audio = this.audio = new Audio(`${MUSIC_BASE}${name}.mp3`);
     audio.loop = true;
+    audio.preload = 'auto';   // fully buffered before the first click, so it starts the instant the browser allows
     audio.volume = this.muted ? 0 : this.volume;
-    const start = () => { if (this.audio === audio) audio.play().catch(() => this.startOnFirstInput(audio)); };
-    start();
+    this.announce(name);
+    audio.play().catch(() => { if (this.audio === audio) this.startOnFirstInput(audio); });
   }
 
+  /** The browser refused to start the track (always so right after a page refresh): start it on the first click,
+   *  key press or touch. Keeps listening until one of those is accepted, and shows a hint meanwhile. */
   startOnFirstInput(audio) {
+    const events = ['pointerdown', 'pointerup', 'mousedown', 'click', 'keydown', 'touchstart', 'touchend'];
+    const done = () => { for (const type of events) window.removeEventListener(type, go); this.showHint(false); };
     const go = () => {
-      for (const type of ['pointerdown', 'keydown', 'touchstart']) window.removeEventListener(type, go);
-      if (this.audio === audio) audio.play().catch(() => {});
+      if (this.audio !== audio) { done(); return; }
+      audio.play().then(done).catch(() => {});
     };
-    for (const type of ['pointerdown', 'keydown', 'touchstart']) window.addEventListener(type, go, { passive: true });
+    for (const type of events) window.addEventListener(type, go, { passive: true });
+    this.showHint(true);
+  }
+
+  showHint(on) {
+    if (typeof document !== 'undefined') document.getElementById('musicHint')?.classList.toggle('show', on);
   }
 
   /** Fades the track out and rewinds it, so the next play() starts from the beginning again. */
@@ -87,6 +126,7 @@ class MusicPlayer {
     const audio = this.audio;
     if (!audio) return;
     this.name = null;
+    this.showHint(false);
     clearInterval(this.fade);
     const from = audio.volume, t0 = performance.now();
     this.fade = setInterval(() => {
@@ -157,12 +197,13 @@ class SfxPlayer {
    * (the last rocket landed, a level change, a pause) it fades out and stops by itself. `level` (0..1) is how
    * loud it should be right now, so a sound can swell as the player gets closer to its source.
    */
-  hold(name, level = 1) {
+  hold(name, level = 1, rate = 1) {
     const ctx = this.ctx, def = SOUNDS[name], buffer = this.buffers[name]?.[0];
     if (!ctx || !def?.loop || !buffer || ctx.state !== 'running') return;
     const now = ctx.currentTime;
     let l = this.loops[name];
     if (l) {   // several things may hold it in one frame: the loudest one sets the level
+      l.src.playbackRate.value = rate;
       l.level = now === l.stamp ? Math.max(l.level, level) : level;
       l.stamp = now;
       l.last = now;
@@ -171,6 +212,7 @@ class SfxPlayer {
     const src = ctx.createBufferSource();
     src.buffer = buffer;
     src.loop = true;
+    src.playbackRate.value = rate;
     const gain = ctx.createGain();
     gain.gain.setValueAtTime(0, now);
     gain.gain.setTargetAtTime(def.vol * level, now, def.fade ?? LOOP_FADE / 3);

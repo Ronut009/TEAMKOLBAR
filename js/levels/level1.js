@@ -572,6 +572,9 @@ export class Level {
     // Single floor spikes
     for (const sp of this.spikes) {
       const st = this.spikeState(sp);
+      const rising = st.frame >= 4 && st.frame <= 7;
+      if (rising && !sp.wasRising) Sfx.at('ground_rise', sp.x);   // it thrusts up out of its vent
+      sp.wasRising = rising;
       if (!st.harmful) continue;
       const { x, y } = this.spikeBase(sp);
       if (Math.abs(playerX - x) < SPIKE_HALF && playerY >= y - st.reach && playerY <= y + 6 && player.invulnerableTimer <= 0) {

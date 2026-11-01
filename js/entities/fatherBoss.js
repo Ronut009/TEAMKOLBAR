@@ -520,7 +520,7 @@ export class FatherBoss {
       const s = this.spikes[i];
       s.t += dt;
       const f = Math.floor(s.t / 0.08);
-      if (s.t >= 0 && !s.burst) { s.burst = true; this.level.shake(0.25); this.level.burst(s.x, this.level.floorY - 4, 10, ['#3a2d3a', '#c77dff', '#1a0a20'], 110, 0.5); }
+      if (s.t >= 0 && !s.burst) { s.burst = true; Sfx.at('ground_rise', s.x); this.level.shake(0.25); this.level.burst(s.x, this.level.floorY - 4, 10, ['#3a2d3a', '#c77dff', '#1a0a20'], 110, 0.5); }
       if (f >= 1 && f <= 4 && !s.hit && P && Math.abs(P.x - s.x) < 30 && P.y > this.level.floorY - 52 && P.invulnerableTimer <= 0) {
         s.hit = true;
         P.takeDamage(BOSS.SPIKE_DMG, Math.sign(P.x - s.x || 1) * 160, -260);

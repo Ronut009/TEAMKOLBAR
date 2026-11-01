@@ -1234,3 +1234,11 @@ html, body {
   font-family: 'Cinzel', serif; font-size: 11px; font-weight: 700; letter-spacing: 3px;
   color: #ffdfe4; text-shadow: 0 0 8px rgba(255, 40, 70, 0.8), 0 1px 2px #000;
 }
+
+/* shown on the start screen only while the browser is holding back the music until the first click or key press */
+.music-hint {
+  position: absolute; z-index: 3; left: 0; right: 0; bottom: 22px; text-align: center; pointer-events: none;
+  font-family: 'Cinzel', serif; font-size: 11px; letter-spacing: 3px; color: rgba(255, 223, 160, 0.8);
+  text-shadow: 0 1px 3px #000; opacity: 0; transition: opacity 0.5s ease;
+}
+.music-hint.show { opacity: 1; }

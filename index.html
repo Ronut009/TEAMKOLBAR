@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Rakti: The Last Guardian</title>
   <link rel="stylesheet" href="css/style.css">
+  <link rel="preload" href="assets/audio/music/title.mp3" as="audio">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Marcellus&family=Press+Start+2P&display=swap" rel="stylesheet">
@@ -139,6 +140,7 @@
   <section class="title-screen active" id="titleScreen" aria-label="Rakti title screen">
     <div class="title-backdrop"></div>
     <div class="title-shade"></div>
+    <div class="music-hint" id="musicHint">&#9834; PRESS ANY KEY OR CLICK FOR MUSIC</div>
     <div class="title-menu" id="titleMainMenu">
       <img class="title-logo-image" src="assets/title/rakti-logo.png" alt="Rakti: The Last Guardian">
       <div class="title-actions">
@@ -161,6 +163,7 @@
     </div>
   </section>
 
+  <script type="module" src="js/core/titleMusic.js"></script>
   <script type="module" src="js/main.js"></script>
 </body>
 </html>

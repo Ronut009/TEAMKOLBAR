@@ -67,6 +67,7 @@ const PATH_HOLD = 3;              // a stone stays a platform this long after [Q
 // Crumbling jungle platforms (the final frame of the morph sheet): they drop JFALL_DELAY s after Rakti lands
 const JFALL_DELAY = 0.5;
 const JFALL_RESPAWN = 2.6;
+const STONE_HEARING = 460;   // world px: how near Rakti must be to hear a moving stone pier grind
 // Sprite sheets (assets/level3/, keyed from AI art): heart 5 cols x 2 rows of 225x228 (frames 0-5 idle loop),
 // door 7 cols x 2 rows of 326x342 (frame 0 closed .. 6 open, 6-13 swirling portal loop)
 // The Forest Heart beating (8 frames, 149 x 143, roots' tips at row 141) on its carved stump shrine (300 x 267)
@@ -460,17 +461,18 @@ export class Level3 {
   updateFaller(f, dt, player) {
     f.t += dt;
     if (f.state === 'idle') {
-      if (player && player.isGrounded && player.currentPlatform?.faller === f) { f.state = 'shaking'; f.t = 0; }
+      if (player && player.isGrounded && player.currentPlatform?.faller === f) { f.state = 'shaking'; f.t = 0; Sfx.at('stone_shake', f.cx); }
     } else if (f.state === 'shaking') {
       if (f.t >= JFALL_DELAY) {
         f.state = 'falling'; f.t = 0; f.vy = 40;
+        Sfx.at('stone_close', f.cx);
         this.cameraShake = Math.max(this.cameraShake, 0.15);
         if (player && player.currentPlatform?.faller === f) { player.isGrounded = false; player.currentPlatform = null; }
       }
     } else if (f.state === 'falling') {
       f.vy += 900 * dt; f.dy += f.vy * dt;
       f.alpha = Math.max(0, 1 - f.t / 0.8);
-      if (f.t >= JFALL_RESPAWN) { f.state = 'returning'; f.t = 0; f.dy = 0; f.alpha = 0; }
+      if (f.t >= JFALL_RESPAWN) { f.state = 'returning'; f.t = 0; f.dy = 0; f.alpha = 0; Sfx.at('stone_open', f.cx, { volume: 0.6 }); }
     } else if (f.state === 'returning') {
       f.alpha = Math.min(1, f.t / 0.6);
       if (f.t >= 0.6) { f.state = 'idle'; f.t = 0; f.alpha = 1; }
@@ -523,15 +525,16 @@ export class Level3 {
       if (!p.crumble) continue;
       p.st ??= 'idle'; p.t = (p.t || 0) + dt; p.dy ??= 0;
       const on = player && player.isGrounded && player.currentPlatform?.pierRef === p;
-      if (p.st === 'idle' && on) { p.st = 'shaking'; p.t = 0; }
+      if (p.st === 'idle' && on) { p.st = 'shaking'; p.t = 0; Sfx.at('stone_shake', p.cx); }
       else if (p.st === 'shaking' && p.t >= PIER_CRUMBLE) {
         p.st = 'falling'; p.t = 0; p.vy = 30;
+        Sfx.at('stone_close', p.cx);
         this.cameraShake = Math.max(this.cameraShake, 0.2);
         if (on) { player.isGrounded = false; player.currentPlatform = null; }
         for (let i = 0; i < 10; i++) this.fx.push({ x: p.cx + (Math.random() - 0.5) * 50, y: p.top + Math.random() * 20, vx: (Math.random() - 0.5) * 90, vy: -40 - Math.random() * 60, life: 0.7, maxLife: 0.7, c: Math.random() > 0.5 ? '#8a6a44' : '#4f9a2a' });
       } else if (p.st === 'falling') {
         p.vy += 700 * dt; p.dy += p.vy * dt;
-        if (p.t >= PIER_RETURN) { p.st = 'returning'; p.t = 0; p.dy = 150; }   // it rises back from just below view
+        if (p.t >= PIER_RETURN) { p.st = 'returning'; p.t = 0; p.dy = 150; Sfx.at('ground_rise', p.cx); }   // it rises back from just below view
       } else if (p.st === 'returning') {
         p.dy = Math.max(0, p.dy - 260 * dt);
         if (p.dy <= 0) { p.st = 'idle'; p.t = 0; }
@@ -540,6 +543,8 @@ export class Level3 {
     // moving piers carry Rakti with them
     for (const p of this.pillars) {
       if (!p.swing) continue;
+      const heard = Math.abs(playerX - p.cx);   // one grinding sound for all the moving piers: the nearest sets how loud
+      if (heard < STONE_HEARING) Sfx.hold('stone_move', 1 - heard / STONE_HEARING);
       const prev = p.top;
       p.top = p.base + Math.sin((this.animTime * Math.PI * 2) / p.period + p.phase) * p.swing;
       if (player && player.isGrounded && (player.currentPlatform?.pierRef === p ||

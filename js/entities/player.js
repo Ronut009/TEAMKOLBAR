@@ -498,6 +498,7 @@ export class Player {
   triggerDivineTransformation() {
     if (this.isTransforming || this.isDivine || this.isReverting) return;
     this.isTransforming = true;
+    Sfx.play('morph');
     this.transFrame = 0;
     this.transTimer = 0;
     this.vx = 0;
@@ -797,6 +798,7 @@ export class Player {
           const speed = this.autoWalkSpeed || (this.isCivilian ? this.walkSpeed : this.baseSpeed);
           this.x += dir * Math.min(Math.abs(d), speed * dt);
           this.isMoving = true;
+          if (this.isGrounded) Sfx.hold('footsteps', 1, this.isCivilian ? this.runFrameDuration / this.walkFrameDuration : (this.autoWalkSpeed || this.baseSpeed) / this.baseSpeed);
           // slower than her normal pace: the run cycle slows with it, so her feet do not slide
           this.runTimer += dt * (this.autoWalkSpeed && !this.isCivilian ? this.autoWalkSpeed / this.baseSpeed : 1);
           if (this.runTimer >= (this.isCivilian ? this.walkFrameDuration : this.runFrameDuration)) {
@@ -1050,6 +1052,7 @@ export class Player {
       this.vx = this.approach(this.vx, 0, 260 * dt);
     } else if (this.isMoving) {
       this.vx = this.approach(this.vx, targetVx, this.acceleration * dt);
+      if (this.isGrounded && !this.isDead) Sfx.hold('footsteps', 1, this.isCivilian ? this.runFrameDuration / this.walkFrameDuration : 1);
       this.runTimer += dt;
       if (this.runTimer >= (this.isCivilian ? this.walkFrameDuration : this.runFrameDuration)) {
         this.runTimer = 0;
@@ -1119,10 +1122,12 @@ export class Player {
       const landed = level.checkPlatformLanding(prevY, this.y, this.x, dropping, this.isDivine);
 
       if (landed) {
+        const impact = this.vy;   // how fast she came down, for the landing sound
         this.y = landed.y;
         this.vy = 0;
         if (!this.isGrounded) {
           this.landingTimer = 0.12;
+          if (impact > 120) Sfx.play('ground_land', { volume: 0.35 + 0.65 * Math.min(1, (impact - 120) / 500) });
         }
         this.isGrounded = true;
         this.currentPlatform = landed;
