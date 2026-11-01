@@ -20,6 +20,7 @@ import { PlatformArt } from '../render/platformArt.js';
 import { Betal } from '../entities/betal.js';
 import { EnemySpriteSheet } from '../entities/enemySprites.js';
 import { drawShrineBeacon } from '../render/shrineBeacon.js';
+import { Sfx } from '../core/audio.js';
 
 const BG_SCALE = 368 / 655;            // background image px -> world px (floor line at world y = 368)
 const SCREEN_W = 1926 * BG_SCALE;      // ~1082 world px per screen
@@ -360,6 +361,12 @@ export class Level {
   }
 
   /** Arriving from outside (new game, level select): the prologue test and checkpoints start over. */
+  /** What Rakti needs to reach next to go on (the engine hums as she nears it): the lever, then the relic. */
+  crucialItem() {
+    if (!this.lever.activated) return { x: this.lever.x, y: this.ledgeY };
+    return this.relic.collected ? null : { x: this.relic.x, y: this.ledgeY };
+  }
+
   freshStart() {
     this.checkpointIndex = -1;
     this.abilityGranted = false;
@@ -385,6 +392,7 @@ export class Level {
   collectRelic(player) {
     if (this.relic.collected) return false;
     this.relic.collected = true;
+    Sfx.play('item_get');
     this.relic.fly = 0.0001;
     this.relic.toX = player ? player.x : this.relic.x;
     this.relic.toY = player ? player.y - 40 : this.ledgeY - 40;

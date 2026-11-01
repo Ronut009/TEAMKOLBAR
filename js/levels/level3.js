@@ -19,6 +19,7 @@ import { PlatformArt } from '../render/platformArt.js';
 import { Betal } from '../entities/betal.js';
 import { EnemySpriteSheet } from '../entities/enemySprites.js';
 import { drawShrineBeacon } from '../render/shrineBeacon.js';
+import { Sfx } from '../core/audio.js';
 
 // Backgrounds (v2) are 2171 x 724; the sunlit floor line sits at image y = 588, the roots band below it
 // reaches past the bottom of the view. (The old 2000 x 585 jungle_a/b.jpg are kept as backups.)
@@ -274,6 +275,12 @@ export class Level3 {
 
   /** Called by the engine when Rakti arrives from another level (or the [O] test key), not on death or [R]:
    *  back to the very start, and she walks in from the edge of the forest. */
+  /** The awakened Forest Heart: what Rakti needs to reach to go on. */
+  crucialItem() {
+    const r = this.relic;
+    return r.spawned && !r.collected ? { x: r.x, y: FLOOR_Y } : null;
+  }
+
   freshStart() {
     this.checkpointIndex = -1;
     this.phase = null;          // the next reset() starts the level over completely
@@ -290,6 +297,7 @@ export class Level3 {
   collectRelic(player) {
     if (this.relic.collected || !this.relic.spawned) return false;
     this.relic.collected = true;
+    Sfx.play('item_get');
     this.relic.fly = 0.0001;
     this.relic.toX = player ? player.x : this.relic.x;
     this.relic.toY = player ? player.y - 40 : FLOOR_Y - 40;
@@ -421,6 +429,7 @@ export class Level3 {
     const s = cands[0];
     player.startCast(() => {
       s.open = PATH_HOLD;
+      Sfx.play('stone_open');
       this.cameraShake = Math.max(this.cameraShake, 0.2);
       for (let i = 0; i < 14; i++) {
         const a = Math.random() * Math.PI * 2;
@@ -498,7 +507,10 @@ export class Level3 {
     // [Q]-opened stones hold for PATH_HOLD seconds, then close back into rocks (dropping anyone on them)
     for (const s of this.pathStones) {
       // (the stone she is standing on does not run down while she casts the next one)
-      if (s.open > 0 && !(player?.isCasting && player.currentPlatform?.stone === s)) s.open = Math.max(0, s.open - dt);
+      if (s.open > 0 && !(player?.isCasting && player.currentPlatform?.stone === s)) {
+        s.open = Math.max(0, s.open - dt);
+        if (s.open === 0) Sfx.play('stone_close');   // it slides shut
+      }
       const target = s.open > 0 ? 1 : 0;
       s.m = target > s.m ? Math.min(1, s.m + dt / PATH_MORPH_TIME) : Math.max(0, s.m - dt / PATH_MORPH_TIME);
       if (s.m < 0.8 && player?.currentPlatform?.stone === s) { player.isGrounded = false; player.currentPlatform = null; }
@@ -675,6 +687,7 @@ export class Level3 {
         else if (v.t < growT + spinT) v.phase2 = 'spin';
         else if (v.t < growT + spinT + backT) v.phase2 = 'back';
         else { v.state = 'hidden'; v.t = 0; v.wait = 1.4; v.cool = 1.6; v.phase2 = null; continue; }
+        if (v.phase2 === 'back' && !v.sfxBack) { v.sfxBack = true; Sfx.at('vine_in', v.x); }   // it sinks back into the ground
         if (v.phase2 === 'spin' && onLevel && Math.abs(dx) < VINE_HIT && player.y >= FLOOR_Y - 95 && player.invulnerableTimer <= 0) {
           player.takeDamage(VINE_DAMAGE, (dx < 0 ? -1 : 1) * 170, -320);
           this.cameraShake = Math.max(this.cameraShake, 0.35);
@@ -684,12 +697,13 @@ export class Level3 {
 
       if (alive && v.cool <= 0 && onLevel && Math.abs(dx) < VINE_NOTICE) {
         v.attackFrom = v.state === 'sway' ? 4 : v.state === 'emerge' ? 2 : 0;
-        v.state = 'attack'; v.t = 0; v.phase2 = 'grow';
+        v.state = 'attack'; v.t = 0; v.phase2 = 'grow'; v.sfxBack = false;
+        Sfx.at('vine_lash', v.x);
         continue;
       }
-      if (v.state === 'hidden' && v.t >= v.wait) { v.state = 'emerge'; v.t = 0; }
+      if (v.state === 'hidden' && v.t >= v.wait) { v.state = 'emerge'; v.t = 0; Sfx.at('vine_out', v.x); }
       else if (v.state === 'emerge' && v.t >= 10 / 12) { v.state = 'sway'; v.t = 0; }
-      else if (v.state === 'sway' && v.t >= 2.4) { v.state = 'retract'; v.t = 0; }
+      else if (v.state === 'sway' && v.t >= 2.4) { v.state = 'retract'; v.t = 0; Sfx.at('vine_in', v.x); }
       else if (v.state === 'retract' && v.t >= 9 / 12) { v.state = 'hidden'; v.t = 0; v.wait = 1.1 + (v.phase % 3) * 0.4; }
     }
   }

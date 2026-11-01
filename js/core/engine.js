@@ -7,6 +7,10 @@
  */
 
 import { Input } from './input.js';
+import { Music, Sfx } from './audio.js';
+
+// An atmosphere hum swells as Rakti nears the item she needs to progress (a level's crucialItem())
+const AURA_RANGE = 380, AURA_CLOSE = 110;
 import { TRISHUL } from '../entities/player.js';
 import { Level2 } from '../levels/level2.js';
 import { Level3 } from '../levels/level3.js';
@@ -173,6 +177,8 @@ export class Engine {
     // respawn Rakti in her battle outfit at the start of the temple.
     this.prologueComplete = false;
     this.cameraSnap = false;
+
+    Music.play('title');   // the start screen's music: it begins at once, or on the first click if the browser blocks that
 
     this.startGameButton?.addEventListener('click', (event) => {
       event.preventDefault();
@@ -385,6 +391,7 @@ export class Engine {
     this.loadingTimer = 2.2;
     this.loadingTargetIndex = destinationIndex;
     this.titleScreen?.classList.remove('active');
+    Music.stop();
     this.levelCompleteModal?.classList.remove('active');
     this.hudEl?.classList.add('menu-hidden');
     if (this.loadingLevel) this.loadingLevel.textContent = LEVEL_NAMES[destinationIndex] || '';
@@ -438,6 +445,15 @@ export class Engine {
     this.beginLoadingTransition(i);   // freshStart(): checkpoints and story flags cleared
   }
 
+  /** The hum for the item Rakti needs next: silent far away, louder the closer she gets. */
+  updateItemAura() {
+    const item = this.level.crucialItem?.();
+    if (!item || this.player.isDead) return;
+    const dx = this.player.x - item.x, dy = (this.player.y - item.y) * 0.5;
+    const strength = Math.max(0, Math.min(1, (AURA_RANGE - Math.hypot(dx, dy)) / (AURA_RANGE - AURA_CLOSE)));
+    if (strength > 0) Sfx.hold('item_aura', strength);
+  }
+
   returnToTitle() {
     this.isGameStarted = false;
     this.paused = false;
@@ -445,6 +461,7 @@ export class Engine {
     this.levelCompleteModal?.classList.remove('active');
     this.closeDialogue();
     this.titleScreen?.classList.add('active');
+    Music.play('title');
     this.hudEl?.classList.add('menu-hidden');
     this.endlessHud?.classList.remove('active');
   }
@@ -733,6 +750,8 @@ export class Engine {
     this.player.aimWorld = { x: Input.mouseX / this.zoom + Math.floor(this.camX), y: Input.mouseY / this.zoom + Math.floor(this.camY) };
     this.player.update(dt, this.level, this.dialogueActive);
     this.level.update(this.player.x, this.player.y, dt, this.player.isDivine, this.player);
+    Sfx.listenerX = this.player.x;
+    this.updateItemAura();
 
     // Levels that move Rakti between areas (Level 2's door into the sun hall) ask for a camera cut
     if (this.level.requestCameraSnap) {

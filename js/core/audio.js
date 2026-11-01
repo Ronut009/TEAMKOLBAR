@@ -24,6 +24,15 @@ const SOUNDS = {
   hit:           { vol: 0.8, jitter: 0,    gap: 0.04, variants: 5, rotate: true },   // a mob is hit
   mob_swing:     { vol: 0.7, jitter: 0,    gap: 0.08, variants: 3, rotate: true },   // a Betal's or the boss's blade lands
   boss_blast:    { vol: 0.75, jitter: 0.03, gap: 0.3 },                              // the boss fires an energy blast
+  vine_out:      { vol: 0.6, jitter: 0.08, gap: 0.12, maxOverlap: 3, overlapGain: [1, 0.7, 0.5] },   // a jungle vine rises from the ground
+  vine_in:       { vol: 0.5, jitter: 0.08, gap: 0.12, maxOverlap: 3, overlapGain: [1, 0.7, 0.5] },   // ...and sinks back in
+  vine_lash:     { vol: 0.75, jitter: 0.08, gap: 0.1 },                              // ...or whips round at Rakti
+  mob_aggro:     { vol: 0.8, jitter: 0.06, gap: 0.12, maxOverlap: 3, overlapGain: [1, 0.6, 0.35] },   // a melee mob locks on
+  mob_growl:     { vol: 0.16, loop: true, fade: 0.35, fadeOut: 0.5 },                // ...and growls, quietly, while it chases
+  item_aura:     { vol: 0.5, loop: true, fade: 0.4, fadeOut: 0.9 },                                // Rakti is near a relic she needs to go on
+  item_get:      { vol: 0.8, jitter: 0, gap: 1 },                                    // Rakti takes an item she needs to go on
+  stone_open:    { vol: 0.8, jitter: 0.04, gap: 0.25 },                              // a jungle stone breaks open into a platform
+  stone_close:   { vol: 0.7, jitter: 0.04, gap: 0.25 },                              // it slides shut into a rock again
   boss_gong:     { vol: 0.75, jitter: 0,   gap: 2 },                                 // the father leaves his throne and the fight begins
   boss_land:     { vol: 0.8, jitter: 0.03, gap: 0.3 },                               // the father drops to the floor from a height
   boss_slam:     { vol: 0.9, jitter: 0.03, gap: 0.3 },                               // the ground slam that raises the spikes
@@ -31,8 +40,71 @@ const SOUNDS = {
   rocket_fly:    { vol: 0.4, loop: true }                                            // a rocket is burning its way across
 };
 
+const HEARING = 700;      // world px: beyond this a placed sound is almost silent
 const LOOP_FADE = 0.15;   // seconds to fade a held loop in and out
 const LOOP_HOLD = 0.12;   // a loop stops when nothing has held it for this long
+
+const MUSIC_BASE = 'assets/audio/music/';
+
+/**
+ * Background music (one track at a time, looped). Browsers refuse to start sound before the player has
+ * clicked or pressed a key, so if the first try is blocked the track starts on the first click or key press.
+ */
+class MusicPlayer {
+  constructor() {
+    this.volume = 0.4;
+    this.muted = false;
+    this.audio = null;
+    this.name = null;
+    this.fade = null;
+  }
+
+  play(name) {
+    if (typeof Audio === 'undefined') return;
+    clearInterval(this.fade);
+    if (this.name === name && this.audio && !this.audio.paused) { this.audio.volume = this.muted ? 0 : this.volume; return; }
+    this.stopNow();
+    this.name = name;
+    const audio = this.audio = new Audio(`${MUSIC_BASE}${name}.mp3`);
+    audio.loop = true;
+    audio.volume = this.muted ? 0 : this.volume;
+    const start = () => { if (this.audio === audio) audio.play().catch(() => this.startOnFirstInput(audio)); };
+    start();
+  }
+
+  startOnFirstInput(audio) {
+    const go = () => {
+      for (const type of ['pointerdown', 'keydown', 'touchstart']) window.removeEventListener(type, go);
+      if (this.audio === audio) audio.play().catch(() => {});
+    };
+    for (const type of ['pointerdown', 'keydown', 'touchstart']) window.addEventListener(type, go, { passive: true });
+  }
+
+  /** Fades the track out and rewinds it, so the next play() starts from the beginning again. */
+  stop(seconds = 0.8) {
+    const audio = this.audio;
+    if (!audio) return;
+    this.name = null;
+    clearInterval(this.fade);
+    const from = audio.volume, t0 = performance.now();
+    this.fade = setInterval(() => {
+      const k = Math.min(1, (performance.now() - t0) / (seconds * 1000));
+      audio.volume = from * (1 - k);
+      if (k >= 1) { clearInterval(this.fade); if (this.audio === audio) this.stopNow(); }
+    }, 40);
+  }
+
+  stopNow() {
+    if (!this.audio) return;
+    this.audio.pause();
+    this.audio = null;
+  }
+
+  setMuted(muted) {
+    this.muted = muted;
+    if (this.audio) this.audio.volume = muted ? 0 : this.volume;
+  }
+}
 
 class SfxPlayer {
   constructor() {
@@ -42,6 +114,8 @@ class SfxPlayer {
     this.lastPlayed = {};
     this.rotation = {};
     this.loops = {};
+    this.playing = {};
+    this.listenerX = 0;   // where Rakti is: placed sounds fade and pan with their distance from her
     this.ctx = null;
     const AC = typeof window !== 'undefined' && (window.AudioContext || window.webkitAudioContext);
     if (!AC) return;
@@ -72,39 +146,54 @@ class SfxPlayer {
   setMuted(muted) {
     this.muted = muted;
     if (this.master) this.master.gain.value = muted ? 0 : this.volume;
+    Music.setMuted(muted);
   }
 
   /**
    * A looping sound kept alive by calling this every frame it should be heard. However many things call it
    * in one frame (ten rockets in the air), only one copy plays; when nobody has called it for a moment
-   * (the last rocket landed, a level change, a pause) it fades out and stops by itself.
+   * (the last rocket landed, a level change, a pause) it fades out and stops by itself. `level` (0..1) is how
+   * loud it should be right now, so a sound can swell as the player gets closer to its source.
    */
-  hold(name) {
+  hold(name, level = 1) {
     const ctx = this.ctx, def = SOUNDS[name], buffer = this.buffers[name]?.[0];
     if (!ctx || !def?.loop || !buffer || ctx.state !== 'running') return;
     const now = ctx.currentTime;
     let l = this.loops[name];
-    if (l) { l.last = now; return; }
+    if (l) {   // several things may hold it in one frame: the loudest one sets the level
+      l.level = now === l.stamp ? Math.max(l.level, level) : level;
+      l.stamp = now;
+      l.last = now;
+      return;
+    }
     const src = ctx.createBufferSource();
     src.buffer = buffer;
     src.loop = true;
     const gain = ctx.createGain();
     gain.gain.setValueAtTime(0, now);
-    gain.gain.linearRampToValueAtTime(def.vol, now + LOOP_FADE);
+    gain.gain.setTargetAtTime(def.vol * level, now, def.fade ?? LOOP_FADE / 3);
     src.connect(gain);
     gain.connect(this.master);
     src.start();
-    l = this.loops[name] = { src, gain, last: now };
+    l = this.loops[name] = { src, gain, last: now, level };
     l.timer = setInterval(() => {
       const t = ctx.currentTime;
-      if (t - l.last < LOOP_HOLD) return;
+      if (t - l.last < LOOP_HOLD) { l.gain.gain.setTargetAtTime(def.vol * l.level, t, def.fade ?? LOOP_FADE / 3); return; }
       clearInterval(l.timer);
       delete this.loops[name];
       l.gain.gain.cancelScheduledValues(t);
       l.gain.gain.setValueAtTime(l.gain.gain.value, t);
-      l.gain.gain.linearRampToValueAtTime(0, t + LOOP_FADE);
-      l.src.stop(t + LOOP_FADE + 0.02);
+      const out = def.fadeOut ?? LOOP_FADE;
+      l.gain.gain.linearRampToValueAtTime(0, t + out);
+      l.src.stop(t + out + 0.02);
     }, 40);
+  }
+
+  /** A sound in the world at x: quieter and panned the further it is from Rakti. */
+  at(name, x, opts = {}) {
+    const dx = x - this.listenerX;
+    const near = Math.max(0.12, 1 - Math.abs(dx) / HEARING);
+    this.play(name, { ...opts, volume: (opts.volume ?? 1) * near, pan: Math.max(-0.8, Math.min(0.8, dx / 700)) });
   }
 
   /** Shuffled rotation: each variant once per round, and a new round never starts with the one just played. */
@@ -124,7 +213,7 @@ class SfxPlayer {
     return st.last;
   }
 
-  play(name, { volume = 1, rate = 1 } = {}) {
+  play(name, { volume = 1, rate = 1, pan = 0 } = {}) {
     const ctx = this.ctx, def = SOUNDS[name], pool = this.buffers[name];
     if (!ctx || !def || !pool || this.muted) return;
     const ready = pool.flatMap((b, i) => (b ? [i] : []));
@@ -132,17 +221,31 @@ class SfxPlayer {
     if (ctx.state === 'suspended') { ctx.resume(); return; }
     const now = ctx.currentTime;
     if (now - (this.lastPlayed[name] ?? -1) < def.gap) return;
+    // maxOverlap: how many copies may sound at once (extra calls are skipped); overlapGain: each overlapping
+    // copy is quieter than the one before, so a pack all noticing Rakti does not stack into a roar
+    const playing = this.playing[name] ?? 0;
+    if (def.maxOverlap && playing >= def.maxOverlap) return;
     this.lastPlayed[name] = now;
 
     const src = ctx.createBufferSource();
     src.buffer = pool[def.rotate ? this.nextInRotation(name, ready) : ready[Math.floor(Math.random() * ready.length)]];
     src.playbackRate.value = rate * (1 + (Math.random() * 2 - 1) * def.jitter);
     const gain = ctx.createGain();
-    gain.gain.value = def.vol * volume;
+    gain.gain.value = def.vol * volume * (def.overlapGain?.[playing] ?? 1);
+    let node = gain;
     src.connect(gain);
-    gain.connect(this.master);
+    if (pan && ctx.createStereoPanner) {
+      const p = ctx.createStereoPanner();
+      p.pan.value = pan;
+      gain.connect(p);
+      node = p;
+    }
+    node.connect(this.master);
+    this.playing[name] = playing + 1;
+    src.onended = () => { this.playing[name] = Math.max(0, (this.playing[name] ?? 1) - 1); };
     src.start();
   }
 }
 
+export const Music = new MusicPlayer();
 export const Sfx = new SfxPlayer();

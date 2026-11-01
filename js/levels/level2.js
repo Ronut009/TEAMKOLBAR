@@ -27,6 +27,7 @@ import { PlatformArt } from '../render/platformArt.js';
 import { Betal } from '../entities/betal.js';
 import { EnemySpriteSheet } from '../entities/enemySprites.js';
 import { Archer } from '../entities/archer.js';
+import { Sfx } from '../core/audio.js';
 
 // ---------------------------------------------------------------- background screens
 const BG_SCALE = 447 / 941;                 // a screen is exactly one view tall
@@ -315,6 +316,11 @@ export class Level2 {
 
   // ======================================================================== state
   /** Called by the engine when Rakti arrives from another level (not on death or [R]). */
+  /** The Trishul on its shrine: what Rakti needs to reach to go on. */
+  crucialItem() {
+    return this.progress.trishulTaken ? null : { x: this.shrine.x, y: FLOOR_Y };
+  }
+
   freshStart() {
     this.checkpointIndex = 0;
     this.saved = freshProgress();
@@ -557,6 +563,7 @@ export class Level2 {
   takeTrishul() {
     if (this.progress.trishulTaken) return;
     this.progress.trishulTaken = true;
+    Sfx.play('item_get');
     this.trishulFly = 0;
     this.cameraShake = 0.5;
     if (this.player) {

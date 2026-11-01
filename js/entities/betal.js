@@ -27,7 +27,8 @@ export class Betal {
       attackAnimTimer: 0, attackAnimDuration: 0.7, attackHitAt: 0.38, attackHitDone: false,
       attackCooldown: 0.6, hurtTimer: 0, hitFlash: 0,
       dead: false, deathTimer: 0, fadeAlpha: 1, animTime: 0, removed: false, hidden: false,
-      patrolSpeed: 34, chaseSpeed: 72, noticeRange: 190, attackRange: 46, damage: 4
+      patrolSpeed: 34, chaseSpeed: 72, noticeRange: 190, attackRange: 46, damage: 4,
+      aggro: false, aggroLock: 0
     });
   }
 
@@ -43,6 +44,7 @@ export class Betal {
     this.hitFlash = Math.max(0, this.hitFlash - dt);
     this.hurtTimer = Math.max(0, this.hurtTimer - dt);
     this.attackCooldown = Math.max(0, this.attackCooldown - dt);
+    this.aggroLock = Math.max(0, this.aggroLock - dt);
 
     if (this.dead) {
       this.deathTimer += dt;
@@ -85,18 +87,24 @@ export class Betal {
       return;
     }
 
-    // 3. Chase / attack when Rakti is near, otherwise patrol
-    const inSight = alive && closeVertically && Math.abs(dx) < this.noticeRange
-      && player.x > this.minX - 60 && player.x < this.maxX + 60;
-    if (inSight) {
+    // 3. Notice Rakti -> aggro: he locks on (a short roar), then chases her down to attack. He keeps hunting her
+    // beyond the distance he first noticed her at (the leash) and gives up only when she gets clear away.
+    const inBounds = alive && player.x > this.minX - 60 && player.x < this.maxX + 60;
+    const inSight = inBounds && closeVertically && Math.abs(dx) < this.noticeRange;
+    const leashed = inBounds && Math.abs(player.y - this.y) < 140 && Math.abs(dx) < this.noticeRange * 1.9;
+    if (!this.aggro && inSight) this.startAggro(player.x);
+    else if (this.aggro && !leashed) this.aggro = false;
+    if (this.aggro) {
       this.facing = dx < 0 ? 'left' : 'right';
+      if (this.aggroLock > 0) { this.isMoving = false; return; }   // locking on
       if (Math.abs(dx) > this.attackRange) {
         const nx = this.clampX(this.x + Math.sign(dx) * this.chaseSpeed * dt);
         this.isMoving = nx !== this.x;
         this.x = nx;
+        if (this.isMoving) Sfx.hold('mob_growl', Math.max(0.35, 1 - Math.abs(dx) / (this.noticeRange * 1.9)));   // one shared growl however many chase
       } else {
         this.isMoving = false;
-        if (this.attackCooldown <= 0) {
+        if (this.attackCooldown <= 0 && closeVertically) {
           this.isAttacking = true;
           this.attackAnimTimer = 0;
           this.attackHitDone = false;
@@ -112,10 +120,19 @@ export class Betal {
     this.isMoving = true;
   }
 
+  /** He notices Rakti: faces her, roars and holds still for a beat, then the chase begins. */
+  startAggro(targetX) {
+    this.aggro = true;
+    this.aggroLock = 0.35;
+    this.facing = targetX < this.x ? 'left' : 'right';
+    Sfx.play('mob_aggro');
+  }
+
   /** Damage from any source (sword swing, thrown Trishul). Returns true if it killed him. */
   takeHit(damage, fromX, level = null) {
     if (this.dead || this.hidden) return false;
     Sfx.play('hit');
+    if (!this.aggro && this.hp > damage) this.startAggro(fromX);   // struck from out of sight: he turns on her
     this.hp -= damage;
     this.hitFlash = 0.18;
     this.hurtTimer = 0.3;
@@ -124,6 +141,7 @@ export class Betal {
     if (level) level.cameraShake = Math.max(level.cameraShake || 0, 0.25);
     if (this.hp <= 0) {
       this.dead = true;
+      this.aggro = false;
       this.isAttacking = false;
       this.isMoving = false;
       if (level) {

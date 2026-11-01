@@ -397,6 +397,11 @@ export class Level4 {
   }
 
   /** Arriving from another level (or the [P] test key): the whole story from the portal. */
+  /** The skull mala on its shrine: what Rakti needs to reach to go on. */
+  crucialItem() {
+    return this.malaTaken ? null : { x: SHRINE.x, y: FLOOR_Y };
+  }
+
   freshStart() {
     this.arrived = false;       // the portal intro has played
     this.doubtTalked = false;
@@ -545,6 +550,7 @@ export class Level4 {
   takeMala() {
     if (this.malaTaken) return;
     this.malaTaken = true;
+    Sfx.play('item_get');
     this.shake(0.6);
     this.burst(SHRINE.x, SHRINE.top - 14, 40, ['#ffd36b', '#ffffff', '#ff4d4d'], 140, 0.9);
     this.toast('☠ KALI\'S SKULL MALA ☠', 2.6);
