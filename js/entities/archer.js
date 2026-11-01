@@ -12,6 +12,8 @@
  * ==========================================================================
  */
 
+import { Sfx } from '../core/audio.js';
+
 export class Arrow {
   constructor(x, y, owner = null) {
     this.x = x;
@@ -300,6 +302,7 @@ export class Archer {
   }
 
   releaseAttachedArrow(targetAngle) {
+    Sfx.at('archer_shoot', this.x);
     if (!this.attachedArrow) return null;
     const released = this.attachedArrow;
     released.release(230, targetAngle);
@@ -322,6 +325,7 @@ export class Archer {
     }
 
     this.spawnHitSparks();
+    if (this.hp > 0) Sfx.at('betal_hurt', this.x);
 
     if (this.hp <= 0) {
       this.die('slashed');
@@ -333,6 +337,7 @@ export class Archer {
   /** Releases an arrow exactly where the drawn one sits in the art (horizontal or aimed up),
    *  pointing the way the bow points; homing then curves it toward Rakti. */
   releaseArtArrow() {
+    Sfx.at('archer_shoot', this.x);
     const a = this.art, dir = this.facing === 'left' ? -1 : 1;
     const up = this.isAimingUp;
     const tilt = up ? a.upAngle : 0;
@@ -370,6 +375,7 @@ export class Archer {
 
   die(cause = 'crushed') {
     if (!this.alive) return false;
+    Sfx.at('enemy_death', this.x);
     this.alive = false;
     this.crushed = (cause === 'crushed');
     this.hp = 0;
@@ -426,6 +432,7 @@ export class Archer {
     if (!this.crushOnly && this.alive && player && player.isAttacking && this.hitCooldown <= 0) {
       const dist = Math.hypot(player.x - this.x, player.y - this.y);
       if (dist < 60 && player.claimSwingHit(this)) {
+        Sfx.at('sword_hit', this.x);
         const killed = this.takeDamage(player.swordDamage, player.x);
         if (level) {
           level.cameraShake = 0.35;

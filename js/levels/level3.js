@@ -18,6 +18,7 @@
 import { PlatformArt } from '../render/platformArt.js';
 import { Betal } from '../entities/betal.js';
 import { EnemySpriteSheet } from '../entities/enemySprites.js';
+import { Sfx } from '../core/audio.js';
 
 // Backgrounds (v2) are 2171 x 724; the sunlit floor line sits at image y = 588, the roots band below it
 // reaches past the bottom of the view. (The old 2000 x 585 jungle_a/b.jpg are kept as backups.)
@@ -608,6 +609,7 @@ export class Level3 {
           this.checkpointIndex = i;
           this.killToastText = '✦ CHECKPOINT ✦';
           this.killToastTimer = 1.6;
+          Sfx.play('checkpoint');
         }
       }
     }
@@ -664,6 +666,7 @@ export class Level3 {
           v.flash = 0.2;
           this.cameraShake = Math.max(this.cameraShake, 0.2);
           this.leafBurst(v.x, FLOOR_Y - 40, v.hp <= 0 ? 22 : 8);
+          Sfx.at(v.hp <= 0 ? 'vine_cut' : 'sword_hit', v.x);
           if (v.hp <= 0) { v.state = 'dead'; v.t = 0; continue; }
         }
       }
@@ -684,6 +687,7 @@ export class Level3 {
       if (alive && v.cool <= 0 && onLevel && Math.abs(dx) < VINE_NOTICE) {
         v.attackFrom = v.state === 'sway' ? 4 : v.state === 'emerge' ? 2 : 0;
         v.state = 'attack'; v.t = 0; v.phase2 = 'grow';
+        Sfx.at('vine_spin', v.x);
         continue;
       }
       if (v.state === 'hidden' && v.t >= v.wait) { v.state = 'emerge'; v.t = 0; }

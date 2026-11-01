@@ -27,6 +27,7 @@ import { PlatformArt } from '../render/platformArt.js';
 import { Betal } from '../entities/betal.js';
 import { EnemySpriteSheet } from '../entities/enemySprites.js';
 import { Archer } from '../entities/archer.js';
+import { Sfx } from '../core/audio.js';
 
 // ---------------------------------------------------------------- background screens
 const BG_SCALE = 447 / 941;                 // a screen is exactly one view tall
@@ -325,6 +326,7 @@ export class Level2 {
     if (toast) {
       this.killToastText = '✦ CHECKPOINT ✦';
       this.killToastTimer = 1.6;
+      Sfx.play('checkpoint');
     }
   }
 

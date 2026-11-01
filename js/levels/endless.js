@@ -22,6 +22,7 @@ import { PlatformArt } from '../render/platformArt.js';
 import { Betal } from '../entities/betal.js';
 import { EnemySpriteSheet } from '../entities/enemySprites.js';
 import { Archer } from '../entities/archer.js';
+import { Sfx } from '../core/audio.js';
 
 // The backdrops are 1672 x 941 (16:9) drawn at 0.6x, so a 16:9 window sees the whole arena at once.
 const SKY_COUNT = 2;               // calm sky, blood sky: blended by how full the crowd is
@@ -255,6 +256,7 @@ export class EndlessLevel {
     this.killTotal++;
     this.killsByKind[kind]++;
     this.points += POINTS[kind];
+    Sfx.play('kill_pop');
     this.popups.push({ x: enemy.x, y: enemy.y - (isArcher ? 60 : 80), text: `+${POINTS[kind]}`, t: 0 });
   }
 
@@ -347,6 +349,7 @@ export class EndlessLevel {
     const spread = Math.min(7, 2.5 + n * 0.06);   // the whole round walks in over a few seconds
     this.spawnGap = spread / n;
     this.toast(`⚔ ROUND ${r}: ${n} MOBS ⚔`, 2.4);
+    Sfx.play('round_start');
   }
 
   spawnNext() {
@@ -436,6 +439,7 @@ export class EndlessLevel {
       }
       const bonus = (CLEAR_BONUS + CLEAR_BONUS_STEP * this.round) * (this.roundDamage === 0 ? 2 : 1);
       this.points += bonus;
+      Sfx.play('round_clear');
       this.toast(`✦ ROUND ${this.round} CLEARED  +${bonus}${this.roundDamage === 0 ? ' · FLAWLESS' : ''} ✦`, 2.6);
       this.roundDamage = 0;
       this.round++;
