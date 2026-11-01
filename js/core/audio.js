@@ -43,7 +43,7 @@ const HEARING = 900;   // world px: beyond this a placed sound is almost silent
 class SfxPlayer {
   constructor() {
     this.muted = false;
-    this.volume = 0.7;
+    this.volume = 0.5;
     this.listenerX = 0;
     this.buffers = {};
     this.lastPlayed = {};
