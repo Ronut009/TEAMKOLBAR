@@ -751,7 +751,7 @@ export class Level4 {
         if (!this.arrows[i].update(dt, player, this)) this.arrows.splice(i, 1);
       }
     }
-    if (!this.malaTaken && Math.random() < 0.2) this.burst(SHRINE.x + rand(-14, 14), SHRINE.top - 20 + rand(-6, 6), 1, ['#ffd36b', '#fff1b0', '#ff4d4d'], 20, 0.9);
+    // (the small sparks that used to drift off the mala were removed; the shrine beacon marks it)
   }
 
   // ------------------------------------------------------------ interaction / HUD

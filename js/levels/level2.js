@@ -1594,10 +1594,14 @@ export class Level2 {
     const k = BALL.scale, w = BALL.frameW * k, h = BALL.frameH * k;
     if (!this.inView(b.x - w, b.x + w)) return;
     let frame = 0, glow = 0;
-    if (b.state === 'idle' && this.progress.qUnlocked && this.player) {
-      // only up close do its cracks give it away among the other boulders
-      const near = 1 - Math.min(1, Math.max(0, (Math.abs(this.player.x - b.x) - 120) / 160));
-      glow = near * (0.25 + 0.3 * Math.sin(this.animTime * 3));
+    if (b.state === 'idle') {
+      // a plain rough boulder (frame 0) until [Q]; before Kali teaches [Q] it has no glow at all.
+      // (It used to fall through to the finished-sphere frame while [Q] was still locked.)
+      if (this.progress.qUnlocked && this.player) {
+        // only up close do its cracks give it away among the other boulders
+        const near = 1 - Math.min(1, Math.max(0, (Math.abs(this.player.x - b.x) - 120) / 160));
+        glow = near * (0.25 + 0.3 * Math.sin(this.animTime * 3));
+      }
     }
     else if (b.state === 'forming') frame = Math.min(5, Math.floor(b.t / 0.1));
     else frame = 5;

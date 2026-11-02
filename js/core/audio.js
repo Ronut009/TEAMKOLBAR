@@ -34,8 +34,8 @@ const SOUNDS = {
   portal_open:   { vol: 0.7, jitter: 0, gap: 3 },                                    // the portal behind it starts up
   item_get:      { vol: 0.8, jitter: 0, gap: 1 },                                    // Rakti takes an item she needs to go on
   morph:         { vol: 0.7, jitter: 0, gap: 0.8 },                                  // Rakti takes Kali's form
-  footsteps:     { vol: 0.55, loop: true, fade: 0.04, fadeOut: 0.1 },                // Rakti runs: sped up to her stride
-  ground_land:   { vol: 0.8, jitter: 0.04, gap: 0.12 },                              // Rakti lands on the ground
+  footsteps:     { vol: 0.42, loop: true, fade: 0.04, fadeOut: 0.1 },                // Rakti runs: sped up to her stride (was 0.55)
+  ground_land:   { vol: 0.42, jitter: 0.06, gap: 0.12 },                             // Rakti lands from a jump: kept soft (was 0.8)
   ground_rise:   { vol: 0.7, jitter: 0.05, gap: 0.1, maxOverlap: 3, overlapGain: [1, 0.7, 0.5] },   // something rises out of the ground
   stone_move:    { vol: 0.35, loop: true, fade: 0.3, fadeOut: 0.5 },                 // a stone pier grinds up and down nearby
   stone_shake:   { vol: 0.7, jitter: 0.05, gap: 0.15 },                              // a stone starts to give way
@@ -79,6 +79,7 @@ class MusicPlayer {
   /** Starts the wanted track if it is sitting paused because an earlier play() was refused. */
   tryStart() {
     const audio = this.audio;
+    if (this.blocked) return;
     if (!audio || !this.name || !audio.paused) return;
     audio.play().then(() => this.showHint(false)).catch(() => {});
   }
@@ -91,7 +92,7 @@ class MusicPlayer {
   }
 
   play(name) {
-    if (typeof Audio === 'undefined') return;
+    if (typeof Audio === 'undefined' || this.blocked) return;
     clearInterval(this.fade);
     if (this.name === name && this.audio) { this.audio.volume = this.muted ? 0 : this.volume; return; }   // already playing, or waiting for the first click
     this.stopNow();
@@ -110,7 +111,7 @@ class MusicPlayer {
     const events = ['pointerdown', 'pointerup', 'mousedown', 'click', 'keydown', 'touchstart', 'touchend'];
     const done = () => { for (const type of events) window.removeEventListener(type, go); this.showHint(false); };
     const go = () => {
-      if (this.audio !== audio) { done(); return; }
+      if (this.audio !== audio || !this.name) { done(); return; }   // stopped meanwhile (the game started): never revive it
       audio.play().then(done).catch(() => {});
     };
     for (const type of events) window.addEventListener(type, go, { passive: true });
@@ -233,9 +234,16 @@ class SfxPlayer {
     }, 40);
   }
 
-  /** A sound in the world at x: quieter and panned the further it is from Rakti. */
+  /** A sound in the world at x: quieter and panned the further it is from Rakti. With `range` the sound is only
+   *  heard up close: silent beyond `range` world px and falling off steeply inside it. */
   at(name, x, opts = {}) {
     const dx = x - this.listenerX;
+    if (opts.range) {
+      const k = 1 - Math.abs(dx) / opts.range;
+      if (k <= 0) return;
+      this.play(name, { ...opts, volume: (opts.volume ?? 1) * k * k, pan: Math.max(-0.8, Math.min(0.8, dx / 300)) });
+      return;
+    }
     const near = Math.max(0.12, 1 - Math.abs(dx) / HEARING);
     this.play(name, { ...opts, volume: (opts.volume ?? 1) * near, pan: Math.max(-0.8, Math.min(0.8, dx / 700)) });
   }

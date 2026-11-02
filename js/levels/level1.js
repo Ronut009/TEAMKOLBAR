@@ -573,7 +573,7 @@ export class Level {
     for (const sp of this.spikes) {
       const st = this.spikeState(sp);
       const rising = st.frame >= 4 && st.frame <= 7;
-      if (rising && !sp.wasRising) Sfx.at('ground_rise', sp.x);   // it thrusts up out of its vent
+      if (rising && !sp.wasRising) Sfx.at('ground_rise', sp.x, { range: 230, volume: 0.8 });   // it thrusts up out of its vent: heard only up close
       sp.wasRising = rising;
       if (!st.harmful) continue;
       const { x, y } = this.spikeBase(sp);

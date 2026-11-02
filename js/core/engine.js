@@ -467,6 +467,12 @@ export class Engine {
   }
 
   update(dt) {
+    // The title theme belongs to the start menu only (looped there). Anywhere else (loading, a level, the unlimited
+    // arena) it is stopped, and nothing (a late first click, a refocused tab) may start it again until the menu is back.
+    const onMenu = !this.isGameStarted && !this.isLoading && this.titleScreen?.classList.contains('active');
+    Music.blocked = !onMenu;
+    if (!onMenu && Music.name === 'title') Music.stop(0.5);
+    else if (onMenu && !Music.name) Music.play('title');
     if (this.isLoading) {
       this.loadingTimer -= dt;
       if (this.loadingTimer <= 0) {
@@ -1004,15 +1010,10 @@ export class Engine {
     if (this.endlessHud) {
       const show = this.currentLevelIndex === 5 && this.isGameStarted;
       put(this.endlessHud, 'show', String(show), (v) => this.endlessHud.classList.toggle('active', v === 'true'));
-      if (show) put(this.endlessHud, 'text', this.level.hudText, (v) => {
-        this.endlessHud.textContent = '';
-        for (const line of v.split('\n')) {
-          const row = document.createElement('div');
-          row.textContent = line;
-          if (line.startsWith('SCORE')) row.className = 'score-row';
-          this.endlessHud.appendChild(row);
-        }
-      });
+      if (show) {
+        const h = this.level.hudData;
+        put(this.endlessHud, 'data', JSON.stringify(h), () => this.renderEndlessHud(h));
+      }
     }
 
     // Keep combat notifications separate from the minimal persistent HUD.
@@ -1026,6 +1027,38 @@ export class Engine {
         this.killToast.classList.remove('active');
       }
     }
+  }
+
+  /** Unlimited mode counter: a framed teal-and-gold panel (round and its progress, the score, the stats, the [Q] mud). */
+  renderEndlessHud(h) {
+    const el = this.endlessHud;
+    if (!el.firstChild) {
+      el.innerHTML = `
+        <div class="eh-round"><span class="eh-orn">⚜</span><span class="eh-round-label">ROUND</span><span class="eh-round-num"></span><span class="eh-orn">⚜</span></div>
+        <div class="eh-mobs"><div class="eh-mobs-bar"><span></span></div><div class="eh-mobs-text"></div></div>
+        <div class="eh-hp"></div>
+        <div class="eh-divider"></div>
+        <div class="eh-score"><div class="eh-score-label">SCORE</div><div class="eh-score-num"></div></div>
+        <div class="eh-stats">
+          <div><span class="eh-k">KILLS</span><span class="eh-v eh-kills"></span></div>
+          <div><span class="eh-k">DAMAGE TAKEN</span><span class="eh-v eh-dmg"></span></div>
+        </div>
+        <div class="eh-mud"><span class="eh-key">Q</span><span class="eh-mud-text"></span></div>
+        <div class="eh-best">BEST <span></span></div>`;
+    }
+    const q = (s) => el.querySelector(s);
+    q('.eh-round-num').textContent = h.round;
+    const done = h.size ? (h.size - h.left) / h.size : 0;
+    q('.eh-mobs-bar span').style.width = `${Math.round(done * 100)}%`;
+    q('.eh-mobs-text').textContent = h.resting ? 'NEXT ROUND COMING' : `MOBS LEFT  ${h.left} / ${h.size}`;
+    q('.eh-hp').textContent = h.hpBonus ? `ENEMIES +${h.hpBonus}% HP` : '';
+    q('.eh-score-num').textContent = h.score;
+    q('.eh-kills').textContent = h.kills;
+    q('.eh-dmg').textContent = h.damage;
+    const mud = q('.eh-mud');
+    mud.classList.toggle('ready', h.mudReady);
+    q('.eh-mud-text').textContent = h.mudReady ? 'MUD READY' : `MUD IN ${h.mudIn}s`;
+    q('.eh-best span').textContent = h.best;
   }
 
   /** One line of dialogue. speaker: 'kali', 'rakti' (portrait follows her outfit) or anything else (no portrait).

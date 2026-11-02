@@ -1127,7 +1127,7 @@ export class Player {
         this.vy = 0;
         if (!this.isGrounded) {
           this.landingTimer = 0.12;
-          if (impact > 120) Sfx.play('ground_land', { volume: 0.35 + 0.65 * Math.min(1, (impact - 120) / 500) });
+          if (impact > 120) Sfx.play('ground_land', { volume: 0.3 + 0.5 * Math.min(1, (impact - 120) / 500) });   // soft: a normal jump's landing is barely a thud
         }
         this.isGrounded = true;
         this.currentPlatform = landed;

@@ -951,7 +951,7 @@ export class Level3 {
     if (r.collected) alpha *= 1 - Math.min(1, r.fly * 1.6);
     const near = Math.abs(this.px - r.x) < 110 ? 1 : 0.45;
     // the same light as the Trishul's shrine in Level 2 (its marker is the guide chevron above)
-    if (!r.collected) drawShrineBeacon(ctx, { x: r.x, baseY: seat, relicY: cy, relicH: f.h, t: this.animTime, rgb: '120, 255, 170', marker: false, alpha, shaftH: 100 });
+    if (!r.collected) drawShrineBeacon(ctx, { x: r.x, baseY: seat, relicY: cy, relicH: f.h, t: this.animTime, rgb: '120, 255, 170', marker: true, alpha, shaftH: 100 });
     if (alpha > 0.01) {
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
@@ -1056,6 +1056,11 @@ export class Level3 {
     ctx.save();
     ctx.globalAlpha = g.alpha;
     if (g.mode === 'marker') {
+      // on screen the heart is marked like the other three relics (shrine beacon: light shaft, halo, gold triangle)
+      ctx.restore();
+      return;
+    }
+    if (false) {
       // a gold chevron bobbing over the heart
       const bob = Math.sin(this.animTime * 4) * 4;
       const x = r.x, y = FLOOR_Y - 118 + bob;

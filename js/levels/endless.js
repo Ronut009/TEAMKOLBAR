@@ -242,6 +242,16 @@ export class EndlessLevel {
     ].filter(Boolean).join('\n');
   }
 
+  /** The same numbers, structured for the framed counter panel. */
+  get hudData() {
+    const left = this.phase === 'break' ? this.roundSize : this.roundSize - this.kills;
+    return {
+      round: this.round, left: Math.max(0, left), size: this.roundSize, hpBonus: Math.round((this.hpMult - 1) * 100),
+      score: this.score, kills: this.killTotal, damage: this.damageTaken, best: this.bestScore,
+      mudReady: !(this.mudCooldown > 0), mudIn: Math.ceil(this.mudCooldown || 0), resting: this.phase === 'break'
+    };
+  }
+
   toast(text, time = 1.8) {
     this.killToastText = text;
     this.killToastTimer = time;
