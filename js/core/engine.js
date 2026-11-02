@@ -1067,6 +1067,7 @@ export class Engine {
     const prevSpeaker = this.dialogueActive ? this.dialogueSpeaker : null;
     this.dialogueActive = true;
     this.dialogueSpeaker = speaker;
+    if (speaker !== prevSpeaker) Sfx.play('text_pop');   // the box pops up, or a new speaker takes over
     this.dlg = { text, shown: 0, speaker, gesture, frame: pickPortrait(this.portraitSetName(speaker), gesture, text, portrait) };
     this.portraitAnim = 0;
     this.portraitFrame = -1;

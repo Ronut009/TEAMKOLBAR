@@ -711,6 +711,7 @@ export class Player {
           this.currentLadder = null;
           this.ladderCooldown = 0.32;
           this.vy = this.jumpImpulse * 0.85;
+          Sfx.play('jump');
           this.vx = (moveDir !== 0 ? moveDir * 170 : (this.facing === 'left' ? -140 : 140));
           this.isGrounded = false;
           this.spawnPoof(6);
@@ -1091,6 +1092,7 @@ export class Player {
         } else {
           const impulse = this.isDivine ? this.divineJumpImpulse : this.jumpImpulse;
           this.vy = impulse;
+          Sfx.play('jump');
           this.isGrounded = false;
           this.currentPlatform = null;
           this.spawnPoof(8);
@@ -1122,12 +1124,10 @@ export class Player {
       const landed = level.checkPlatformLanding(prevY, this.y, this.x, dropping, this.isDivine);
 
       if (landed) {
-        const impact = this.vy;   // how fast she came down, for the landing sound
         this.y = landed.y;
         this.vy = 0;
         if (!this.isGrounded) {
           this.landingTimer = 0.12;
-          if (impact > 120) Sfx.play('ground_land', { volume: 0.3 + 0.5 * Math.min(1, (impact - 120) / 500) });   // soft: a normal jump's landing is barely a thud
         }
         this.isGrounded = true;
         this.currentPlatform = landed;

@@ -33,9 +33,10 @@ const SOUNDS = {
   door_open:     { vol: 0.8, jitter: 0.02, gap: 0.5 },                               // a door unlocks and swings open
   portal_open:   { vol: 0.7, jitter: 0, gap: 3 },                                    // the portal behind it starts up
   item_get:      { vol: 0.8, jitter: 0, gap: 1 },                                    // Rakti takes an item she needs to go on
+  text_pop:      { vol: 0.6, jitter: 0, gap: 0.05, variants: 3, rotate: true },       // a text box pops up (all three before any repeats)
+  jump:          { vol: 0.6, jitter: 0.04, gap: 0.1 },                               // Rakti jumps
   morph:         { vol: 0.7, jitter: 0, gap: 0.8 },                                  // Rakti takes Kali's form
   footsteps:     { vol: 0.42, loop: true, fade: 0.04, fadeOut: 0.1 },                // Rakti runs: sped up to her stride (was 0.55)
-  ground_land:   { vol: 0.42, jitter: 0.06, gap: 0.12 },                             // Rakti lands from a jump: kept soft (was 0.8)
   ground_rise:   { vol: 0.7, jitter: 0.05, gap: 0.1, maxOverlap: 3, overlapGain: [1, 0.7, 0.5] },   // something rises out of the ground
   stone_move:    { vol: 0.35, loop: true, fade: 0.3, fadeOut: 0.5 },                 // a stone pier grinds up and down nearby
   stone_shake:   { vol: 0.7, jitter: 0.05, gap: 0.15 },                              // a stone starts to give way
