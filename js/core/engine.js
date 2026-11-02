@@ -856,7 +856,12 @@ export class Engine {
 
     if (this.deathScreen) {
       const small = document.getElementById('deathSmall');
-      if (small) small.textContent = this.currentLevelIndex === 5 ? 'Rising again in the arena' : 'Respawning at the last checkpoint';
+      const big = this.deathScreen.querySelector('.death-big');
+      // a level can word the card itself (Level 3: the Forest Heart withered before she reached it)
+      const card = this.level?.deathCard?.();
+      if (big) big.textContent = card?.big || "IT'S NOT OVER YET";
+      if (small) small.textContent = card?.small || (this.currentLevelIndex === 5 ? 'Rising again in the arena' : 'Respawning at the last checkpoint');
+      this.deathScreen.classList.toggle('withered', Boolean(card));
       this.deathScreen.classList.add('active');
     }
 
@@ -977,6 +982,29 @@ export class Engine {
     this.abilityBarEl = this.abilityBarEl || document.getElementById('abilityBar');
     put(this.abilityBarEl, 'shown', String(divineUnlocked), v => this.abilityBarEl?.classList.toggle('ability-hidden', v !== 'true'));
     this.hudEl.classList.toggle('divine-mode', divineActive);
+
+    // Level 3: the Forest Heart's clock (a ring that drains, green -> amber -> red, pulsing in the last 10 s)
+    this.heartClockEl = this.heartClockEl || document.getElementById('heartClock');
+    const hc = this.isGameStarted && !this.levelCompleted ? this.level?.heartClockHud?.() : null;
+    if (this.heartClockEl) {
+      put(this.heartClockEl, 'show', String(Boolean(hc)), v => this.heartClockEl.classList.toggle('show', v === 'true'));
+      if (hc) {
+        const secs = Math.ceil(hc.left - 1e-6);
+        const state = hc.saved ? 'saved' : secs <= 10 ? 'urgent' : hc.ratio <= 0.5 ? 'low' : 'ok';
+        put(this.heartClockEl, 'state', state, v => { this.heartClockEl.dataset.state = v; });
+        put(this.heartClockEl, 'num', String(secs), v => { document.getElementById('heartClockNum').textContent = v; });
+        put(this.heartClockEl, 'wait', String(hc.waiting && !hc.saved), v => this.heartClockEl.classList.toggle('waiting', v === 'true'));
+        // the ring: stroke-dashoffset over a circumference of 100 (pathLength), updated in small steps
+        const r = Math.round(Math.max(0, Math.min(1, hc.ratio)) * 400) / 4;
+        put(this.heartClockEl, 'ring', String(r), v => {
+          document.getElementById('heartClockRing').style.strokeDashoffset = String(100 - Number(v));
+          // the heart icon drains of colour as it withers
+          const k = Number(v) / 100;
+          document.getElementById('heartClockIcon').style.filter = `saturate(${(0.15 + 0.85 * k).toFixed(2)}) brightness(${(0.6 + 0.4 * k).toFixed(2)})`;
+        });
+        put(this.heartClockEl, 'label', hc.saved ? 'HEART SAVED' : 'FOREST HEART', v => { document.getElementById('heartClockLabel').textContent = v; });
+      }
+    }
 
     // Level 4 boss bar
     // Stage 1 (Pitaji) has his own portrait bar; the Asura uses the boss bar

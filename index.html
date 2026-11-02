@@ -68,6 +68,18 @@
     <img class="father-frame" src="assets/ui/hud/father_boss_bar.png" alt="" draggable="false">
     <span class="father-name">PITAJI  ·  POSSESSED</span>
   </div>
+  <!-- Level 3: the Forest Heart's clock (the ring drains as the heart withers) -->
+  <div class="heart-clock" id="heartClock" data-state="ok" aria-label="Time left to reach the Forest Heart">
+    <div class="hc-medallion">
+      <svg class="hc-ring" viewBox="0 0 100 100" aria-hidden="true">
+        <circle class="hc-track" cx="50" cy="50" r="42" pathLength="100"></circle>
+        <circle class="hc-fill" id="heartClockRing" cx="50" cy="50" r="42" pathLength="100"></circle>
+      </svg>
+      <img class="hc-icon" id="heartClockIcon" src="assets/ui/hud/forest_heart_icon.png" alt="" draggable="false">
+      <span class="hc-num" id="heartClockNum">50</span>
+    </div>
+    <span class="hc-label" id="heartClockLabel">FOREST HEART</span>
+  </div>
   <div class="boss-hud" id="bossHud" aria-label="Boss health">
     <div class="boss-fill-track"><div class="boss-fill-lag" id="bossFillLag"></div><div class="boss-fill" id="bossFill"></div></div>
     <img class="boss-frame" src="assets/level4/sprites/boss_bar.png" alt="" draggable="false">

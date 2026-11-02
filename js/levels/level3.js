@@ -59,9 +59,15 @@ const VINE_HP = 10;
 const VINE_DAMAGE = 4;
 const PIT_DAMAGE = 3;
 
-// Jungle pathway stones (v2: 6-frame morph sheet, rock -> breaking -> floating slab; deckY = walking surface
-// of the final slab, half = half its walkable width). The first sheet, jungle_path_sheet.png, is kept as a backup.
-const PATH_ART = { src: 'assets/level3/jungle_path_sheet_v2.png', frameW: 118, frameH: 137, anchorX: 59, deckY: 73.6, half: 48 };
+// Jungle pathway stones (v3: the user's 6-frame morph sheets, rock -> cracking -> split -> floating slab, cut by
+// tools/qstone_cut.py; cells 228 x 276 drawn at 0.5; deckY = walking surface of the slab, half = half its walkable
+// width). The green sheet is the way out; the earthen copy marks the stones the jungle has changed on the way
+// back. The older jungle_path_sheet(_v2).png are kept as backups.
+const PATH_ART = { src: 'assets/level3/jungle_qstone_sheet.png', earth: 'assets/level3/earthen_qstone_sheet.png',
+  frameW: 228, frameH: 276, anchorX: 114, deckY: 135, scale: 0.5, half: 46 };
+// The race back to the Forest Heart: once the door's ambush falls she has HEART_TIME seconds to reach it
+const HEART_TIME = 50;
+const RESTART_CUE = 1.2;          // after a death or a withered heart: this long at the door before the clock runs again
 const PATH_MORPH_TIME = 0.3;
 const PATH_HOLD = 3;              // a stone stays a platform this long after [Q], then closes back into a rock
 // Crumbling jungle platforms (the final frame of the morph sheet): they drop JFALL_DELAY s after Rakti lands
@@ -99,6 +105,7 @@ export class Level3 {
     this.vineAImg = img(VINE_A.src);
     this.vineBImg = img(VINE_B.src);
     this.pathImg = img(PATH_ART.src);
+    this.earthImg = img(PATH_ART.earth);
     this.enemySprites = new EnemySpriteSheet();
     this.heartImg = img(HEART_ART.src);
     this.shrineImg = img(SHRINE_ART.src);
@@ -120,7 +127,7 @@ export class Level3 {
       { x1: 2370, x2: 3010 },            // the wide chasm: Kali only
       { x1: 3440, x2: 3900 }             // three piers: low, rising and sinking, high
     ];
-    this.pillars = [
+    this.forwardPillars = [
       { art: 'tall', cx: 645, top: 335, scale: PIT_PILLAR_SCALE },
       { art: 'tall', cx: 825, top: 305, scale: PIT_PILLAR_SCALE },
       // The last pit, hard: the first pier crumbles PIER_CRUMBLE s after she lands (no waiting on it), the
@@ -129,6 +136,20 @@ export class Level3 {
       { art: 'tall', cx: 3668, top: 298, base: 298, swing: 48, period: 2.2, phase: 0, scale: PIT_PILLAR_SCALE },
       { art: 'tall', cx: 3842, top: 236, scale: PIT_PILLAR_SCALE }
     ];
+    // The way back (once the door's ambush falls, the jungle rearranges itself):
+    //  - the first pit's two piers now rise and sink in turn;
+    //  - the last pit by the door is realigned and every pier swaps its rule: the high one by the door is now a
+    //    low pier that sinks under her weight, the middle one (it used to ride up and down) crumbles, and the
+    //    west one (it used to crumble) rides up and down.
+    this.returnPillars = [
+      { art: 'tall', cx: 645, top: 332, base: 332, swing: 30, period: 2.6, phase: 0, scale: PIT_PILLAR_SCALE },
+      { art: 'tall', cx: 825, top: 302, base: 302, swing: 30, period: 2.6, phase: Math.PI, scale: PIT_PILLAR_SCALE },
+      { art: 'tall', cx: 3505, top: 318, base: 318, swing: 40, period: 2.4, phase: 1.2, scale: PIT_PILLAR_SCALE },
+      { art: 'tall', cx: 3665, top: 300, scale: PIT_PILLAR_SCALE, crumble: true, crumbleTime: 0.45 },
+      { art: 'tall', cx: 3820, top: 322, rest: 322, scale: PIT_PILLAR_SCALE, sinker: true, sink: 0 }
+    ];
+    this.pillars = this.forwardPillars;
+    this.oldPillars = [];          // the forward piers sinking away while the return set rises (pier shift)
     // High ledges: two over the chasm (solid for everybody, but only Kali can jump up to the first) and one
     // stepping stone in the middle of the second pit
     this.ledges = [
@@ -138,8 +159,13 @@ export class Level3 {
     // The pathway between the two Kali ledges: three floating jungle stones that open into platforms in Kali form
     const ax = this.ledges[0].x2, bx = this.ledges[1].x1, gap = (bx - ax - 3 * PATH_ART.half * 2) / 4;
     this.pathStones = [0, 1, 2].map((i) => ({
-      cx: ax + gap * (i + 1) + PATH_ART.half * (2 * i + 1), y: LEDGE_Y - (i === 1 ? 12 : 0), m: 0, phase: i * 1.7, open: 0
+      // the outer stones sit close to the ledges, so the two outer stones are too far apart even for Kali's leap
+      // (~275 px with coyote time): on the way back the middle stone [Q] cannot be skipped
+      i, cx: ax + gap * (i + 1) + PATH_ART.half * (2 * i + 1) + (i - 1) * 30, y: LEDGE_Y - (i === 1 ? 12 : 0), m: 0, phase: i * 1.7, open: 0, fall: null
     }));
+    // On the way back (this.altered) the stones turn earthen: the outer two are already open but crumble like the
+    // falling platforms (s.fall), and only the middle one still has to be opened with [Q]
+    this.altered = false;
     // The second pit is crossed on crumbling jungle platforms
     this.fallers = [1505, 1660, 1815].map((cx, i) => ({ cx, top: FLOOR_Y - [28, 52, 36][i], phase: i * 1.3, state: 'idle', t: 0, dy: 0, vy: 0, alpha: 1 }));
 
@@ -178,6 +204,12 @@ export class Level3 {
     // The Forest Heart awakens at the start of the map once the door's ambush has been beaten; the door is there from the beginning
     this.relic = { x: 150, collected: false, fly: 0, spawned: false, spawnT: 0 };
     this.clearTimer = 0;
+    // The heart's clock: started after the reveal (the camera shows her the heart), paused in dialogue and in the
+    // pause menu, stopped when she takes the heart. Running out withers the heart: back to the door, full clock.
+    this.clock = { left: HEART_TIME, running: false, started: false, saved: 0 };
+    this.reveal = null;            // the camera trip to the heart when it wakes
+    this.restartCue = null;        // the short wait at the door before a fresh clock runs
+    this.withered = false;         // the death that is coming is the heart withering, not a blow
     this.door = { x: 4150, opening: false, openT: 0 };
     this.px = 0; this.py = FLOOR_Y;
     this.width = END;
@@ -216,6 +248,29 @@ export class Level3 {
     this.screenFade = 0;
     this.isCompleted = false;
     this.animTime = 0;
+    // the heart race: a fresh start clears it; a death (or a withered heart) during the race sends her back to the
+    // door with a full clock (no limit on tries)
+    if (fresh) {
+      this.altered = false;
+      Object.assign(this.clock, { left: HEART_TIME, running: false, started: false, saved: 0 });
+      this.reveal = null;
+      this.restartCue = null;
+    } else if (this.phase === 'return') {
+      if (this.reveal) {            // (cut short) the heart is awake all the same
+        this.reveal = null;
+        this.relic.spawned = true;
+        this.relic.spawnT = Math.max(this.relic.spawnT, 2);
+        this.clock.started = true;
+      }
+      if (this.clock.started) {
+        this.checkpointIndex = this.checkpoints.length - 1;     // the door's checkpoint
+        Object.assign(this.clock, { left: HEART_TIME, running: false });
+        this.restartCue = { t: 0, withered: this.withered };
+      }
+    }
+    this.withered = false;
+    if (!fresh) this.altered = this.phase === 'return' || this.phase === 'carry';
+    this.applyLayout();
     const spawn = this.getRespawnPoint();
     for (const b of this.betals) {
       const slain = !fresh && (b.dead || b.removed);
@@ -235,8 +290,6 @@ export class Level3 {
       // no spawn camping: a Betal waiting near where she comes back to life is gone
       if (!fresh && !b.hidden && !b.dead && !b.entry && Math.abs(b.x - spawn.x) < 450) { b.dead = true; b.removed = true; }
     }
-    for (const p of this.pillars) if (p.crumble) Object.assign(p, { st: 'idle', t: 0, dy: 0, vy: 0 });
-    for (const s of this.pathStones) Object.assign(s, { open: 0, m: 0 });
     for (const f of this.fallers) Object.assign(f, { state: 'idle', t: 0, dy: 0, vy: 0, alpha: 1 });
     for (const v of this.vines) Object.assign(v, { state: 'hidden', t: 0, wait: 0.6 + (v.phase % 3) * 0.5, hp: VINE_HP, cool: 0, flash: 0, removed: false });
     this.fx = [];
@@ -249,6 +302,148 @@ export class Level3 {
     b.x = this.width + 40 + delay * 20;
     b.entry = { delay, toX: b.spawn.x };
     b.facing = 'left';
+  }
+
+  // ======================================================================== the way back & the heart's clock
+  /** Puts the piers and the jungle stones in their forward or way-back arrangement (this.altered), at rest. */
+  applyLayout() {
+    this.pillars = this.altered ? this.returnPillars : this.forwardPillars;
+    this.oldPillars = [];
+    for (const p of [...this.forwardPillars, ...this.returnPillars]) {
+      Object.assign(p, { st: 'idle', t: 0, dy: 0, vy: 0, rise: 0 });
+      if (p.sinker) { p.sink = 0; p.top = p.rest; }
+    }
+    for (const s of this.pathStones) {
+      Object.assign(s, { open: 0, m: 0, fall: null });
+      if (this.altered && s.i !== 1) {
+        s.m = 1;
+        s.fall = { cx: s.cx, top: s.y, phase: s.phase, state: 'idle', t: 0, dy: 0, vy: 0, alpha: 1 };
+      }
+    }
+  }
+
+  /** The jungle rearranges itself for the way back: the door-side piers sink away and the new ones rise, and the
+   *  outer jungle stones burst open (earthen now) into crumbling platforms. */
+  shiftToReturn() {
+    this.altered = true;
+    this.oldPillars = this.forwardPillars.map((p) => ({ ...p, sinkT: 0 }));
+    this.pillars = this.returnPillars;
+    for (const p of this.returnPillars) {
+      Object.assign(p, { st: 'idle', t: 0, dy: 0, vy: 0, rise: 1 });
+      if (p.sinker) { p.sink = 0; p.top = p.rest; }
+    }
+    for (const s of this.pathStones) {
+      Object.assign(s, { open: 0, m: 0, fall: null });
+      if (s.i !== 1) s.fall = { cx: s.cx, top: s.y, phase: s.phase, state: 'idle', t: 0, dy: 0, vy: 0, alpha: 1, opening: true };
+      this.leafBurst(s.cx, s.y - 20, 10);
+    }
+  }
+
+  /** The ambush is beaten: the jungle shifts, the camera travels to the heart as it wakes, then back to Rakti. */
+  startReveal(player) {
+    this.phase = 'return';
+    this.reveal = { t: 0, fromX: player ? player.x : this.door.x, woke: false };
+    if (player) { player.inputLocked = true; player.vx = 0; }
+    this.shiftToReturn();
+    this.cameraShake = 0.8;
+    this.killToastText = '⚠ THE JUNGLE SHIFTS';
+    this.killToastTimer = 1.6;
+    Sfx.play('ground_rise');
+  }
+
+  updateReveal(dt, player) {
+    const r = this.reveal;
+    if (!r) return;
+    r.t += dt;
+    if (player) { player.inputLocked = true; player.vx = 0; }
+    if (r.t < 1.3) this.cameraShake = Math.max(this.cameraShake, 0.25);
+    if (!r.woke && r.t >= 3.0) {
+      r.woke = true;
+      this.relic.spawned = true;
+      this.relic.spawnT = 0;
+      this.cameraShake = 0.5;
+      this.killToastText = '❤ THE FOREST HEART AWAKENS';
+      this.killToastTimer = 2.2;
+      Sfx.play('item_get');
+    }
+    if (r.t >= 6.4) {
+      this.reveal = null;
+      if (player) player.inputLocked = false;
+      this.clock.started = true;
+      this.clock.running = true;      // (it holds still while Kali speaks)
+      this.clock.left = HEART_TIME;
+      this.pendingDialogue = {
+        speaker: 'kali', title: '⚜ THE FOREST HEART ⚜',
+        text: `The heart has woken where your journey began, Rakti, but torn from its roots it withers fast: you have ${HEART_TIME} breaths to reach it. And the jungle has changed the path behind you. The piers keep a new rhythm, and the earthen stones crumble under your feet. Only the middle stone still answers my Pearl [Q].`
+      };
+    }
+  }
+
+  /** Engine hook: where the camera looks instead of at Rakti (the trip to the heart). */
+  cameraFocus() {
+    const r = this.reveal;
+    if (!r) return null;
+    const ease = (u) => { u = Math.max(0, Math.min(1, u)); return u * u * (3 - 2 * u); };
+    const heartX = this.relic.x, y = FLOOR_Y - 60;
+    if (r.t < 1.3) return { x: r.fromX, y };
+    if (r.t < 3.0) return { x: r.fromX + (heartX - r.fromX) * ease((r.t - 1.3) / 1.7), y };
+    if (r.t < 5.0) return { x: heartX, y };
+    return { x: heartX + (r.fromX - heartX) * ease((r.t - 5.0) / 1.4), y };
+  }
+
+  updateClock(dt, player) {
+    const c = this.clock;
+    if (c.saved > 0) c.saved = Math.max(0, c.saved - dt);
+    if (this.restartCue && player) {
+      const q = this.restartCue;
+      q.t += dt;
+      if (q.t >= RESTART_CUE) {
+        this.restartCue = null;
+        c.running = true;
+        this.killToastText = q.withered ? `❤ THE HEART STIRS AGAIN · ${HEART_TIME}s` : `❤ HURRY: ${HEART_TIME}s TO THE HEART`;
+        this.killToastTimer = 2.2;
+      }
+    }
+    if (!c.running || this.reveal || !player || player.isDead || player.dialogueOpen || this.withered) return;
+    c.left = Math.max(0, c.left - dt);
+    if (c.left <= 0) this.witherHeart(player);
+  }
+
+  /** Time is up: the heart withers. It counts as a fall in battle (the death card), and she starts again at the
+   *  door with a full clock (see reset). */
+  witherHeart(player) {
+    this.clock.running = false;
+    this.withered = true;
+    this.cameraShake = 0.8;
+    player.hp = 0;
+  }
+
+  /** The heart has been taken: the clock stops. */
+  stopClock() {
+    if (!this.clock.running && !this.restartCue) return;
+    this.clock.running = false;
+    this.restartCue = null;
+    this.clock.saved = 2.4;           // the HUD shows the time it was saved with, then fades out
+  }
+
+  /** Engine hook: the heart clock on the HUD. */
+  heartClockHud() {
+    const c = this.clock;
+    const racing = this.phase === 'return' && c.started && !this.relic.collected;
+    if (!racing && c.saved <= 0) return null;
+    return { left: c.left, ratio: c.left / HEART_TIME, saved: c.saved > 0, waiting: Boolean(this.restartCue) || !c.running };
+  }
+
+  /** Engine hook: the death card's words when the heart withered. */
+  deathCard() {
+    return this.withered ? { big: 'THE HEART HAS WITHERED', small: 'Back to the forest door: it wakes again' } : null;
+  }
+
+  /** How alive the heart looks (1 fresh .. 0 withered) while the clock runs. */
+  get heartLife() {
+    const c = this.clock;
+    if (!c.started || this.relic.collected) return 1;
+    return this.withered ? 0 : Math.max(0, Math.min(1, c.left / HEART_TIME));
   }
 
   /** [E] at the door before Rakti has the heart: the forest answers, and two Betal come for her from the right. */
@@ -298,6 +493,7 @@ export class Level3 {
   collectRelic(player) {
     if (this.relic.collected || !this.relic.spawned) return false;
     this.relic.collected = true;
+    this.stopClock();
     Sfx.play('item_get');
     this.relic.fly = 0.0001;
     this.relic.toX = player ? player.x : this.relic.x;
@@ -323,17 +519,24 @@ export class Level3 {
 
   // ======================================================================== geometry
   pillarHalf(p) { return PILLAR_ART[p.art].w * p.scale * 0.42; }
+  /** A pier counts as solid unless it has crumbled away or is still rising into place (the pier shift). */
+  pierSolid(p) { return !(p.crumble && (p.st === 'falling' || p.st === 'returning')) && !(p.rise > 0.3); }
 
   getPlatforms() {
     const list = [];
     for (const f of this.floors) list.push({ id: 'floor', x1: f.x1, x2: f.x2, y: FLOOR_Y, oneWay: false });
     for (const p of this.pillars) {
-      if (p.crumble && (p.st === 'falling' || p.st === 'returning')) continue;
+      if (!this.pierSolid(p)) continue;
       const half = this.pillarHalf(p);
       list.push({ id: 'pillar', pierRef: p, x1: p.cx - half, x2: p.cx + half, y: Math.round(p.top), oneWay: false });
     }
     for (const l of this.ledges) list.push({ ...l, oneWay: true });
     for (const s of this.pathStones) {
+      if (s.fall) {
+        const f = s.fall;
+        if (!f.opening && (f.state === 'idle' || f.state === 'shaking')) list.push({ id: 'faller', faller: f, x1: s.cx - PATH_ART.half, x2: s.cx + PATH_ART.half, y: s.y, oneWay: true });
+        continue;
+      }
       if (s.m >= 0.8) list.push({ id: 'jungle_path', stone: s, x1: s.cx - PATH_ART.half, x2: s.cx + PATH_ART.half, y: s.y, oneWay: true });
     }
     for (const f of this.fallers) {
@@ -363,7 +566,7 @@ export class Level3 {
   resolvePitWallCollision(x, y) {
     x = Math.max(12, x);
     for (const p of this.pillars) {
-      if (p.crumble && (p.st === 'falling' || p.st === 'returning')) continue;
+      if (!this.pierSolid(p)) continue;
       const half = this.pillarHalf(p) + 7;
       if (y > p.top + 5 && Math.abs(x - p.cx) < half) x = x < p.cx ? p.cx - half : p.cx + half;
     }
@@ -419,7 +622,7 @@ export class Level3 {
   castQ(player) {
     if (!player || player.isDead || !player.hasPearl || player.isCasting || player.isClimbing) return;
     const dir = player.facing === 'left' ? -1 : 1;
-    const cands = this.pathStones.filter((s) => s.open <= 0 && s.m < 0.5 && Math.abs(s.cx - player.x) < 300);
+    const cands = this.pathStones.filter((s) => !s.fall && s.open <= 0 && s.m < 0.5 && Math.abs(s.cx - player.x) < 300);
     if (!cands.length) {
       this.killToastText = '✧ NOTHING HERE ANSWERS ✧';
       this.killToastTimer = 1.2;
@@ -508,8 +711,18 @@ export class Level3 {
         this.screenFade = 0;
       }
     }
+    this.updateReveal(dt, player);
+    this.updateClock(dt, player);
     // [Q]-opened stones hold for PATH_HOLD seconds, then close back into rocks (dropping anyone on them)
     for (const s of this.pathStones) {
+      if (s.fall) {
+        // way back: an earthen stone already open, crumbling like the falling platforms
+        if (s.fall.opening) {
+          s.m = Math.min(1, s.m + dt / 0.6);
+          if (s.m >= 1) s.fall.opening = false;
+        } else this.updateFaller(s.fall, dt, player);
+        continue;
+      }
       // (the stone she is standing on does not run down while she casts the next one)
       if (s.open > 0 && !(player?.isCasting && player.currentPlatform?.stone === s)) {
         s.open = Math.max(0, s.open - dt);
@@ -526,7 +739,7 @@ export class Level3 {
       p.st ??= 'idle'; p.t = (p.t || 0) + dt; p.dy ??= 0;
       const on = player && player.isGrounded && player.currentPlatform?.pierRef === p;
       if (p.st === 'idle' && on) { p.st = 'shaking'; p.t = 0; Sfx.at('stone_shake', p.cx); }
-      else if (p.st === 'shaking' && p.t >= PIER_CRUMBLE) {
+      else if (p.st === 'shaking' && p.t >= (p.crumbleTime ?? PIER_CRUMBLE)) {
         p.st = 'falling'; p.t = 0; p.vy = 30;
         Sfx.at('stone_close', p.cx);
         this.cameraShake = Math.max(this.cameraShake, 0.2);
@@ -538,6 +751,23 @@ export class Level3 {
       } else if (p.st === 'returning') {
         p.dy = Math.max(0, p.dy - 260 * dt);
         if (p.dy <= 0) { p.st = 'idle'; p.t = 0; }
+      }
+    }
+    // the pier shift: the old piers sink into the pit while the new ones rise out of it
+    for (const p of this.oldPillars) p.sinkT += dt;
+    this.oldPillars = this.oldPillars.filter((p) => p.sinkT < 1.4);
+    for (const p of this.pillars) if (p.rise > 0) p.rise = Math.max(0, p.rise - dt / 1.3);
+    // sinking piers (way back): they sink slowly under her weight and rise back once she leaves
+    for (const p of this.pillars) {
+      if (!p.sinker) continue;
+      const on = player && player.isGrounded && player.currentPlatform?.pierRef === p;
+      const prev = p.top;
+      p.sink = on ? Math.min(62, p.sink + 46 * dt) : Math.max(0, p.sink - 30 * dt);
+      p.top = p.rest + p.sink;
+      if (on && p.top !== prev) {
+        player.y = p.top;
+        player.currentPlatform.y = p.top;
+        if (Math.random() < 0.3) this.fx.push({ x: p.cx + (Math.random() - 0.5) * 50, y: p.top + 4, vx: (Math.random() - 0.5) * 40, vy: -20, life: 0.5, maxLife: 0.5, c: '#8a6a44' });
       }
     }
     // moving piers carry Rakti with them
@@ -594,18 +824,8 @@ export class Level3 {
     // The door's ambush beaten: the Forest Heart awakens at the start of the map, and a new pack waits on the way
     if (this.phase === 'ambush' && !this.waveAlive('ambush')) {
       this.clearTimer += dt;
-      if (this.clearTimer > 1.2) {
-        this.phase = 'return';
-        this.relic.spawned = true;
-        this.relic.spawnT = 0;
-        this.cameraShake = 0.7;
-        this.killToastText = '❤ THE FOREST HEART AWAKENS';
-        this.killToastTimer = 2.6;
-        this.pendingDialogue = {
-          speaker: 'kali', title: '⚜ THE FOREST HEART ⚜',
-          text: 'The door\'s guardians are fallen, Rakti, and the Forest Heart has awakened where your journey began. But the jungle is sending more of them. They are already on the path behind you. Follow the arrow back to the heart, then bring it here.'
-        };
-      }
+      // (she must be on her feet: the reveal locks her controls where she stands)
+      if (this.clearTimer > 1.2 && player && player.isGrounded && !player.isDead) this.startReveal(player);
     }
     if (this.phase === 'return' && this.relic.collected) this.phase = 'carry';
 
@@ -837,6 +1057,7 @@ export class Level3 {
     ctx.restore();
 
     // 3. Pillars, hazards, props
+    for (const p of this.oldPillars) this.drawPillar(ctx, p);
     for (const p of this.pillars) this.drawPillar(ctx, p);
     for (const trap of this.spikes) this.drawSpikeTrap(ctx, trap);
     for (const v of this.vines) this.drawVine(ctx, v);
@@ -874,6 +1095,10 @@ export class Level3 {
     if (!c) return;
     let ox = 0, oy = p.dy || 0;
     if (p.st === 'shaking') { ox = Math.sin(p.t * 80) * 1.8; oy += Math.sin(p.t * 63) * 0.8; }
+    // the pier shift: rising into place (rise 1 -> 0) or an old pier sinking away (sinkT 0 -> 1.4 s)
+    if (p.rise > 0) { const u = p.rise * p.rise; oy += u * 230; ox += Math.sin(this.animTime * 70 + p.cx) * 1.5 * p.rise; }
+    if (p.sinkT !== undefined) { const u = Math.min(1, p.sinkT / 1.3); oy += u * u * 260; ox += Math.sin(this.animTime * 70 + p.cx) * 1.5 * (1 - u); }
+    if (p.sinker && p.sink > 0.5) ox += Math.sin(this.animTime * 50) * 0.6;
     ctx.drawImage(c, p.cx - w / 2 + ox, p.top - art.surface * p.scale + oy, w, h);
   }
 
@@ -888,40 +1113,61 @@ export class Level3 {
     }
   }
 
-  /** Morphing jungle pathway: mossy rocks float over the chasm; in Kali form [X] they burst into flat stepping
-   *  platforms (frames 0 -> 5), and when her form ends they close back into rocks and give way. */
+  /** One frame of a [Q]-stone sheet (green on the way out, earthen on the way back), pre-scaled and cached. */
+  stoneFrame(earth, f) {
+    const A = PATH_ART, im = earth ? this.earthImg : this.pathImg;
+    const w = A.frameW * A.scale, h = A.frameH * A.scale;
+    return this.cachedArt(`qstone:${earth ? 'e' : 'g'}:${f}`, w, h, im.complete && im.naturalWidth > 0,
+      (g) => g.drawImage(im, f * A.frameW, 0, A.frameW, A.frameH, 0, 0, w, h));
+  }
+
+  /** A crumbling platform (the sheet's final frame): bobs while idle, trembles once stood on, tips and falls. */
+  drawFaller(ctx, f, c, y) {
+    const A = PATH_ART, k = A.scale;
+    if (!c || f.alpha <= 0 || !this.inView(f.cx - 120, f.cx + 120)) return;
+    let ox = 0, oy = f.dy + (f.state === 'idle' ? Math.sin(this.animTime * 1.7 + f.phase) * 1.5 : 0), rot = 0;
+    if (f.state === 'shaking') { ox = Math.sin(f.t * 90) * 1.6; oy += Math.sin(f.t * 70) * 0.8; }
+    if (f.state === 'falling') rot = Math.min(0.5, f.t * 0.7) * (f.phase > 1 ? 1 : -1);
+    ctx.save();
+    ctx.globalAlpha = f.alpha;
+    ctx.translate(f.cx + ox, y + oy);
+    if (rot) ctx.rotate(rot);
+    ctx.drawImage(c, -A.anchorX * k, -A.deckY * k, A.frameW * k, A.frameH * k);
+    ctx.restore();
+  }
+
+  /** The jungle stones over the chasm: rocks that [Q] opens into platforms (frames 0 -> 5) for PATH_HOLD seconds.
+   *  On the way back they are earthen: the outer two already open but crumbling, the middle one still a rock. */
   renderBridge(ctx, isDivine) {
-    const im = this.pathImg, A = PATH_ART, k = 1;
-    if (!im.complete || im.naturalWidth === 0) return;
+    const A = PATH_ART, k = A.scale;
     for (const s of this.pathStones) {
-      if (!this.inView(s.cx - A.frameW, s.cx + A.frameW)) continue;
+      if (!this.inView(s.cx - 120, s.cx + 120)) continue;
+      const earth = this.altered;
       const f = Math.max(0, Math.min(5, Math.round(s.m * 5)));
-      const c = this.cachedArt('jpath:' + f, A.frameW, A.frameH, true,
-        (g) => g.drawImage(im, f * A.frameW, 0, A.frameW, A.frameH, 0, 0, A.frameW, A.frameH));
+      const c = this.stoneFrame(earth, f);
       if (!c) continue;
+      if (s.fall && !s.fall.opening) { this.drawFaller(ctx, s.fall, c, s.y); continue; }
       const bob = Math.sin(this.animTime * 1.6 + s.phase) * (s.m < 1 ? 2.5 : 1);
       // about to close: a quick flicker warns Rakti to move on
       const warn = s.open > 0 && s.open < 0.7 && Math.floor(this.animTime * 14) % 2 === 0;
       ctx.save();
       if (warn) ctx.globalAlpha = 0.55;
       ctx.drawImage(c, s.cx - A.anchorX * k, s.y - A.deckY * k + bob, A.frameW * k, A.frameH * k);
+      // the stone that still answers [Q] on the way back glows faintly
+      if (earth && !s.fall && s.m < 0.5) {
+        ctx.globalCompositeOperation = 'lighter';
+        const pulse = 0.5 + 0.5 * Math.sin(this.animTime * 3);
+        const g = ctx.createRadialGradient(s.cx, s.y + bob, 4, s.cx, s.y + bob, 60);
+        g.addColorStop(0, `rgba(160, 255, 200, ${0.18 + 0.14 * pulse})`);
+        g.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.fillStyle = g;
+        ctx.fillRect(s.cx - 60, s.y + bob - 60, 120, 120);
+      }
       ctx.restore();
     }
-    // crumbling jungle platforms (final frame of the sheet)
-    const c5 = this.cachedArt('jpath:5', A.frameW, A.frameH, true,
-      (g) => g.drawImage(im, 5 * A.frameW, 0, A.frameW, A.frameH, 0, 0, A.frameW, A.frameH));
-    for (const f of this.fallers) {
-      if (f.alpha <= 0 || !this.inView(f.cx - A.frameW, f.cx + A.frameW)) continue;
-      let ox = 0, oy = f.dy + (f.state === 'idle' ? Math.sin(this.animTime * 1.7 + f.phase) * 1.5 : 0), rot = 0;
-      if (f.state === 'shaking') { ox = Math.sin(f.t * 90) * 1.6; oy += Math.sin(f.t * 70) * 0.8; }
-      if (f.state === 'falling') rot = Math.min(0.5, f.t * 0.7) * (f.phase > 1 ? 1 : -1);
-      ctx.save();
-      ctx.globalAlpha = f.alpha;
-      ctx.translate(f.cx + ox, f.top + oy);
-      if (rot) ctx.rotate(rot);
-      ctx.drawImage(c5, -A.anchorX, -A.deckY, A.frameW, A.frameH);
-      ctx.restore();
-    }
+    // crumbling jungle platforms in the second pit (final frame of the green sheet)
+    const c5 = this.stoneFrame(false, 5);
+    for (const f of this.fallers) this.drawFaller(ctx, f, c5, f.top);
   }
 
   /** Draws one frame of a sprite sheet at w x h world px, pre-scaled once into its own cache entry. */
@@ -942,16 +1188,25 @@ export class Level3 {
     if (!this.inView(r.x - 120, r.x + 120)) return;
     if (shrine) ctx.drawImage(shrine, r.x - sw / 2, FLOOR_Y + 4 - sh, sw, sh);
     const seat = FLOOR_Y + 4 - sh + SHRINE_ART.seatY * sk;      // the hollow on top of the stump
-    // a slow heartbeat: two quick pulses, then rest
-    const beat = Math.floor((this.animTime * 9) % 12);
+    // a slow heartbeat: two quick pulses, then rest. While the clock runs the heart withers: its beat turns
+    // faint and quick, its colour drains and its light dims (life 1 -> 0).
+    const life = this.heartLife;
+    this.heartBeatT = (this.heartBeatT || 0) + (this.animTime - (this.heartBeatLast ?? this.animTime)) * (1 + (1 - life) * 1.2);
+    this.heartBeatLast = this.animTime;
+    const beat = Math.floor((this.heartBeatT * 9) % 12);
     const f = this.sheetFrame('heart', this.heartImg, HEART_ART, Math.min(7, beat));
     if (!f) return;
     const cy = seat - f.h * 0.55;
     let alpha = Math.min(1, r.spawnT / 1.0);
     if (r.collected) alpha *= 1 - Math.min(1, r.fly * 1.6);
-    const near = Math.abs(this.px - r.x) < 110 ? 1 : 0.45;
-    // the same light as the Trishul's shrine in Level 2 (its marker is the guide chevron above)
-    if (!r.collected) drawShrineBeacon(ctx, { x: r.x, baseY: seat, relicY: cy, relicH: f.h, t: this.animTime, rgb: '120, 255, 170', marker: true, alpha, shaftH: 100 });
+    const near = (Math.abs(this.px - r.x) < 110 ? 1 : 0.45) * (0.25 + 0.75 * life);
+    // the same light as the Trishul's shrine in Level 2 (its marker is the guide chevron above); it fades to amber
+    const rgb = life > 0.5 ? '120, 255, 170' : life > 0.2 ? '200, 230, 120' : '230, 150, 80';
+    if (!r.collected) drawShrineBeacon(ctx, { x: r.x, baseY: seat, relicY: cy, relicH: f.h, t: this.animTime, rgb, marker: true, alpha: alpha * (0.4 + 0.6 * life), shaftH: 100 });
+    if (life < 1 && !r.collected && Math.random() < (1 - life) * 0.25) {
+      // withering: dry leaves drift off the heart
+      this.fx.push({ x: r.x + (Math.random() - 0.5) * 24, y: cy, vx: (Math.random() - 0.5) * 30, vy: -25 - Math.random() * 20, life: 1.1, maxLife: 1.1, c: Math.random() > 0.5 ? '#8a6a2a' : '#6a5a30' });
+    }
     if (alpha > 0.01) {
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
@@ -971,6 +1226,7 @@ export class Level3 {
       ctx.restore();
       ctx.save();
       ctx.globalAlpha = alpha;
+      if (life < 0.99) ctx.filter = `saturate(${(0.15 + 0.85 * life).toFixed(2)}) brightness(${(0.5 + 0.5 * life).toFixed(2)}) sepia(${((1 - life) * 0.5).toFixed(2)})`;
       ctx.drawImage(f.c, r.x - f.w / 2, seat + 6 - HEART_ART.footY * HEART_ART.scale, f.w, f.h);
       ctx.restore();
     }

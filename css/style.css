@@ -1268,3 +1268,92 @@ html, body {
   text-shadow: 0 1px 3px #000; opacity: 0; transition: opacity 0.5s ease;
 }
 .music-hint.show { opacity: 1; }
+
+/* ==========================================================================
+   LEVEL 3: THE FOREST HEART'S CLOCK (top right)
+   A bronze-and-gold medallion; the ring drains green -> amber -> red as the heart withers, the heart icon loses
+   its colour, and the last 10 seconds pulse.
+   ========================================================================== */
+.heart-clock {
+  position: absolute;
+  top: 12px;
+  right: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  opacity: 0;
+  transform: translateY(-14px) scale(0.92);
+  pointer-events: none;
+  z-index: 25;
+  transition: opacity 0.45s ease, transform 0.45s ease;
+  --hc: #5dff9e;
+  --hc-glow: rgba(93, 255, 158, 0.55);
+}
+.heart-clock.show { opacity: 1; transform: translateY(0) scale(1); }
+.heart-clock[data-state="low"] { --hc: #ffc94a; --hc-glow: rgba(255, 190, 70, 0.55); }
+.heart-clock[data-state="urgent"] { --hc: #ff4e3a; --hc-glow: rgba(255, 70, 50, 0.7); }
+.heart-clock[data-state="saved"] { --hc: #ffd76b; --hc-glow: rgba(255, 215, 110, 0.8); }
+.hc-medallion {
+  position: relative;
+  width: 92px;
+  height: 92px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 42%, #1d3a2a 0%, #0c1a12 62%, #050b07 100%);
+  border: 2px solid #c9a24e;
+  box-shadow: 0 0 0 2px #3a2610, 0 0 0 4px #8a6a2e, 0 0 18px var(--hc-glow), inset 0 0 16px rgba(0, 0, 0, 0.8);
+  transition: box-shadow 0.4s ease;
+}
+.hc-ring { position: absolute; inset: 3px; width: calc(100% - 6px); height: calc(100% - 6px); transform: rotate(-90deg); }
+.hc-ring circle { fill: none; stroke-width: 7; }
+.hc-track { stroke: rgba(0, 0, 0, 0.55); }
+.hc-fill {
+  stroke: var(--hc);
+  stroke-linecap: round;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 0;
+  filter: drop-shadow(0 0 3px var(--hc-glow));
+  transition: stroke-dashoffset 0.25s linear, stroke 0.4s ease;
+}
+.hc-icon {
+  position: absolute;
+  left: 50%; top: 44%;
+  height: 46px;
+  transform: translate(-50%, -50%);
+  image-rendering: auto;
+  filter: drop-shadow(0 0 6px var(--hc-glow));
+}
+.hc-num {
+  position: absolute;
+  left: 0; right: 0; bottom: 9px;
+  text-align: center;
+  font-family: 'Cinzel', serif;
+  font-size: 17px;
+  font-weight: 900;
+  color: #fff4d8;
+  text-shadow: 0 0 6px var(--hc-glow), 0 1px 2px #000, 0 0 2px #000;
+  letter-spacing: 1px;
+}
+.hc-label {
+  font-family: 'Cinzel', serif;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  color: #ffe2a0;
+  padding: 2px 9px;
+  border: 1px solid #8a6a2e;
+  border-radius: 3px;
+  background: linear-gradient(180deg, rgba(22, 15, 10, 0.95), rgba(10, 7, 4, 0.95));
+  text-shadow: 0 1px 2px #000;
+}
+.heart-clock[data-state="urgent"] .hc-medallion { animation: hcPulse 0.5s ease-in-out infinite alternate; }
+.heart-clock[data-state="urgent"] .hc-num { color: #ffd2c8; }
+.heart-clock.waiting .hc-num { animation: hcBlink 0.6s steps(2, start) infinite; }
+@keyframes hcPulse {
+  from { transform: scale(1); }
+  to { transform: scale(1.08); box-shadow: 0 0 0 2px #3a2610, 0 0 0 4px #8a6a2e, 0 0 30px var(--hc-glow), inset 0 0 16px rgba(0, 0, 0, 0.8); }
+}
+@keyframes hcBlink { to { visibility: hidden; } }
+/* the death card when the heart withered: an amber, autumn-leaf tint */
+.death-screen-modal.withered .death-big { color: #ffb45a; text-shadow: 0 0 14px rgba(255, 150, 60, 0.6), 0 2px 3px #000; }
+@media (max-width: 600px) { .heart-clock { top: 8px; right: 8px; } .hc-medallion { width: 74px; height: 74px; } .hc-icon { height: 36px; } }
