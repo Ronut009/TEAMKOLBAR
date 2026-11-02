@@ -38,7 +38,8 @@ const CALM_AT = 0.4;             // 40% of the crowd or fewer = calm sky
 const SKY_SPEED = 0.4;           // sky blend per second (the full change takes ~2.5 s)
 
 // Mud patch (assets/endless/mud_sheet.png: 3 columns x 4 rows of 650 x 150, frames 0 grass .. 6 mud .. 11 grass)
-const MUD = { src: 'assets/endless/mud_sheet.png', cw: 650, ch: 150, cols: 3, surface: 52, scale: 0.5, halfW: 145 };
+// v2 (the jungle-stone slab, cut by assets/endless/source/build_v2.py): 3 x 4 cells of 650 x 180; v1 is in assets/endless/backup
+const MUD = { src: 'assets/endless/mud_sheet.png', cw: 650, ch: 180, cols: 3, surface: 98, scale: 0.5, halfW: 145 };
 const MUD_FORM = 1.2, MUD_HOLD = 5.5, MUD_FADE = 1.4;
 const MUD_LIFE = MUD_FORM + MUD_HOLD + MUD_FADE;
 const MUD_SLOW = 0.3;
@@ -66,14 +67,20 @@ const KINDS = {
 };
 
 // The castle wall (assets/endless/castle_wall.png, 2000 x 715) is its own layer, its foot on the floor line.
-const WALL = { src: 'assets/endless/castle_wall.png', w: 2000, h: 715, scale: 0.5, footDrop: 8 };
+// v2: the sun fortress (2000 x 704, cropped to the art); v1 is in assets/endless/backup
+const WALL = { src: 'assets/endless/castle_wall.png', w: 2000, h: 704, scale: 0.5, footDrop: 6 };
 WALL.x = (WORLD_W - WALL.w * WALL.scale) / 2;
 WALL.y = FLOOR_Y + WALL.footDrop - WALL.h * WALL.scale;
 const wallPoint = (sx, sy) => ({ x: WALL.x + sx * WALL.scale, y: WALL.y + sy * WALL.scale });
 // Archers stand on top of the wall (points on the art's parapet / ruin / tower tops), drawn BEHIND the wall so the
 // stones hide their legs: the wall top meets his waist. They fill the slots in this order.
+// v2 fortress: the four battlement gaps (their walkway, source row 286), the ruin's top and the low stretch of wall
+// between the third and fourth gaps, measured on the 2086 px source and fitted to the 2000 px wall (WK). (The round
+// tower's top, source 1880 x 104, sits under the Chaos mode panel in the top right corner, so it is not used.)
+const WK = 2000 / 2086;
 const ARCHER_SLOTS = [
-  wallPoint(1050, 308), wallPoint(470, 283), wallPoint(1800, 150), wallPoint(1370, 327), wallPoint(230, 122), wallPoint(560, 281)
+  wallPoint(805 * WK, 286 * WK), wallPoint(1205 * WK, 286 * WK), wallPoint(500 * WK, 286 * WK),
+  wallPoint(1540 * WK, 286 * WK), wallPoint(225 * WK, 114 * WK), wallPoint(1370 * WK, 331 * WK)
 ];
 const ARCHER_FOOT_DROP = 24;     // feet sink this far below the wall top: the wall top meets his waist
 const ARCHER_ART = {

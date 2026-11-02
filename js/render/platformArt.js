@@ -39,13 +39,15 @@ export const PLATFORM_STYLES = {
     capLeft: 311,
     capRight: 583
   },
-  // Unlimited mode grass slab: one long rounded tile (1994 x 230), tufts along the top
+  // Chaos mode floor v2: the jungle-stone strip (2158 x 265, its ends are the caps; the stretch between two gem
+  // pillars is the middle). Scaled so the whole strip spans the arena (-140 .. WORLD_W + 140) once.
+  // v1 (the plain grass slab) is in assets/endless/backup/floor_grass_v1.png.
   grass: {
     src: 'assets/endless/floor_grass.png',
-    surfaceY: 84,
-    scale: 0.55,
-    capLeft: 220,
-    capRight: 1774
+    surfaceY: 80,
+    scale: 0.5945,
+    capLeft: 773,
+    capRight: 1387
   }
 };
 

@@ -18,6 +18,11 @@ const SANDS_DURATION = 8, SANDS_COOLDOWN = 15, SANDS_SLOW = 0.35;
 const AUTO_CONTINUE = 5;
 // The opening cutscene: hold [Esc] this long to skip it
 const INTRO_SKIP_HOLD = 3;
+// Demo shortcuts (hackathon): straight to the story's big moments, from the title screen or in game (demoJump)
+//  [J] Level 2: the Sands of Time on tower 2   [H] Level 2: the Trishul's shrine in the Hall of the Sun
+//  [K] Level 3: the Forest Heart wakes, the 50 s race   [G] Level 4: Pitaji falls and the Asura rises
+//  [L] Level 4: the Asura is broken: the ending scene, then the final card
+const DEMO_JUMPS = { KeyJ: 'sands', KeyH: 'trishul', KeyK: 'heart', KeyG: 'demon', KeyL: 'ending' };
 import { TRISHUL } from '../entities/player.js';
 import { Level2 } from '../levels/level2.js';
 import { Level3 } from '../levels/level3.js';
@@ -159,6 +164,9 @@ export class Engine {
     // [Esc] pause menu: Continue / Restart (asks first) / Exit to main menu
     this.paused = false;
     this.sands = { active: 0, cooldown: 0, fx: 0, ripple: 0, grains: [] };
+    // The campaign's run (shown on the ending card): play time in Levels 1-4 (not paused, loading or the opening
+    // film) and deaths (a fall into the void or the quicksand is not one, nor the Forest Heart withering)
+    this.runStats = { time: 0, deaths: 0 };
     this.sandsEl = document.getElementById('sandsPower');
     this.sandsGlass = document.getElementById('sandsGlass');
     this.sandsTime = document.getElementById('sandsTime');
@@ -386,6 +394,7 @@ export class Engine {
     this.prologueComplete = false;   // a new game always starts with the wake-up
     this.level1.checkpointIndex = -1;
     this.level1.abilityGranted = false;
+    this.runStats = { time: 0, deaths: 0 };   // a new campaign: a new run
     this.playIntroCutscene(() => this.beginLoadingTransition(1));
   }
 
@@ -469,6 +478,80 @@ export class Engine {
   startEndless() {
     if (this.isGameStarted || this.isLoading) return;
     this.beginLoadingTransition(5);
+  }
+
+  /** Demo shortcuts (DEMO_JUMPS): loads the level fresh with the story already played up to that moment. The
+   *  level's saved progress is set here (before loadLevel's reset); finishDemoJump starts the scene once it is in. */
+  demoJump(kind) {
+    const index = { sands: 2, trishul: 2, heart: 3, demon: 4, ending: 4 }[kind];
+    if (!index || this.isLoading || this.intro) return;
+    this.closeDialogue();
+    this.playerDying = false;
+    this.deathScreen?.classList.remove('active');
+    this.beginLoadingTransition(index);        // freshStart(): the level from scratch, then the story set below
+    this.prologueComplete = true;
+    if (index === 2) {
+      const L = this.level2, s = L.saved;
+      // tower 1's archer is down, the slabs are raised, tower 2's archer is down: the ladder to the hourglass is out
+      Object.assign(s, { introDone: true, qUnlocked: true, archerA: true, slabsRaised: true, archerB: true });
+      Object.assign(s.said, { intro: true, q: true, slabs: true, ladder: true, quicksand: true });
+      L.checkpointIndex = 2;                   // beside tower 2
+      if (kind === 'trishul') {
+        // ... and the Sands, the way back for the Sun Key and the sun door are done: she stands in the hall
+        Object.assign(s, { sandsTaken: true, doorTried: true, rewound: true, archerA2: true, keyTaken: true, door1Open: true, inRoom: true });
+        Object.assign(s.said, { wave: true, a2: true, rewound: true, charged: true, ladder1: true, hall: true });
+        for (const m of L.returnMembers) s.herdDead[m.id] = true;
+        L.checkpointIndex = 3;                 // the hall's entrance
+      }
+    } else if (index === 3) {
+      const L = this.level3;
+      L.introQueued = false;                   // no walk in from the forest's edge
+      L.kaliHintShown = true;
+      L.checkpointIndex = L.checkpoints.length - 1;   // by the forest door
+    } else if (index === 4) {
+      // the portal, the doubt at the shrine, the mala and the talk with Pitaji are behind her
+      Object.assign(this.level4, { arrived: true, doubtTalked: true, malaTaken: true, malaFly: 1, fatherTalked: true, meetWalk: true });
+    }
+    this.demoSetup = kind;
+  }
+
+  /** The second half of demoJump, once the level has loaded: start the moment itself. */
+  finishDemoJump(kind) {
+    const P = this.player;
+    if (kind === 'heart') {
+      // the door's ambush is beaten: a moment later the jungle shifts, the heart wakes and its clock starts
+      const L = this.level3;
+      L.phase = 'ambush';
+      L.clearTimer = 0;
+      for (const b of L.betals) if (b.wave !== 'return') { b.dead = true; b.removed = true; b.hidden = true; b.entry = null; }
+    } else if (kind === 'demon') {
+      // Pitaji is beaten: he falls, and the Asura tears out of him (the level's own 'turn' scene, then stage 2)
+      const L = this.level4, B = L.boss;
+      L.fightStage = 1;
+      L.waveIndex = 1;
+      L.cutscene = null;
+      B.reset(1);
+      B.alpha = 1;
+      B.x = P.x + 400;
+      B.y = L.floorY ?? P.y;
+      B.facing = 'left';
+      B.setState('walk');
+      B.hp = B.stage2Hp;
+      L.onBossStageOver(1);
+    } else if (kind === 'ending') {
+      // the Asura is beaten: he burns away, Pitaji is freed, the embrace, then the level (and the game) ends
+      const L = this.level4, B = L.boss;
+      L.fightStage = 2;
+      L.waveIndex = 2;
+      L.cutscene = null;
+      B.reset(2);
+      B.x = P.x + 300;
+      B.facing = 'left';
+      B.startStage2();
+      B.hp = 0;
+      L.onBossStageOver(2);
+    }
+    this.cameraSnap = true;
   }
 
   beginLoadingTransition(destinationIndex) {
@@ -559,6 +642,9 @@ export class Engine {
     this.updateMusic();
     // The opening cutscene (after New Game): nothing else runs while it plays
     if (this.intro) { this.updateIntroCutscene(dt); return; }
+    // the run's clock: story levels only, while actually playing
+    if (this.isGameStarted && !this.isLoading && !this.paused && !this.levelCompleted
+        && this.currentLevelIndex >= 1 && this.currentLevelIndex <= 4) this.runStats.time += dt;
     if (this.isLoading) {
       this.loadingTimer -= dt;
       if (this.loadingTimer <= 0) {
@@ -570,6 +656,7 @@ export class Engine {
         if (destinationIndex) {
           this.loadLevel(destinationIndex);
           this.hudEl?.classList.remove('menu-hidden');
+          if (this.demoSetup) { this.finishDemoJump(this.demoSetup); this.demoSetup = null; }
         }
       }
       this.updateCamera(dt);
@@ -577,6 +664,9 @@ export class Engine {
     }
 
     if (!this.isGameStarted) {
+      if (this.titleScreen?.classList.contains('active')) {
+        for (const [code, kind] of Object.entries(DEMO_JUMPS)) if (Input.isPressed(code)) { this.demoJump(kind); break; }
+      }
       if (Input.isPressed('enter') || Input.isPressed('space')) {
         this.startJourney();
       }
@@ -671,6 +761,9 @@ export class Engine {
         this.beginLoadingTransition(index);
         return;
       }
+    }
+    for (const [code, kind] of Object.entries(DEMO_JUMPS)) {
+      if (Input.isPressed(code)) { this.demoJump(kind); return; }
     }
 
 
@@ -929,7 +1022,18 @@ export class Engine {
     // every level's card uses the same gold-framed design as the death card (the 'final' class is that frame)
     this.levelCompleteModal.classList.add('final');
     const thanks = document.getElementById('completeThanks');
-    if (thanks) thanks.textContent = final ? 'THANK YOU FOR PLAYING' : '';
+    if (thanks) thanks.textContent = final ? 'THANKS FOR WATCHING' : '';
+    // the ending card: the run's statistics
+    const stats = document.getElementById('completeStats');
+    if (stats) {
+      stats.hidden = !final;
+      if (final) {
+        const t = Math.floor(this.runStats.time), h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), s = t % 60;
+        const time = h ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${m}:${String(s).padStart(2, '0')}`;
+        document.getElementById('statTime').textContent = time;
+        document.getElementById('statDeaths').textContent = String(this.runStats.deaths);
+      }
+    }
 
     this.levelCompleteModal.classList.add('active');
   }
@@ -1026,6 +1130,8 @@ export class Engine {
 
   handlePlayerDeath() {
     this.playerDying = true;
+    // a death in the campaign counts for the ending card (the Forest Heart withering is not Rakti's death)
+    if (this.currentLevelIndex >= 1 && this.currentLevelIndex <= 4 && !this.level?.deathCard?.()) this.runStats.deaths += 1;
     this.closeDialogue();
     if (this.level) this.level.cameraShake = 1.0;
     this.player.spawnDeathBurst();

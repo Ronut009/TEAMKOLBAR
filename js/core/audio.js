@@ -61,15 +61,16 @@ const MUSIC_BASE = 'assets/audio/music/';
  */
 // Music tracks (assets/audio/music, loudness-matched to -16 LUFS by tools/music_prep): vol = element volume.
 // The level themes sit low under the sound effects. loop: false plays once (Level 4's arrival).
+// (level tracks raised ~45% on request; the old values are in js/levels/backup/audio_before_louder_levels.js)
 const TRACKS = {
   title:        { vol: 0.42, loop: true,  label: 'Main Theme' },
-  level1:       { vol: 0.13, loop: true,  label: 'Drowned Dwaraka' },
-  level2:       { vol: 0.13, loop: true,  label: 'The Sun Wastes' },
-  level3:       { vol: 0.13, loop: true,  label: 'The Jungle' },
-  level4_start: { vol: 0.16, loop: false, label: 'The Red Fort' },
-  pitaji_fight: { vol: 0.15, loop: true,  label: 'Pitaji' },
-  demon_fight:  { vol: 0.15, loop: true,  label: 'The Asura' },
-  sands:        { vol: 0.2,  loop: false, label: 'The Sands of Time' }
+  level1:       { vol: 0.19, loop: true,  label: 'Drowned Dwaraka' },
+  level2:       { vol: 0.19, loop: true,  label: 'The Sun Wastes' },
+  level3:       { vol: 0.19, loop: true,  label: 'The Jungle' },
+  level4_start: { vol: 0.23, loop: false, label: 'The Red Fort' },
+  pitaji_fight: { vol: 0.22, loop: true,  label: 'Pitaji' },
+  demon_fight:  { vol: 0.22, loop: true,  label: 'The Asura' },
+  sands:        { vol: 0.27, loop: false, label: 'The Sands of Time' }
 };
 const MUSIC_FADE = 0.8;   // s for a track to fade in or out
 
