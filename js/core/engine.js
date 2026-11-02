@@ -11,6 +11,13 @@ import { Music, Sfx } from './audio.js';
 
 // An atmosphere hum swells as Rakti nears the item she needs to progress (a level's crucialItem())
 const AURA_RANGE = 380, AURA_CLOSE = 110;
+// Sands of Time [F] (found on Level 2's second tower): enemies, arrows, traps and moving platforms run at
+// SANDS_SLOW of their speed for SANDS_DURATION s while Rakti keeps hers; then the sands need SANDS_COOLDOWN s.
+const SANDS_DURATION = 8, SANDS_COOLDOWN = 15, SANDS_SLOW = 0.35;
+// The level-complete cards of Levels 1-3 continue on their own after this many seconds ([E] / [Space] sooner)
+const AUTO_CONTINUE = 5;
+// The opening cutscene: hold [Esc] this long to skip it
+const INTRO_SKIP_HOLD = 3;
 import { TRISHUL } from '../entities/player.js';
 import { Level2 } from '../levels/level2.js';
 import { Level3 } from '../levels/level3.js';
@@ -23,7 +30,7 @@ const LEVEL_NAMES = {
   2: 'Level II  ·  The Sun Wastes',
   3: 'Level III  ·  The Forest Heart',
   4: 'Level IV  ·  The Archer Fort',
-  5: 'Unlimited Mode  ·  The Siege Wall'
+  5: 'Chaos Mode  ·  The Siege Wall'
 };
 
 const SPEAKER_NAMES = { kali: '⚜ MAA KALI ⚜', rakti: '⚜ RAKTI ⚜', father: '⚜ PITAJI ⚜', demon: '⚜ THE ASURA ⚜' };
@@ -151,6 +158,10 @@ export class Engine {
     this.deathScreen = document.getElementById('deathScreen');
     // [Esc] pause menu: Continue / Restart (asks first) / Exit to main menu
     this.paused = false;
+    this.sands = { active: 0, cooldown: 0, fx: 0, ripple: 0, grains: [] };
+    this.sandsEl = document.getElementById('sandsPower');
+    this.sandsGlass = document.getElementById('sandsGlass');
+    this.sandsTime = document.getElementById('sandsTime');
     this.pauseScreen = document.getElementById('pauseScreen');
     this.pauseMain = document.getElementById('pauseMain');
     this.pauseConfirm = document.getElementById('pauseConfirm');
@@ -287,6 +298,7 @@ export class Engine {
 
     this.player.vx = 0;
     this.player.vy = 0;
+    Object.assign(this.sands, { active: 0, cooldown: 0, ripple: 0 });
     this.applyRelicPowers();
     this.player.hp = this.player.maxHp;
     this.player.speed = this.player.baseSpeed;
@@ -344,6 +356,8 @@ export class Engine {
     p.trishulDamage = TRISHUL.damage * p.relicMight;
     p.maxHp = heart ? 50 : 20;
     if (p.hp > p.maxHp) p.hp = p.maxHp;
+    // Sands of Time: taken on Level 2's second tower, kept from then on (unlimited mode has every power)
+    p.hasSands = i >= 3 || (i === 2 && Boolean(this.level2.progress?.sandsTaken));
   }
 
   /** Level 3: claiming the Forest Heart empowers Rakti on the spot (full life at the new maximum). */
@@ -372,7 +386,83 @@ export class Engine {
     this.prologueComplete = false;   // a new game always starts with the wake-up
     this.level1.checkpointIndex = -1;
     this.level1.abilityGranted = false;
-    this.beginLoadingTransition(1);
+    this.playIntroCutscene(() => this.beginLoadingTransition(1));
+  }
+
+  // ======================================================================== the opening cutscene
+  /** New Game: the opening film (assets/video/start_cutscene.mp4) plays full screen first; when it ends, or [Esc]
+   *  has been held for INTRO_SKIP_HOLD s, the loading screen takes over and Level 1 begins. */
+  playIntroCutscene(onDone) {
+    const box = document.getElementById('introCutscene'), video = document.getElementById('introVideo');
+    if (!box || !video) { onDone(); return; }
+    this.intro = { onDone, hold: 0, done: false };
+    this.titleScreen?.classList.remove('active');
+    box.classList.add('active');
+    box.setAttribute('aria-hidden', 'false');
+    try { video.currentTime = 0; } catch (e) { /* not loaded yet */ }
+    video.onended = () => this.finishIntroCutscene();
+    video.onerror = () => this.finishIntroCutscene();   // missing or unplayable: straight into the game
+    const p = video.play();
+    if (p && p.catch) p.catch(() => {
+      // sound refused (should not happen after the click): play it muted rather than not at all
+      video.muted = true;
+      video.play().catch(() => this.finishIntroCutscene());
+    });
+  }
+
+  updateIntroCutscene(dt) {
+    const it = this.intro;
+    // hold [Esc] to skip: the bar fills while it is held and drains when it is let go
+    it.hold = Input.isDown('Escape') ? it.hold + dt : Math.max(0, it.hold - dt * 2);
+    const fill = document.getElementById('introSkipFill');
+    if (fill) fill.style.width = `${Math.min(100, (it.hold / INTRO_SKIP_HOLD) * 100).toFixed(1)}%`;
+    document.getElementById('introSkip')?.classList.toggle('holding', it.hold > 0);
+    if (it.hold >= INTRO_SKIP_HOLD) this.finishIntroCutscene();
+  }
+
+  finishIntroCutscene() {
+    const it = this.intro;
+    if (!it || it.done) return;
+    it.done = true;
+    const box = document.getElementById('introCutscene'), video = document.getElementById('introVideo');
+    video?.pause();
+    if (video) { video.onended = null; video.onerror = null; }
+    box?.classList.remove('active');
+    box?.setAttribute('aria-hidden', 'true');
+    this.intro = null;
+    Input.keysPressed?.clear();
+    Input.keysDown?.clear();
+    it.onDone();
+  }
+
+  // ======================================================================== music
+  /** What should play right now. Start menu: its theme. Opening film and loading screens: silence. Levels 1-3:
+   *  their own theme, looped and kept low. Level 4: the arrival track once, silence from the moment the mala is
+   *  taken (Pitaji's scene), Pitaji's theme in the first stage of the fight, the Asura's in the second, silence for
+   *  the ending. Unlimited mode: Pitaji's fight theme. Over all of it, the Sands of Time play their own music while
+   *  time is slowed (and during Level 2's rewind): the level's theme fades out, then resumes where it left off. */
+  updateMusic() {
+    const onMenu = !this.isGameStarted && !this.isLoading && !this.intro && this.titleScreen?.classList.contains('active');
+    const inGame = this.isGameStarted && !this.isLoading && !this.intro;
+    Music.setBase(onMenu ? 'title' : inGame ? this.levelMusic() : null);
+    const sands = inGame && (this.sands.active > 0 || (this.level === this.level2 && Boolean(this.level2.rewind)));
+    Music.setOverlay(sands ? 'sands' : null);
+    Music.setDuck(this.paused ? 0.45 : 1);
+  }
+
+  levelMusic() {
+    const i = this.currentLevelIndex, L = this.level;
+    if (i === 1) return 'level1';
+    if (i === 2) return 'level2';
+    if (i === 3) return 'level3';
+    if (i === 5) return 'pitaji_fight';
+    if (i === 4) {
+      if (!L.fightStage) return L.malaTaken ? null : 'level4_start';
+      if (L.fightStage === 1) return L.cutscene?.kind === 'turn' ? null : 'pitaji_fight';
+      if (L.fightStage === 2) return 'demon_fight';
+      return null;
+    }
+    return null;
   }
 
   /** Title screen: Unlimited mode (endless rounds in one arena). */
@@ -391,7 +481,6 @@ export class Engine {
     this.loadingTimer = 2.2;
     this.loadingTargetIndex = destinationIndex;
     this.titleScreen?.classList.remove('active');
-    Music.stop();
     this.levelCompleteModal?.classList.remove('active');
     this.hudEl?.classList.add('menu-hidden');
     if (this.loadingLevel) this.loadingLevel.textContent = LEVEL_NAMES[destinationIndex] || '';
@@ -424,7 +513,7 @@ export class Engine {
     if (this.pauseConfirm) this.pauseConfirm.hidden = !show;
     const txt = document.getElementById('pauseConfirmText');
     if (txt) txt.textContent = this.currentLevelIndex === 5
-      ? 'The unlimited arena starts over from round one. Your current run will be lost.'
+      ? 'Chaos mode starts over from round one. Your current run will be lost.'
       : 'You will go back to the very start of this level. All progress in it, and its checkpoints, will be lost.';
     document.getElementById(show ? 'pauseNo' : 'pauseContinue')?.focus({ focusVisible: false });
   }
@@ -461,18 +550,15 @@ export class Engine {
     this.levelCompleteModal?.classList.remove('active');
     this.closeDialogue();
     this.titleScreen?.classList.add('active');
-    Music.play('title');
     this.hudEl?.classList.add('menu-hidden');
     this.endlessHud?.classList.remove('active');
   }
 
   update(dt) {
-    // The title theme belongs to the start menu only (looped there). Anywhere else (loading, a level, the unlimited
-    // arena) it is stopped, and nothing (a late first click, a refocused tab) may start it again until the menu is back.
-    const onMenu = !this.isGameStarted && !this.isLoading && this.titleScreen?.classList.contains('active');
-    Music.blocked = !onMenu;
-    if (!onMenu && Music.name === 'title') Music.stop(0.5);
-    else if (onMenu && !Music.name) Music.play('title');
+    // Music: the start menu's theme, each level's own, the fights', and the Sands of Time over them (updateMusic)
+    this.updateMusic();
+    // The opening cutscene (after New Game): nothing else runs while it plays
+    if (this.intro) { this.updateIntroCutscene(dt); return; }
     if (this.isLoading) {
       this.loadingTimer -= dt;
       if (this.loadingTimer <= 0) {
@@ -515,9 +601,9 @@ export class Engine {
     // Dialogue: the text types out while the speaker's portrait talks, then idles (with blinks) or holds a gesture
     if (this.dialogueActive && this.dlg) this.updateDialogue(dt);
 
-    // Levels 2 and 3 continue automatically after their completion screen, while
+    // Levels 1, 2 and 3 continue automatically after their completion card (AUTO_CONTINUE s), while
     // still allowing the player to enter the next level immediately with E or Space.
-    if ((this.currentLevelIndex === 2 || this.currentLevelIndex === 3) && this.levelCompleted) {
+    if (this.currentLevelIndex >= 1 && this.currentLevelIndex <= 3 && this.levelCompleted) {
       const nextLevel = this.currentLevelIndex + 1;
       if (Input.isPressed('reset') || Input.isPressed('KeyR')) {
         this.resetGame();
@@ -610,6 +696,9 @@ export class Engine {
         }
       }
     }
+
+    // Sands of Time [F]
+    if (Input.isPressed('KeyF') && !this.dialogueActive) this.trySands();
 
     // 1. Check nearby inspection points (none while a cutscene animation plays)
     const inCutscene = this.player.isWaking || this.player.isChangingOutfit;
@@ -755,7 +844,7 @@ export class Engine {
     // where the cursor is in the world (the Trishul can be thrown at it)
     this.player.aimWorld = { x: Input.mouseX / this.zoom + Math.floor(this.camX), y: Input.mouseY / this.zoom + Math.floor(this.camY) };
     this.player.update(dt, this.level, this.dialogueActive);
-    this.level.update(this.player.x, this.player.y, dt, this.player.isDivine, this.player);
+    this.level.update(this.player.x, this.player.y, this.worldDt(dt), this.player.isDivine, this.player);
     Sfx.listenerX = this.player.x;
     this.updateItemAura();
 
@@ -796,7 +885,7 @@ export class Engine {
     if (!this.levelCompleted && this.level.checkLevelComplete(this.player.x, this.player.y)) {
       this.levelCompleted = true;
       this.showLevelCompleteModal();
-      if (this.currentLevelIndex === 2 || this.currentLevelIndex === 3) this.levelTransitionTimer = this.currentLevelIndex === 3 ? 2.0 : 3.0;
+      if (this.currentLevelIndex >= 1 && this.currentLevelIndex <= 3) this.levelTransitionTimer = AUTO_CONTINUE;
     }
 
     if (this.levelCompleted && this.player.doorwayFade > 0) {
@@ -812,22 +901,23 @@ export class Engine {
 
   showLevelCompleteModal() {
     if (!this.levelCompleteModal) return;
+    this.closeDialogue();   // no dialogue box left open behind the card
 
     if (this.currentLevelIndex === 1) {
       if (this.completeTitle) this.completeTitle.textContent = 'LEVEL 1 COMPLETE';
       if (this.completeSubtitle) this.completeSubtitle.textContent = 'DROWNED DWARAKA CLEARED';
       if (this.completeFlavor) this.completeFlavor.textContent = 'The Pearl of the Tide hums in your hands as the portal takes you.';
-      if (this.completePrompt) this.completePrompt.textContent = '[E] ENTER LEVEL 2  |  [R] REPLAY';
+      if (this.completePrompt) this.completePrompt.textContent = `[E] CONTINUE TO LEVEL 2  •  AUTO IN ${AUTO_CONTINUE}s`;
     } else if (this.currentLevelIndex === 2) {
       if (this.completeTitle) this.completeTitle.textContent = 'LEVEL 2 COMPLETE';
       if (this.completeSubtitle) this.completeSubtitle.textContent = 'THE HALL OF THE SUN IS OPEN';
       if (this.completeFlavor) this.completeFlavor.textContent = 'The Trishul, second of the four relics, hums at your side as the portal opens onto the jungle.';
-      if (this.completePrompt) this.completePrompt.textContent = '[E] CONTINUE TO LEVEL 3  •  AUTO IN 3s';
+      if (this.completePrompt) this.completePrompt.textContent = `[E] CONTINUE TO LEVEL 3  •  AUTO IN ${AUTO_CONTINUE}s`;
     } else if (this.currentLevelIndex === 3) {
       if (this.completeTitle) this.completeTitle.textContent = 'LEVEL 3 COMPLETE';
       if (this.completeSubtitle) this.completeSubtitle.textContent = 'THE FOREST HEART IS RESTORED';
       if (this.completeFlavor) this.completeFlavor.textContent = 'The jungle exhales as the portal opens onto the next trial.';
-      if (this.completePrompt) this.completePrompt.textContent = '[E] CONTINUE TO LEVEL 4  •  AUTO IN 2s';
+      if (this.completePrompt) this.completePrompt.textContent = `[E] CONTINUE TO LEVEL 4  •  AUTO IN ${AUTO_CONTINUE}s`;
     } else {
       // the end of the game: the framed ending card
       if (this.completeTitle) this.completeTitle.textContent = 'THE REALMS ARE SAVED';
@@ -842,6 +932,92 @@ export class Engine {
     if (thanks) thanks.textContent = final ? 'THANK YOU FOR PLAYING' : '';
 
     this.levelCompleteModal.classList.add('active');
+  }
+
+  // ======================================================================== Sands of Time [F]
+  /** [F]: a level may spend the sands on its own story first (Level 2: rewinding the boulder at the first
+   *  tower); otherwise the world slows around Rakti for SANDS_DURATION s. */
+  trySands() {
+    const p = this.player, s = this.sands;
+    if (!p.hasSands || p.isDead || p.inputLocked || this.playerDying || this.levelCompleted) return;
+    if (this.level.useSands?.(p)) return;
+    if (s.active > 0) return;
+    if (s.cooldown > 0) {
+      // not yet: the hourglass shakes
+      this.sandsEl?.classList.remove('denied');
+      void this.sandsEl?.offsetWidth;
+      this.sandsEl?.classList.add('denied');
+      return;
+    }
+    s.active = SANDS_DURATION;
+    s.ripple = 1;
+    Sfx.play('morph', { volume: 0.6 });
+    if (this.level) this.level.cameraShake = Math.max(this.level.cameraShake || 0, 0.25);
+    this.level.killToastText = '⏳ SANDS OF TIME';
+    this.level.killToastTimer = 1.4;
+  }
+
+  /** The level's clock this frame: slowed by the sands (never during a cutscene) and sped up by the level's
+   *  own rules (Level 2's quickened desert). Ticks the sands' timers too. The level also gets the real dt. */
+  worldDt(dt) {
+    const s = this.sands, p = this.player;
+    if (!this.dialogueActive) {
+      if (s.active > 0) {
+        s.active = Math.max(0, s.active - dt);
+        if (s.active === 0) s.cooldown = SANDS_COOLDOWN;
+      } else if (s.cooldown > 0) {
+        s.cooldown = Math.max(0, s.cooldown - dt);
+        if (s.cooldown === 0) {
+          this.sandsEl?.classList.remove('flip');
+          void this.sandsEl?.offsetWidth;
+          this.sandsEl?.classList.add('flip');   // the hourglass turns over: ready again
+        }
+      }
+    }
+    const slowed = s.active > 0 && !p.inputLocked;
+    s.fx += ((slowed ? 1 : 0) - s.fx) * Math.min(1, dt * 5);
+    if (s.ripple > 0) s.ripple = Math.max(0, s.ripple - dt * 1.6);
+    this.level.realDt = dt;
+    this.level.sandsActive = slowed;
+    return dt * (slowed ? SANDS_SLOW : 1) * (this.level.worldTimeScale?.() ?? 1);
+  }
+
+  /** Golden haze, drifting grains and a ripple from Rakti while time is slowed (screen space). */
+  renderSands(ctx) {
+    const s = this.sands, a = s.fx;
+    if (a < 0.02 && s.ripple <= 0) return;
+    const W = this.canvas.width, H = this.canvas.height;
+    ctx.save();
+    if (a > 0.02) {
+      ctx.globalCompositeOperation = 'soft-light';
+      ctx.fillStyle = `rgba(255, 196, 110, ${0.55 * a})`;
+      ctx.fillRect(0, 0, W, H);
+      ctx.globalCompositeOperation = 'source-over';
+      const g = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.3, W / 2, H / 2, Math.max(W, H) * 0.72);
+      g.addColorStop(0, 'rgba(0, 0, 0, 0)');
+      g.addColorStop(1, `rgba(96, 58, 12, ${0.5 * a})`);
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+      // grains drifting slowly across the view
+      const G = s.grains;
+      while (G.length < 70) G.push({ x: Math.random() * W, y: Math.random() * H, v: 8 + Math.random() * 18, r: 0.8 + Math.random() * 1.6, ph: Math.random() * 6 });
+      const t = performance.now() / 1000;
+      for (const q of G) {
+        q.x += q.v * 0.016; q.y += q.v * 0.006;
+        if (q.x > W + 4) q.x = -4; if (q.y > H + 4) q.y = -4;
+        ctx.fillStyle = `rgba(255, 214, 140, ${(0.35 + 0.3 * Math.sin(t * 2 + q.ph)) * a})`;
+        ctx.fillRect(q.x, q.y, q.r * this.zoom * 0.6, q.r * this.zoom * 0.6);
+      }
+    }
+    if (s.ripple > 0) {
+      // the moment the sands turn: a ring of light spreads out from Rakti
+      const px = (this.player.x - Math.floor(this.camX)) * this.zoom, py = (this.player.y - 40 - Math.floor(this.camY)) * this.zoom;
+      const u = 1 - s.ripple, R = (30 + u * 700) * (this.zoom / 1.6);
+      ctx.strokeStyle = `rgba(255, 222, 150, ${0.7 * s.ripple})`;
+      ctx.lineWidth = 6 * s.ripple + 1;
+      ctx.beginPath(); ctx.arc(px, py, R, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.restore();
   }
 
   resetGame() {
@@ -983,24 +1159,66 @@ export class Engine {
     put(this.abilityBarEl, 'shown', String(divineUnlocked), v => this.abilityBarEl?.classList.toggle('ability-hidden', v !== 'true'));
     this.hudEl.classList.toggle('divine-mode', divineActive);
 
-    // Level 3: the Forest Heart's clock (a ring that drains, green -> amber -> red, pulsing in the last 10 s)
+    // Sands of Time [F]: the hourglass beside the X bar (hidden until Rakti has it). Active: the sand runs through
+    // the six frames; cooldown: dimmed and empty, with the seconds left; ready: full and glowing.
+    if (this.sandsEl) {
+      const s = this.sands, has = Boolean(this.player.hasSands) && !this.player.isCivilian;
+      put(this.sandsEl, 'has', String(has), v => this.sandsEl.classList.toggle('locked', v !== 'true'));
+      const state = s.active > 0 ? 'active' : s.cooldown > 0 ? 'cooldown' : 'ready';
+      put(this.sandsEl, 'state', state, v => { this.sandsEl.dataset.state = v; });
+      const frame = state === 'active' ? Math.min(5, Math.floor((1 - s.active / SANDS_DURATION) * 6)) : state === 'cooldown' ? 5 : 0;
+      put(this.sandsEl, 'frame', String(frame), v => { this.sandsGlass.style.backgroundPosition = `${Number(v) * 20}% 0`; });
+      const label = state === 'active' ? String(Math.ceil(s.active)) : state === 'cooldown' ? String(Math.ceil(s.cooldown)) : '';
+      put(this.sandsEl, 'time', label, v => { this.sandsTime.textContent = v; });
+      // Level 2's rewind charge (enemies of the way back slain / all of them)
+      const ch = has ? this.level?.sandsCharge?.() : null;
+      this.sandsChargeEl = this.sandsChargeEl || document.getElementById('sandsCharge');
+      put(this.sandsEl, 'charge', ch ? (ch.ready ? 'ready' : `${ch.have}/${ch.need}`) : '', v => {
+        if (!this.sandsChargeEl) return;
+        this.sandsChargeEl.textContent = v === 'ready' ? '⟲ CHARGED' : v ? `⟲ ${v}` : '';
+        this.sandsChargeEl.classList.toggle('show', Boolean(v));
+        this.sandsChargeEl.classList.toggle('ready', v === 'ready');
+      });
+    }
+
+    // Level 3: the Forest Heart's clock v2: 50 ticks go dark one per second (green -> amber -> red), the heart
+    // in the medallion beats faster and turns into the red heart as it withers, the plaque shows m:ss
     this.heartClockEl = this.heartClockEl || document.getElementById('heartClock');
     const hc = this.isGameStarted && !this.levelCompleted ? this.level?.heartClockHud?.() : null;
     if (this.heartClockEl) {
+      if (!this.heartTicks) {
+        // the 50 ticks, built once
+        const g = document.getElementById('heartClockTicks');
+        this.heartTicks = [];
+        for (let i = 0; i < 50; i++) {
+          const a = (i / 50) * Math.PI * 2 - Math.PI / 2;
+          const l = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          l.setAttribute('x1', (60 + Math.cos(a) * 51).toFixed(2)); l.setAttribute('y1', (60 + Math.sin(a) * 51).toFixed(2));
+          l.setAttribute('x2', (60 + Math.cos(a) * 57.5).toFixed(2)); l.setAttribute('y2', (60 + Math.sin(a) * 57.5).toFixed(2));
+          l.setAttribute('class', 'hc-tick');
+          g?.appendChild(l);
+          this.heartTicks.push(l);
+        }
+      }
       put(this.heartClockEl, 'show', String(Boolean(hc)), v => this.heartClockEl.classList.toggle('show', v === 'true'));
       if (hc) {
-        const secs = Math.ceil(hc.left - 1e-6);
+        const secs = Math.max(0, Math.ceil(hc.left - 1e-6));
         const state = hc.saved ? 'saved' : secs <= 10 ? 'urgent' : hc.ratio <= 0.5 ? 'low' : 'ok';
         put(this.heartClockEl, 'state', state, v => { this.heartClockEl.dataset.state = v; });
-        put(this.heartClockEl, 'num', String(secs), v => { document.getElementById('heartClockNum').textContent = v; });
+        put(this.heartClockEl, 'num', String(secs), v => {
+          const n = Number(v);
+          document.getElementById('heartClockNum').textContent = `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`;
+          const lit = Math.round(Math.max(0, Math.min(1, hc.ratio)) * 50);
+          this.heartTicks.forEach((t, i) => t.classList.toggle('off', i >= lit));
+        });
         put(this.heartClockEl, 'wait', String(hc.waiting && !hc.saved), v => this.heartClockEl.classList.toggle('waiting', v === 'true'));
-        // the ring: stroke-dashoffset over a circumference of 100 (pathLength), updated in small steps
-        const r = Math.round(Math.max(0, Math.min(1, hc.ratio)) * 400) / 4;
-        put(this.heartClockEl, 'ring', String(r), v => {
-          document.getElementById('heartClockRing').style.strokeDashoffset = String(100 - Number(v));
-          // the heart icon drains of colour as it withers
-          const k = Number(v) / 100;
-          document.getElementById('heartClockIcon').style.filter = `saturate(${(0.15 + 0.85 * k).toFixed(2)}) brightness(${(0.6 + 0.4 * k).toFixed(2)})`;
+        // the heart: green while fresh, crossing into the red heart below ~40%; it beats faster as it fails
+        const k = Math.round(Math.max(0, Math.min(1, hc.ratio)) * 20) / 20;
+        put(this.heartClockEl, 'heart', String(hc.saved ? 1 : k), v => {
+          const r = Number(v), green = Math.max(0, Math.min(1, (r - 0.15) / 0.25));
+          document.getElementById('heartClockGreen').style.opacity = String(green);
+          document.getElementById('heartClockRed').style.opacity = String(1 - green);
+          this.heartClockEl.style.setProperty('--hc-beat', `${(0.45 + 0.75 * r).toFixed(2)}s`);
         });
         put(this.heartClockEl, 'label', hc.saved ? 'HEART SAVED' : 'FOREST HEART', v => { document.getElementById('heartClockLabel').textContent = v; });
       }
@@ -1248,6 +1466,9 @@ export class Engine {
     this.player.renderParticles(ctx);
 
     ctx.restore();
+
+    // 4b. Sands of Time: the world around Rakti slows, in gold
+    this.renderSands(ctx);
 
     // 5. Fade-from-black overlay (Level 1 wake-up)
     if (this.level.screenFade > 0) {

@@ -81,7 +81,7 @@ export class Betal {
       }
       if (this.attackAnimTimer >= this.attackAnimDuration) {
         this.isAttacking = false;
-        this.attackCooldown = 1.0;
+        this.attackCooldown = this.rushCooldown ?? 1.0;   // (Level 2's quickened desert: shorter rests between swings)
       }
       this.isMoving = false;
       return;

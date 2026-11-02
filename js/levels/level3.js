@@ -78,6 +78,11 @@ const STONE_HEARING = 460;   // world px: how near Rakti must be to hear a movin
 // door 7 cols x 2 rows of 326x342 (frame 0 closed .. 6 open, 6-13 swirling portal loop)
 // The Forest Heart beating (8 frames, 149 x 143, roots' tips at row 141) on its carved stump shrine (300 x 267)
 const HEART_ART = { src: 'assets/level3/forest_heart_beat.png', cw: 149, ch: 143, cols: 8, idle: 8, scale: 0.34, footY: 141 };
+// The old red heart (forest_heart.png, cleaned into forest_heart_red.png: 5 x 2 cells of 225 x 228, the heart in its
+// roots on a stone base; frames 0-5 beat, 6-9 burn). It is what the Forest Heart becomes when it dies.
+const RED_HEART = { src: 'assets/level3/forest_heart_red.png', cw: 225, ch: 228, cols: 5, scale: 0.5, footY: 224 };
+// The heart dies (the clock ran out): the camera flies to it, it turns red, flares, and burns out to ash
+const WITHER = { pan: 1.2, red: 2.3, flare: 3.7, ash: 5.0, end: 5.6 };
 const SHRINE_ART = { src: 'assets/level3/heart_shrine.png', w: 300, h: 267, scale: 0.36, seatY: 82 };
 const DOOR_ART = { src: 'assets/level3/forest_door.png', cw: 326, ch: 342, cols: 7, frames: 14, openFrame: 6, scale: 0.4 };
 const DOOR_FPS = 9;
@@ -110,6 +115,7 @@ export class Level3 {
     this.heartImg = img(HEART_ART.src);
     this.shrineImg = img(SHRINE_ART.src);
     this.doorImg = img(DOOR_ART.src);
+    this.redHeartImg = img(RED_HEART.src);
 
     // ------------------------------------------------------------------ floors & pits
     // Short floor chunks with a pit between each pair (the same rhythm as Level 2)
@@ -210,6 +216,7 @@ export class Level3 {
     this.reveal = null;            // the camera trip to the heart when it wakes
     this.restartCue = null;        // the short wait at the door before a fresh clock runs
     this.withered = false;         // the death that is coming is the heart withering, not a blow
+    this.witherScene = null;       // the heart dying on screen before the death card
     this.door = { x: 4150, opening: false, openT: 0 };
     this.px = 0; this.py = FLOOR_Y;
     this.width = END;
@@ -269,6 +276,7 @@ export class Level3 {
       }
     }
     this.withered = false;
+    this.witherScene = null;
     if (!fresh) this.altered = this.phase === 'return' || this.phase === 'carry';
     this.applyLayout();
     const spawn = this.getRespawnPoint();
@@ -381,6 +389,11 @@ export class Level3 {
 
   /** Engine hook: where the camera looks instead of at Rakti (the trip to the heart). */
   cameraFocus() {
+    const w = this.witherScene;
+    if (w) {
+      const u = Math.min(1, w.t / WITHER.pan), e = u * u * (3 - 2 * u);
+      return { x: w.fromX + (this.relic.x - w.fromX) * e, y: FLOOR_Y - 60 };
+    }
     const r = this.reveal;
     if (!r) return null;
     const ease = (u) => { u = Math.max(0, Math.min(1, u)); return u * u * (3 - 2 * u); };
@@ -405,7 +418,7 @@ export class Level3 {
       }
     }
     if (!c.running || this.reveal || !player || player.isDead || player.dialogueOpen || this.withered) return;
-    c.left = Math.max(0, c.left - dt);
+    c.left = Math.max(0, c.left - dt);     // (real seconds: the Sands of Time do not slow the heart)
     if (c.left <= 0) this.witherHeart(player);
   }
 
@@ -414,8 +427,49 @@ export class Level3 {
   witherHeart(player) {
     this.clock.running = false;
     this.withered = true;
-    this.cameraShake = 0.8;
-    player.hp = 0;
+    this.witherScene = { t: 0, fromX: player.x, embers: 0 };
+    player.inputLocked = true;
+    player.vx = 0;
+    this.killToastText = '❤ THE FOREST HEART IS DYING';
+    this.killToastTimer = 2.4;
+  }
+
+  /** The heart dies on screen: camera to it, it turns into the red heart, flares up and burns out to ash; then
+   *  the death card (the heart has withered) and back to the door. */
+  updateWither(dt, player) {
+    const w = this.witherScene;
+    if (!w || !player) return;
+    w.t += dt;
+    player.inputLocked = true;
+    player.vx = 0;
+    player.invulnerableTimer = Math.max(player.invulnerableTimer || 0, 0.5);   // nothing touches her while it plays
+    const r = this.relic, seat = FLOOR_Y - 60;
+    if (w.t > WITHER.red && w.t < WITHER.ash) {
+      this.cameraShake = Math.max(this.cameraShake, w.t > WITHER.red + 0.9 ? 0.35 : 0.12);
+      if (Math.random() < 0.6) {
+        // embers whirl off the burning heart
+        const a = Math.random() * Math.PI * 2;
+        this.fx.push({ x: r.x + Math.cos(a) * 18, y: seat + Math.sin(a) * 22, vx: (Math.random() - 0.5) * 70, vy: -50 - Math.random() * 70,
+          life: 0.9, maxLife: 0.9, c: Math.random() > 0.4 ? '#ff6a2a' : '#ffd060' });
+      }
+    }
+    if (w.t > WITHER.ash && w.t < WITHER.end && Math.random() < 0.7) {
+      // grey ash drifts down
+      this.fx.push({ x: r.x + (Math.random() - 0.5) * 60, y: seat - 30 + Math.random() * 20, vx: (Math.random() - 0.5) * 20, vy: -10,
+        life: 1.2, maxLife: 1.2, c: Math.random() > 0.5 ? '#5a5048' : '#8a7e70' });
+    }
+    if (!w.said && w.t > WITHER.ash) {
+      w.said = true;
+      this.killToastText = '✝ THE FOREST HEART HAS DIED';
+      this.killToastTimer = 2.4;
+      this.cameraShake = 0.6;
+    }
+    if (w.t >= WITHER.end && !w.done) {
+      w.done = true;
+      player.inputLocked = false;
+      player.invulnerableTimer = 0;
+      player.hp = 0;      // the death card ("the heart has withered"), then back to the door with a full clock
+    }
   }
 
   /** The heart has been taken: the clock stops. */
@@ -438,6 +492,9 @@ export class Level3 {
   deathCard() {
     return this.withered ? { big: 'THE HEART HAS WITHERED', small: 'Back to the forest door: it wakes again' } : null;
   }
+
+  /** Engine hook: the dying-heart scene is a cutscene ([R] waits). */
+  get cutscene() { return Boolean(this.witherScene || this.reveal); }
 
   /** How alive the heart looks (1 fresh .. 0 withered) while the clock runs. */
   get heartLife() {
@@ -712,7 +769,8 @@ export class Level3 {
       }
     }
     this.updateReveal(dt, player);
-    this.updateClock(dt, player);
+    this.updateClock(this.realDt ?? dt, player);
+    this.updateWither(this.realDt ?? dt, player);
     // [Q]-opened stones hold for PATH_HOLD seconds, then close back into rocks (dropping anyone on them)
     for (const s of this.pathStones) {
       if (s.fall) {
@@ -798,7 +856,7 @@ export class Level3 {
       }
     }
 
-    const talking = Boolean(player?.dialogueOpen);
+    const talking = Boolean(player?.dialogueOpen) || Boolean(this.witherScene);
     for (const b of this.betals) {
       if (b.entry) {
         if (talking) continue;
@@ -1182,6 +1240,59 @@ export class Level3 {
   renderHeart(ctx) {
     const r = this.relic;
     if (!r.spawned) return;
+    if (this.witherScene && this.witherScene.t > WITHER.pan) {
+      // crossfading into the red heart: the green heart and its stump fade out under it
+      const k = Math.min(1, (this.witherScene.t - WITHER.pan) / 0.8);
+      if (k < 1) { ctx.save(); ctx.globalAlpha = 1 - k; this.renderGreenHeart(ctx); ctx.restore(); }
+      this.renderRedHeart(ctx, k);
+      return;
+    }
+    this.renderGreenHeart(ctx);
+  }
+
+  /** The dying heart: the old red heart in its roots beats fast, flares (frames 6-9) and burns out to grey ash. */
+  renderRedHeart(ctx, alpha) {
+    const r = this.relic, w = this.witherScene, t = w.t;
+    if (!this.inView(r.x - 120, r.x + 120)) return;
+    let frame;
+    if (t < WITHER.red) frame = Math.floor(t * 12) % 6;                       // a frantic beat
+    else if (t < WITHER.ash) frame = 6 + Math.floor((t - WITHER.red) * 9) % 4; // it flares up
+    else frame = 9;
+    const f = this.sheetFrame('redheart', this.redHeartImg, RED_HEART, frame);
+    if (!f) return;
+    const x = r.x - f.w / 2, y = FLOOR_Y + 4 - RED_HEART.footY * RED_HEART.scale;
+    const cy = y + f.h * 0.42;
+    const dying = Math.max(0, Math.min(1, (t - WITHER.ash + 0.5) / 1.0));   // 0 alive -> 1 ash
+    // red glow behind, peaking in the flare and gone in the ash
+    const glowK = t < WITHER.red ? 0.5 : t < WITHER.ash ? 1 : Math.max(0, 1 - (t - WITHER.ash) / 0.6);
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const pulse = 0.6 + 0.4 * Math.sin(t * 18);
+    const g = ctx.createRadialGradient(r.x, cy, 6, r.x, cy, 150);
+    g.addColorStop(0, `rgba(255, 90, 40, ${0.85 * glowK * pulse * alpha})`);
+    g.addColorStop(0.45, `rgba(220, 40, 20, ${0.35 * glowK * alpha})`);
+    g.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(r.x - 155, cy - 155, 310, 310);
+    ctx.restore();
+    ctx.save();
+    ctx.globalAlpha = alpha * (1 - dying * 0.35);
+    if (dying > 0) ctx.filter = `grayscale(${dying.toFixed(2)}) brightness(${(1 - dying * 0.75).toFixed(2)})`;
+    const shake = t > WITHER.red && t < WITHER.ash ? Math.sin(t * 60) * 1.5 : 0;
+    ctx.drawImage(f.c, x + shake, y, f.w, f.h);
+    ctx.restore();
+    if (glowK > 0.05 && t > WITHER.red - 0.6) {
+      // the flare burns brighter than the jungle around it: the heart drawn again in light
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = alpha * glowK * (0.35 + 0.25 * pulse);
+      ctx.drawImage(f.c, x + shake, y, f.w, f.h);
+      ctx.restore();
+    }
+  }
+
+  renderGreenHeart(ctx) {
+    const r = this.relic;
     // the carved stump shrine (drawn once the heart has woken there)
     const sk = SHRINE_ART.scale, sw = SHRINE_ART.w * sk, sh = SHRINE_ART.h * sk;
     const shrine = this.cachedArt('heartShrine', sw, sh, (this.shrineImg.complete && this.shrineImg.naturalWidth > 0), (g) => g.drawImage(this.shrineImg, 0, 0, sw, sh));
@@ -1191,9 +1302,10 @@ export class Level3 {
     // a slow heartbeat: two quick pulses, then rest. While the clock runs the heart withers: its beat turns
     // faint and quick, its colour drains and its light dims (life 1 -> 0).
     const life = this.heartLife;
-    this.heartBeatT = (this.heartBeatT || 0) + (this.animTime - (this.heartBeatLast ?? this.animTime)) * (1 + (1 - life) * 1.2);
+    // (animTime starts over on every respawn: a step backwards must not run the beat negative, or no frame is drawn)
+    this.heartBeatT = (this.heartBeatT || 0) + Math.max(0, this.animTime - (this.heartBeatLast ?? this.animTime)) * (1 + (1 - life) * 1.2);
     this.heartBeatLast = this.animTime;
-    const beat = Math.floor((this.heartBeatT * 9) % 12);
+    const beat = Math.floor(((this.heartBeatT * 9) % 12 + 12) % 12);
     const f = this.sheetFrame('heart', this.heartImg, HEART_ART, Math.min(7, beat));
     if (!f) return;
     const cy = seat - f.h * 0.55;

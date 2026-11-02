@@ -38,9 +38,18 @@
     </div>
     <img class="hud-weapon" id="hudWeapon" src="assets/ui/hud/talwar.png" alt="Equipped weapon: Guardian Talwar" draggable="false">
     <div class="hud-weapon-keys" id="hudWeaponKeys" data-weapon="sword" aria-hidden="true"><span class="k-sword">[1] TALWAR</span><span class="k-trishul">[2] TRISHUL</span></div>
+    <!-- Sands of Time [F]: the hourglass (6 frames, assets/ui/hud/sands_hourglass_sheet.png) drains while time is slowed -->
+    <div class="sands-power locked" id="sandsPower" data-state="ready" aria-label="Sands of Time, key F">
+      <div class="sp-halo"></div>
+      <div class="sp-glass" id="sandsGlass"></div>
+      <span class="sp-key">F</span>
+      <span class="sp-time" id="sandsTime"></span>
+      <!-- Level 2's way back: the rewind charges with every enemy slain -->
+      <span class="sp-charge" id="sandsCharge"></span>
+    </div>
   </div>
 
-  <!-- Unlimited mode: round / crowd / mud counter -->
+  <!-- Chaos mode (formerly Unlimited mode): round / crowd / mud counter -->
   <div class="endless-hud" id="endlessHud" aria-live="polite"></div>
 
   <!-- Kill Notification Toast Banner -->
@@ -68,17 +77,23 @@
     <img class="father-frame" src="assets/ui/hud/father_boss_bar.png" alt="" draggable="false">
     <span class="father-name">PITAJI  ·  POSSESSED</span>
   </div>
-  <!-- Level 3: the Forest Heart's clock (the ring drains as the heart withers) -->
+  <!-- Level 3: the Forest Heart's clock (v2). A medallion with the heart beating inside it, ringed by 50 ticks (one per
+       second) that go out as time runs; the heart turns from green to the old red heart as it withers. -->
   <div class="heart-clock" id="heartClock" data-state="ok" aria-label="Time left to reach the Forest Heart">
     <div class="hc-medallion">
-      <svg class="hc-ring" viewBox="0 0 100 100" aria-hidden="true">
-        <circle class="hc-track" cx="50" cy="50" r="42" pathLength="100"></circle>
-        <circle class="hc-fill" id="heartClockRing" cx="50" cy="50" r="42" pathLength="100"></circle>
+      <svg class="hc-ring" viewBox="0 0 120 120" aria-hidden="true">
+        <circle class="hc-rim" cx="60" cy="60" r="56"></circle>
+        <g id="heartClockTicks"></g>
       </svg>
-      <img class="hc-icon" id="heartClockIcon" src="assets/ui/hud/forest_heart_icon.png" alt="" draggable="false">
-      <span class="hc-num" id="heartClockNum">50</span>
+      <div class="hc-core">
+        <div class="hc-heart green" id="heartClockGreen"></div>
+        <div class="hc-heart red" id="heartClockRed"></div>
+      </div>
     </div>
-    <span class="hc-label" id="heartClockLabel">FOREST HEART</span>
+    <div class="hc-plaque">
+      <span class="hc-label" id="heartClockLabel">FOREST HEART</span>
+      <span class="hc-num" id="heartClockNum">0:50</span>
+    </div>
   </div>
   <div class="boss-hud" id="bossHud" aria-label="Boss health">
     <div class="boss-fill-track"><div class="boss-fill-lag" id="bossFillLag"></div><div class="boss-fill" id="bossFill"></div></div>
@@ -160,7 +175,7 @@
           <span>CAMPAIGN MODE</span>
         </button>
         <button class="menu-button" id="endlessGameButton" type="button">
-          <span>UNLIMITED MODE</span>
+          <span>CHAOS MODE</span>
         </button>
       </div>
     </div>
@@ -172,6 +187,15 @@
     <div class="loading-text">
       <p class="loading-label"><span class="loading-rule" aria-hidden="true"></span>Loading<span class="loading-rule" aria-hidden="true"></span></p>
       <p class="loading-level" id="loadingLevel"></p>
+    </div>
+  </section>
+
+  <!-- The opening cutscene (New Game): full screen; hold [Esc] for 3 s to skip it -->
+  <section class="intro-cutscene" id="introCutscene" aria-label="Opening cutscene" aria-hidden="true">
+    <video id="introVideo" src="assets/video/start_cutscene.mp4" preload="auto" playsinline></video>
+    <div class="ic-skip" id="introSkip">
+      <span class="ic-skip-text">HOLD <b>ESC</b> TO SKIP</span>
+      <div class="ic-skip-bar"><span id="introSkipFill"></span></div>
     </div>
   </section>
 

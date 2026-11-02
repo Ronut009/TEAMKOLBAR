@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rakti: The Last Guardian</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="preload" href="assets/audio/music/title.mp3" as="audio">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Marcellus&family=Press+Start+2P&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- Fullscreen Game Canvas -->
+  <canvas id="gameCanvas"></canvas>
+
+  <!-- Atmospheric Sands of Time Vignette & Dust -->
+  <div class="crt-vignette sands-vignette"></div>
+
+  <!-- Divine Transformation Fullscreen Flash Effect -->
+  <div class="divine-flash" id="divineFlash"></div>
+
+  <!-- Combat HUD: Rakti's medallion, health bar, X-ability bar and her talwar (layout from the HUD sketch) -->
+  <div class="sands-hud menu-hidden" id="hud" aria-label="Combat HUD">
+    <img class="hud-portrait" id="hudPortraitArt" src="assets/ui/hud/rakti_medallion.png" alt="Rakti" draggable="false">
+    <div class="hud-bar health-bar" aria-label="Health">
+      <div class="meter-track health-track" id="healthTrack" role="progressbar" aria-label="Rakti's health" aria-valuemin="0" aria-valuemax="20" aria-valuenow="20">
+        <span class="health-fill" id="healthBarFill"></span>
+        <span class="health-value" id="hpNum">20 / 20</span>
+      </div>
+      <img class="hud-bar-art" src="assets/ui/hud/hp_bar.png" alt="" draggable="false">
+    </div>
+    <div class="hud-bar ability-bar" id="abilityBar" aria-label="X ability">
+      <div class="meter-track divine-track" id="divineTrack" role="progressbar" aria-label="X ability duration" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <span class="divine-fill" id="divineBarFill"></span>
+      </div>
+      <img class="hud-bar-art" src="assets/ui/hud/ability_bar.png" alt="" draggable="false">
+    </div>
+    <img class="hud-weapon" id="hudWeapon" src="assets/ui/hud/talwar.png" alt="Equipped weapon: Guardian Talwar" draggable="false">
+    <div class="hud-weapon-keys" id="hudWeaponKeys" data-weapon="sword" aria-hidden="true"><span class="k-sword">[1] TALWAR</span><span class="k-trishul">[2] TRISHUL</span></div>
+    <!-- Sands of Time [F]: the hourglass (6 frames, assets/ui/hud/sands_hourglass_sheet.png) drains while time is slowed -->
+    <div class="sands-power locked" id="sandsPower" data-state="ready" aria-label="Sands of Time, key F">
+      <div class="sp-halo"></div>
+      <div class="sp-glass" id="sandsGlass"></div>
+      <span class="sp-key">F</span>
+      <span class="sp-time" id="sandsTime"></span>
+      <!-- Level 2's way back: the rewind charges with every enemy slain -->
+      <span class="sp-charge" id="sandsCharge"></span>
+    </div>
+  </div>
+
+  <!-- Unlimited mode: round / crowd / mud counter -->
+  <div class="endless-hud" id="endlessHud" aria-live="polite"></div>
+
+  <!-- Kill Notification Toast Banner -->
+  <div class="kill-toast sands-toast" id="killToast">
+    <span class="kill-toast-icon">⚔</span>
+    <span class="kill-toast-text" id="killToastText">SENTINEL DEFEATED</span>
+  </div>
+
+  <!-- Player 0 HP Death Screen Modal -->
+  <div class="death-screen-modal sands-death" id="deathScreen">
+    <!-- the framed card (assets/ui/card_frame.png); the old 'FATE FRACTURED' box is in js/levels/backup/index_before_framed_cards.html -->
+    <div class="framed-card death-card">
+      <div class="framed-crest">⚜</div>
+      <h1 class="framed-title death-big">IT'S NOT OVER YET</h1>
+      <div class="framed-divider"></div>
+      <p class="framed-small" id="deathSmall">Respawning at the last checkpoint</p>
+      <div class="framed-progress"><span></span></div>
+    </div>
+  </div>
+
+  <!-- Level 4 boss health: the fill sits in the channel between the frame's two rails -->
+  <!-- Level 4 stage 1 (Pitaji, possessed): his own portrait bar; the fill sits in the pill-shaped channel -->
+  <div class="father-hud" id="fatherHud" aria-label="Pitaji health">
+    <div class="father-fill-track"><div class="father-fill-lag" id="fatherFillLag"></div><div class="father-fill" id="fatherFill"></div></div>
+    <img class="father-frame" src="assets/ui/hud/father_boss_bar.png" alt="" draggable="false">
+    <span class="father-name">PITAJI  ·  POSSESSED</span>
+  </div>
+  <!-- Level 3: the Forest Heart's clock (v2). A medallion with the heart beating inside it, ringed by 50 ticks (one per
+       second) that go out as time runs; the heart turns from green to the old red heart as it withers. -->
+  <div class="heart-clock" id="heartClock" data-state="ok" aria-label="Time left to reach the Forest Heart">
+    <div class="hc-medallion">
+      <svg class="hc-ring" viewBox="0 0 120 120" aria-hidden="true">
+        <circle class="hc-rim" cx="60" cy="60" r="56"></circle>
+        <g id="heartClockTicks"></g>
+      </svg>
+      <div class="hc-core">
+        <div class="hc-heart green" id="heartClockGreen"></div>
+        <div class="hc-heart red" id="heartClockRed"></div>
+      </div>
+    </div>
+    <div class="hc-plaque">
+      <span class="hc-label" id="heartClockLabel">FOREST HEART</span>
+      <span class="hc-num" id="heartClockNum">0:50</span>
+    </div>
+  </div>
+  <div class="boss-hud" id="bossHud" aria-label="Boss health">
+    <div class="boss-fill-track"><div class="boss-fill-lag" id="bossFillLag"></div><div class="boss-fill" id="bossFill"></div></div>
+    <img class="boss-frame" src="assets/level4/sprites/boss_bar.png" alt="" draggable="false">
+    <span class="boss-name" id="bossName"></span>
+  </div>
+
+  <!-- Dialogue box: the speaker's portrait has its own column (Kali on the right, Rakti on the left),
+       so it never covers the title or the text -->
+  <div class="dialogue-box sands-dialogue" id="dialogueBox">
+    <div class="dialogue-content">
+      <div class="dialogue-portrait-container" id="dialoguePortraitContainer" style="display: none;">
+        <div class="portrait-divine-aura"></div>
+        <img id="dialoguePortraitBack" class="dialogue-portrait-img back" src="assets/portraits/kali2_0.png" alt="">
+        <img id="dialoguePortraitImg" class="dialogue-portrait-img" src="assets/portraits/kali2_0.png" alt="Maa Kali">
+        <div class="dialogue-portrait-name" id="dialoguePortraitName">⚜ MAA KALI ⚜</div>
+      </div>
+      <div class="dialogue-inner">
+        <div class="dialogue-header">
+          <span class="dialogue-title" id="dialogueTitle">⚜ WHISPER OF SURYA ⚜</span>
+          <span class="dialogue-rule right"></span>
+        </div>
+        <p class="dialogue-text" id="dialogueText"></p>
+        <div class="dialogue-footer">
+          <span class="dialogue-dismiss" id="dialogueDismiss">[E] CONTINUE</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ornate Golden Interaction Prompt Pill -->
+  <div class="interact-prompt sands-prompt" id="interactPrompt">
+    <span class="prompt-icon">✦</span>
+    <span id="interactPromptText">[E] EXAMINE</span>
+    <span class="prompt-icon">✦</span>
+  </div>
+
+  <!-- Sands of Time Level Complete Modal -->
+  <div class="level-complete-modal sands-complete" id="levelCompleteModal">
+    <div class="complete-inner">
+      <div class="complete-star">⚜ ☀️ ⚜</div>
+      <h1 class="complete-title" id="completeTitle">SANCTUM CONQUERED</h1>
+      <p class="complete-subtitle" id="completeSubtitle">THE SANDS FLOW FORWARD</p>
+      <div class="complete-divider"></div>
+      <p class="complete-flavor" id="completeFlavor">The echoes of the temple bend to your blade.</p>
+      <p class="complete-thanks" id="completeThanks"></p>
+      <div class="complete-prompt" id="completePrompt">[E] ENTER LEVEL 2  |  [R] REPLAY</div>
+    </div>
+  </div>
+
+  <!-- [Esc] pause menu (story and unlimited mode): the title screen's buttons; Restart asks first -->
+  <section class="pause-screen" id="pauseScreen" aria-label="Paused" aria-hidden="true">
+    <div class="pause-panel" id="pauseMain">
+      <h1 class="pause-title">PAUSED</h1>
+      <div class="pause-divider"></div>
+      <button class="menu-button" id="pauseContinue" type="button"><span>CONTINUE</span></button>
+      <button class="menu-button" id="pauseRestart" type="button"><span>RESTART</span></button>
+      <button class="menu-button" id="pauseExit" type="button"><span>EXIT TO MAIN MENU</span></button>
+      <p class="pause-hint">[ESC] RESUME</p>
+    </div>
+    <div class="pause-panel pause-confirm" id="pauseConfirm" hidden>
+      <h2 class="pause-question">ARE YOU SURE?</h2>
+      <p class="pause-warning" id="pauseConfirmText">You will go back to the start of this level. All progress in it will be lost.</p>
+      <div class="pause-confirm-row">
+        <button class="menu-button small" id="pauseYes" type="button"><span>YES</span></button>
+        <button class="menu-button small" id="pauseNo" type="button"><span>NO</span></button>
+      </div>
+    </div>
+  </section>
+
+  <section class="title-screen active" id="titleScreen" aria-label="Rakti title screen">
+    <div class="title-backdrop"></div>
+    <div class="title-shade"></div>
+    <div class="music-hint" id="musicHint">&#9834; PRESS ANY KEY OR CLICK FOR MUSIC</div>
+    <div class="title-menu" id="titleMainMenu">
+      <img class="title-logo-image" src="assets/title/rakti-logo.png" alt="Rakti: The Last Guardian">
+      <div class="title-actions">
+        <button class="menu-button" id="startGameButton" type="button">
+          <span>CAMPAIGN MODE</span>
+        </button>
+        <button class="menu-button" id="endlessGameButton" type="button">
+          <span>UNLIMITED MODE</span>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <section class="loading-screen" id="loadingScreen" aria-label="Loading next level" aria-hidden="true">
+    <div class="loading-aura" aria-hidden="true"></div>
+    <img class="loading-sigil" src="assets/title/kali-loading-sigil.png" alt="">
+    <div class="loading-text">
+      <p class="loading-label"><span class="loading-rule" aria-hidden="true"></span>Loading<span class="loading-rule" aria-hidden="true"></span></p>
+      <p class="loading-level" id="loadingLevel"></p>
+    </div>
+  </section>
+
+  <script type="module" src="js/core/titleMusic.js"></script>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

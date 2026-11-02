@@ -59,95 +59,145 @@ const MUSIC_BASE = 'assets/audio/music/';
  * Background music (one track at a time, looped). Browsers refuse to start sound before the player has
  * clicked or pressed a key, so if the first try is blocked the track starts on the first click or key press.
  */
+// Music tracks (assets/audio/music, loudness-matched to -16 LUFS by tools/music_prep): vol = element volume.
+// The level themes sit low under the sound effects. loop: false plays once (Level 4's arrival).
+const TRACKS = {
+  title:        { vol: 0.42, loop: true,  label: 'Main Theme' },
+  level1:       { vol: 0.13, loop: true,  label: 'Drowned Dwaraka' },
+  level2:       { vol: 0.13, loop: true,  label: 'The Sun Wastes' },
+  level3:       { vol: 0.13, loop: true,  label: 'The Jungle' },
+  level4_start: { vol: 0.16, loop: false, label: 'The Red Fort' },
+  pitaji_fight: { vol: 0.15, loop: true,  label: 'Pitaji' },
+  demon_fight:  { vol: 0.15, loop: true,  label: 'The Asura' },
+  sands:        { vol: 0.2,  loop: false, label: 'The Sands of Time' }
+};
+const MUSIC_FADE = 0.8;   // s for a track to fade in or out
+
+/**
+ * Two layers of music. The base layer is the start menu's or the level's theme; the overlay (the Sands of Time)
+ * fades the base out and pauses it while it plays, and the base resumes where it left off afterwards.
+ * The engine decides every frame what should play (setBase / setOverlay); a track already playing just continues.
+ */
 class MusicPlayer {
   constructor() {
-    this.volume = 0.4;
     this.muted = false;
-    this.audio = null;
-    this.name = null;
-    this.fade = null;
+    this.duck = 1;          // the pause menu turns everything down a little
+    this.base = null;
+    this.overlay = null;
+    this.dying = [];
     if (typeof window !== 'undefined') {
       // The music is a media element like a YouTube tab: switching to another tab never pauses it. If the browser
-      // held it back at load (autoplay blocked), try again whenever the page is shown, focused or restored; some
-      // browsers allow it by then (a site the player has used before, or a tab opened by a click).
+      // held it back at load (autoplay blocked), try again whenever the page is shown, focused or restored.
       const retry = () => this.tryStart();
       document.addEventListener('visibilitychange', retry);
       window.addEventListener('focus', retry);
       window.addEventListener('pageshow', retry);
+      this.last = performance.now();
+      setInterval(() => this.tick(), 40);
     }
   }
 
-  /** Starts the wanted track if it is sitting paused because an earlier play() was refused. */
+  /** The base track's name (null when silent). */
+  get name() { return this.base?.name ?? null; }
+
+  // older callers: play(name) / stop() act on the base layer
+  play(name) { this.setBase(name); }
+  stop(seconds = MUSIC_FADE) { this.setBase(null, seconds); }
+
+  setBase(name, fade = MUSIC_FADE) {
+    if ((this.base?.name ?? null) === (name ?? null)) return;
+    if (this.base) this.retire(this.base, fade);
+    this.base = name ? this.make(name) : null;
+  }
+
+  setOverlay(name, fade = MUSIC_FADE) {
+    if ((this.overlay?.name ?? null) === (name ?? null)) return;
+    if (this.overlay) this.retire(this.overlay, fade);
+    this.overlay = name ? this.make(name) : null;
+  }
+
+  make(name) {
+    if (typeof Audio === 'undefined') return null;
+    const def = TRACKS[name] || { vol: 0.3, loop: true, label: name };
+    const audio = new Audio(`${MUSIC_BASE}${name}.mp3`);
+    audio.loop = def.loop;
+    audio.preload = 'auto';
+    audio.volume = 0;
+    const L = { name, def, audio, level: 0, ended: false, blocked: false, held: false };
+    audio.addEventListener('ended', () => { L.ended = true; });
+    this.announce(def.label);
+    this.start(L);
+    return L;
+  }
+
+  start(L) {
+    L.audio.play().then(() => { L.blocked = false; this.showHint(false); }).catch(() => {
+      if (this.base !== L && this.overlay !== L) return;
+      L.blocked = true;
+      this.startOnFirstInput(L);
+    });
+  }
+
+  retire(L, fade) {
+    if (!L) return;
+    L.fade = Math.max(0.05, fade);
+    this.dying.push(L);
+  }
+
+  /** Volumes glide toward their targets; the base pauses (keeping its place) under the overlay and resumes after. */
+  tick() {
+    const now = performance.now(), dt = Math.min(0.2, (now - this.last) / 1000);
+    this.last = now;
+    const step = dt / MUSIC_FADE;
+    for (const L of [this.base, this.overlay]) {
+      if (!L) continue;
+      const under = L === this.base && this.overlay && !this.overlay.ended;
+      const target = this.muted ? 0 : L.def.vol * this.duck * (under ? 0 : 1);
+      L.level = L.level < target ? Math.min(target, L.level + step * L.def.vol) : Math.max(target, L.level - step * L.def.vol);
+      L.audio.volume = Math.max(0, Math.min(1, L.level));
+      if (under && L.level <= 0.001 && !L.audio.paused) { L.audio.pause(); L.held = true; }
+      if (!under && L.held && !L.ended) { L.held = false; this.start(L); }
+    }
+    for (let i = this.dying.length - 1; i >= 0; i--) {
+      const L = this.dying[i];
+      L.level = Math.max(0, L.level - (dt / L.fade) * Math.max(0.05, L.def.vol));
+      L.audio.volume = Math.max(0, Math.min(1, L.level));
+      if (L.level <= 0) { L.audio.pause(); this.dying.splice(i, 1); }
+    }
+  }
+
+  /** Starts a wanted track that is sitting paused because the browser refused it. */
   tryStart() {
-    const audio = this.audio;
-    if (this.blocked) return;
-    if (!audio || !this.name || !audio.paused) return;
-    audio.play().then(() => this.showHint(false)).catch(() => {});
+    for (const L of [this.base, this.overlay]) if (L && L.blocked && !L.held) this.start(L);
   }
 
   /** Lets the browser treat the page as a media player: it shows in the media controls and stays alive in a background tab. */
-  announce(name) {
+  announce(label) {
     if (typeof navigator === 'undefined' || !('mediaSession' in navigator) || typeof MediaMetadata === 'undefined') return;
-    navigator.mediaSession.metadata = new MediaMetadata({ title: 'Rakti: The Last Guardian', artist: name === 'title' ? 'Main Theme' : name });
+    navigator.mediaSession.metadata = new MediaMetadata({ title: 'Rakti: The Last Guardian', artist: label });
     navigator.mediaSession.playbackState = 'playing';
   }
 
-  play(name) {
-    if (typeof Audio === 'undefined' || this.blocked) return;
-    clearInterval(this.fade);
-    if (this.name === name && this.audio) { this.audio.volume = this.muted ? 0 : this.volume; return; }   // already playing, or waiting for the first click
-    this.stopNow();
-    this.name = name;
-    const audio = this.audio = new Audio(`${MUSIC_BASE}${name}.mp3`);
-    audio.loop = true;
-    audio.preload = 'auto';   // fully buffered before the first click, so it starts the instant the browser allows
-    audio.volume = this.muted ? 0 : this.volume;
-    this.announce(name);
-    audio.play().catch(() => { if (this.audio === audio) this.startOnFirstInput(audio); });
-  }
-
   /** The browser refused to start the track (always so right after a page refresh): start it on the first click,
-   *  key press or touch. Keeps listening until one of those is accepted, and shows a hint meanwhile. */
-  startOnFirstInput(audio) {
+   *  key press or touch. Keeps listening until one of those is accepted, and shows a hint on the start menu. */
+  startOnFirstInput(L) {
     const events = ['pointerdown', 'pointerup', 'mousedown', 'click', 'keydown', 'touchstart', 'touchend'];
     const done = () => { for (const type of events) window.removeEventListener(type, go); this.showHint(false); };
     const go = () => {
-      if (this.audio !== audio || !this.name) { done(); return; }   // stopped meanwhile (the game started): never revive it
-      audio.play().then(done).catch(() => {});
+      if (this.base !== L && this.overlay !== L) { done(); return; }   // no longer wanted: never revive it
+      L.audio.play().then(() => { L.blocked = false; done(); }).catch(() => {});
     };
     for (const type of events) window.addEventListener(type, go, { passive: true });
-    this.showHint(true);
+    if (L.name === 'title') this.showHint(true);
   }
 
   showHint(on) {
     if (typeof document !== 'undefined') document.getElementById('musicHint')?.classList.toggle('show', on);
   }
 
-  /** Fades the track out and rewinds it, so the next play() starts from the beginning again. */
-  stop(seconds = 0.8) {
-    const audio = this.audio;
-    if (!audio) return;
-    this.name = null;
-    this.showHint(false);
-    clearInterval(this.fade);
-    const from = audio.volume, t0 = performance.now();
-    this.fade = setInterval(() => {
-      const k = Math.min(1, (performance.now() - t0) / (seconds * 1000));
-      audio.volume = from * (1 - k);
-      if (k >= 1) { clearInterval(this.fade); if (this.audio === audio) this.stopNow(); }
-    }, 40);
-  }
+  setDuck(k) { this.duck = k; }
 
-  stopNow() {
-    if (!this.audio) return;
-    this.audio.pause();
-    this.audio = null;
-  }
-
-  setMuted(muted) {
-    this.muted = muted;
-    if (this.audio) this.audio.volume = muted ? 0 : this.volume;
-  }
+  setMuted(muted) { this.muted = muted; }
 }
 
 class SfxPlayer {

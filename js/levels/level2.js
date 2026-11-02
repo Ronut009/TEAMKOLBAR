@@ -9,10 +9,19 @@
  *                     becomes a sphere and is hurled onto the tower top
  *   1-2             - a chasm of floating rocks: [Q] turns them into stone platforms
  *   2 dunes (mirror)- tower 2: a second archer and a second boulder. When he falls a ladder
- *                     unfurls and the Sun Key floats over the tower top
+ *                     unfurls and the SANDS OF TIME (an hourglass, power [F]) float over the tower top
  *   3-4 dunes       - a long run past the tower, then a quicksand pit crossed on three crumbling slabs;
  *                     three Betal guard the sun door
- *   5 the sun door  - the key opens it (closed -> open art) and Rakti walks into the hall
+ *   5 the sun door  - locked, and there is no key: the Sun Key lies back at the FIRST tower. The desert quickens
+ *                     (traps and arrows HASTE x faster). The way back (RETURN_WAVES):
+ *                       door: 2 Betal + 2 archers walk in from the door side
+ *                       chasm 2: the slabs rise and sink in a wave too fast to ride - only with the Sands [F]
+ *                       tower 2's floor: 2 archers;  chasm 1: the [Q] slabs now crumble
+ *                       tower 1's floor: 2 Betal + 1 archer, and a new archer on tower 1
+ *                     Every enemy of the way back slain fills the hourglass; full (all 9), [F] by tower 1's
+ *                     broken boulder rewinds time ONCE: it flies back together, [Q] crushes the tower archer, a
+ *                     ladder unfurls, the key waits on top. Enemies left behind leap the quicksand after her.
+ *                     With the key the desert calms; the key opens the sun door and Rakti walks into the hall
  * The hall (two screens, in its own stretch of the world; the camera is limited to it):
  *   the shrine holds the Trishul -> an archer on the hall's tower (only the Trishul reaches him)
  *   -> a horde of 3 Betal and 2 archers -> the end door opens into a portal -> Level 3.
@@ -96,6 +105,33 @@ const SHRINE = { w: 360, h: 354, draw: 84 };
 const TRISHUL_UP = { w: 77, h: 300, draw: 58 };
 
 const PIT_DAMAGE = 3;
+// The way back for the key: traps, arrows and enemies outside run this much faster (the Sands of Time slow them)
+const HASTE = 1.6;
+const HOURGLASS = { w: 294, h: 240, draw: 34 };
+// The rewind at tower 1 (seconds): the shards gather on the roof, the sphere flies back down its arc, the stone re-forms
+const REWIND = { gather: 1.1, fly: 2.1, unform: 2.7, end: 3.2 };
+// The way back for the key. floor: 3 the door's floor, 2 tower 2's, 1 tower 1's. wave 1 walks in from the door side
+// when the desert quickens; waves 2 and 3 already wait on their floors.
+const RETURN_FLOORS = { 1: [700, 1470], 2: [2060, 2845], 3: [3425, 4185] };
+const RETURN_WAVES = [
+  { id: 'R1', kind: 'betal', wave: 1, floor: 3, post: 4110, delay: 0.2 },
+  { id: 'R2', kind: 'betal', wave: 1, floor: 3, post: 4160, delay: 0.9 },
+  { id: 'R3', kind: 'archer', wave: 1, floor: 3, post: 4146, delay: 1.6 },
+  { id: 'R4', kind: 'archer', wave: 1, floor: 3, post: 4178, delay: 2.3 },
+  { id: 'R5', kind: 'archer', wave: 2, floor: 2, post: 2620 },
+  { id: 'R6', kind: 'archer', wave: 2, floor: 2, post: 2290 },
+  { id: 'R7', kind: 'betal', wave: 3, floor: 1, post: 1330 },
+  { id: 'R8', kind: 'betal', wave: 3, floor: 1, post: 1080 },
+  { id: 'R9', kind: 'archer', wave: 3, floor: 1, post: 1430 }
+];
+// Chasm 2 on the way back: the slabs rise out of the quicksand one after another (westward) and sink again. Each is up
+// for `window` (wave time), the next rises `step` later, the pattern repeats every `period`, and wave time runs `rush` x
+// the (already quickened) world time. Hasted, no jump between two slabs is quick enough to land inside the next window;
+// slowed by the Sands every normal jump is.
+// Way back, chasm 2: with the Sands slowing time a stepped-on slab holds this long (world s, ~0.7 s real) before it
+// drops; without them it drops the instant she lands.
+const RETURN_FALL_SANDS = 0.25;
+const SLAB_WAVE = { rush: 1.7, step: 0.45, window: 0.65, period: 3.4, rise: 0.12, sunk: 78 };
 
 function img(src) {
   const i = new Image();
@@ -108,6 +144,8 @@ function freshProgress() {
   return {
     introDone: false, qUnlocked: false,
     archerA: false, slabsRaised: false, archerB: false, keyTaken: false, door1Open: false,
+    // the Sands of Time and the way back for the key
+    sandsTaken: false, doorTried: false, rewound: false, archerA2: false, herdDead: {},
     inRoom: false, trishulTaken: false, archerC: false, hordeStarted: false, hordeCleared: false,
     said: {}     // one-off Kali lines already spoken
   };
@@ -136,6 +174,7 @@ export class Level2 {
     this.ballSheet = img(S + 'stone_ball_sheet.png');
     this.slabSheet = img(S + 'stone_slab_sheet.png');
     this.keyImg = img(S + 'key.png');
+    this.hourglassImg = img(S + 'sands_hourglass.png');
     this.quicksandImg = img(S + QS.src);
     this.pierImg = img(S + 'pier.png');
     this.shrineImg = img(S + 'shrine.png');
@@ -155,6 +194,9 @@ export class Level2 {
       defeated: die[2],
       arrow: img('assets/anims/archer_arrow.png')
     };
+    // walking archers (the way back's enemies walking in): the 6 walk frames in the idle slot
+    const walk = frames('walk', 6);
+    this.archerWalkSprites = { ...this.archerSprites, idle: walk[0], idleFrames: walk };
 
     // ------------------------------------------------------------ outside geometry
     // the rift in the start screen (measured: blue swirl at image x 107-263, rows 217-792)
@@ -223,6 +265,7 @@ export class Level2 {
       t.ladderX = t.cx + (TOWER.ladderX - TOWER.cx) * TOWER_SCALE;
     }
     this.ladderShown = 0;   // tower 2's ladder (0 hidden .. 1 fully drawn)
+    this.ladderShown1 = 0;  // tower 1's ladder (it unfurls when the second archer there falls)
     this.ladders = [];
 
     // Archers
@@ -241,6 +284,9 @@ export class Level2 {
     this.archers.H2.shootCooldown = 3.4;
     this.archers.A.crushOnly = true;    // only Kali's stone reaches them
     this.archers.B.crushOnly = true;
+    // The way back: a new archer holds tower 1 (only the rewound boulder reaches him)
+    this.archers.A2 = archer('A2', this.towers[0].cx, TOWER_ROOF_Y);
+    this.archers.A2.crushOnly = true;
 
     // [Q] stones: boulders that become spheres hurled at an archer, and floating rocks that become platforms
     const ballCY = FLOOR_Y + 2 - (BALL.bottom - BALL.anchorY) * BALL.scale;
@@ -253,6 +299,8 @@ export class Level2 {
       { cx: 1763, top: 306 },
       { cx: 1918, top: 326 }
     ].map((s, i) => ({ ...s, state: 'raw', t: 0, delay: 0, phase: i * 1.7 }));
+    // on the way back for the key the [Q] slabs crumble like the fallers
+    this.slabFallers = this.slabs.map((q, i) => ({ cx: q.cx, top: q.top, phase: i * 1.3, state: 'idle', t: 0, dy: 0, vy: 0, alpha: 1 }));
     // The second chasm is crossed on crumbling slabs: each one drops shortly after Rakti lands on it.
     // The gaps are wide enough that no jump clears two slabs at once.
     this.fallers = [
@@ -261,8 +309,9 @@ export class Level2 {
       { cx: 3286, top: 330 }
     ].map((f, i) => ({ ...f, phase: i * 1.3, state: 'idle', t: 0, dy: 0, vy: 0, alpha: 1 }));
 
-    // Sun Key over tower 2, the sun door, the hall door
-    this.key = { x: this.towers[1].cx, y: TOWER_ROOF_Y - 32, shown: 0, taken: false, fly: 0, fromX: 0, fromY: 0 };
+    // The Sands of Time over tower 2, the Sun Key over tower 1 (once its second archer falls), the sun door, the hall door
+    this.hourglass = { x: this.towers[1].cx, y: TOWER_ROOF_Y - 36, shown: 0, taken: false, fly: 0, fromX: 0, fromY: 0 };
+    this.key = { x: this.towers[0].cx, y: TOWER_ROOF_Y - 32, shown: 0, taken: false, fly: 0, fromX: 0, fromY: 0 };
     this.door1 = { cx: X(5, 1457), x1: X(5, 1390), x2: X(5, 1525), midY: BGY(620), anim: 0 };
     this.door2 = { cx: RX(1, 1450), x1: RX(1, 1345), x2: RX(1, 1555), midY: BGY(610), anim: 0 };
 
@@ -286,9 +335,26 @@ export class Level2 {
       new Betal(ROOM_X + 1240, ROOM_X + 1170, ROOM_X + 1310, FLOOR_Y),
       new Betal(ROOM_X + 1390, ROOM_X + 1320, ROOM_X + 1450, FLOOR_Y)
     ];
-    for (const b of outside) b.area = 'out';
+    for (const b of outside) { b.area = 'out'; b.orig = true; }
     for (const b of horde) { b.area = 'room'; b.horde = true; }
     this.betals = [...outside, ...horde];
+    // the way back for the key (see RETURN_WAVES): archers join this.archers, Betal this.betals
+    this.returnMembers = RETURN_WAVES.map((d) => {
+      const [f1, f2] = RETURN_FLOORS[d.floor];
+      let who;
+      if (d.kind === 'betal') {
+        who = new Betal(d.post, Math.max(f1, d.post - 170), Math.min(f2, d.post + 170), FLOOR_Y);
+        who.area = 'out';
+        this.betals.push(who);
+      } else {
+        who = this.archers[d.id] = archer(d.id, d.post, FLOOR_Y);
+        who.shootCooldown = 3.0;
+        who.isArcher = true;
+      }
+      who.ret = d;
+      who.id = d.id;
+      return { ...d, who };
+    });
 
     // Checkpoints: 0 portal, 1 past tower 1, 2 past tower 2, 3 hall entrance, 4 at the shrine
     this.checkpoints = [
@@ -296,7 +362,8 @@ export class Level2 {
       { x: 1300, area: 'out' },
       { x: 2305, area: 'out' },
       { x: ROOM_X + 150, area: 'room' },
-      { x: ROOM_X + 840, area: 'room' }
+      { x: ROOM_X + 840, area: 'room' },
+      { x: 3470, area: 'out' }      // 5: at the sun door, when the way back for the key begins
     ];
     this.checkpointIndex = 0;
     this.saved = freshProgress();
@@ -318,7 +385,13 @@ export class Level2 {
   /** Called by the engine when Rakti arrives from another level (not on death or [R]). */
   /** The Trishul on its shrine: what Rakti needs to reach to go on. */
   crucialItem() {
-    return this.progress.trishulTaken ? null : { x: this.shrine.x, y: FLOOR_Y };
+    const p = this.progress;
+    if (this.area === 'out') {
+      if (p.archerB && !p.sandsTaken) return { x: this.hourglass.x, y: TOWER_ROOF_Y };
+      if (p.archerA2 && !p.keyTaken) return { x: this.key.x, y: TOWER_ROOF_Y };
+      return null;
+    }
+    return p.trishulTaken ? null : { x: this.shrine.x, y: FLOOR_Y };
   }
 
   freshStart() {
@@ -377,8 +450,12 @@ export class Level2 {
       if (dead) { a.alive = false; a.gone = true; a.arrows = []; a.attachedArrow = null; }
       if ((id === 'H1' || id === 'H2') && !p.hordeCleared) a.hidden = true;   // they arrive with the horde
     }
-    this.balls[0].state = p.archerA ? 'gone' : 'idle';
+    // tower 1's boulder: thrown at the first archer, then (rewound) at the second
+    this.balls[0].state = !p.archerA ? 'idle' : (p.rewound && !p.archerA2) ? 'idle' : 'gone';
+    this.balls[0].target = p.archerA ? 'A2' : 'A';
     this.balls[1].state = p.archerB ? 'gone' : 'idle';
+    this.rewind = null;
+    this.hasteWind = 0;
     for (const b of this.balls) {
       // back where it lay (a death mid-throw used to leave it on the tower top)
       b.x0 ??= b.x; b.y0 ??= b.y;
@@ -388,9 +465,18 @@ export class Level2 {
     for (const s of this.slabs) { s.state = p.slabsRaised ? 'solid' : 'raw'; s.t = 0; s.delay = 0; s.pulled = false; }
     for (const f of this.fallers) Object.assign(f, { state: 'idle', t: 0, dy: 0, vy: 0, alpha: 1 });
     this.ladderShown = p.archerB ? 1 : 0;
-    this.key.shown = p.archerB && !p.keyTaken ? 1 : 0;
+    this.ladderShown1 = p.archerA2 ? 1 : 0;
+    this.hourglass.shown = p.archerB && !p.sandsTaken ? 1 : 0;
+    this.hourglass.taken = p.sandsTaken;
+    this.hourglass.fly = p.sandsTaken ? 1 : 0;
+    this.key.shown = p.archerA2 && !p.keyTaken ? 1 : 0;
     this.key.taken = p.keyTaken;
     this.key.fly = p.keyTaken ? 1 : 0;
+    // the second archer on tower 1 and the herd (only once the way back has begun)
+    const A2 = this.archers.A2;
+    A2.hidden = !p.doorTried;
+    if (p.archerA2) { A2.alive = false; A2.gone = true; A2.arrows = []; A2.attachedArrow = null; }
+
     this.door1.anim = p.door1Open ? 1 : 0;
     this.door1.keyFly = p.door1Open ? 1 : 0;
     this.door2.anim = p.hordeCleared ? 1 : 0;
@@ -407,6 +493,13 @@ export class Level2 {
         if (p.hordeCleared) { b.dead = true; b.removed = true; b.hidden = false; }
       }
     }
+    // the desert's first Betal are gone for good once the way back has begun (they used to come back on a respawn)
+    if (p.doorTried) for (const b of this.betals) if (b.orig) { b.dead = true; b.removed = true; }
+    const anchor = this.getRespawnPoint().x;   // the door wave forms up around where she comes back
+    for (const m of this.returnMembers) this.placeReturnMember(m, p, anchor);
+    for (const q of this.slabFallers) Object.assign(q, { state: 'idle', t: 0, dy: 0, vy: 0, alpha: 1, sank: false });
+    for (const f of this.fallers) f.wave = false;
+    this.waveClock = 0;
     this.updateLadders();
   }
 
@@ -417,8 +510,9 @@ export class Level2 {
   }
 
   updateLadders() {
-    const t = this.towers[1];
-    this.ladders = this.ladderShown >= 1 ? [{ x: t.ladderX, y1: TOWER_ROOF_Y, y2: FLOOR_Y }] : [];
+    this.ladders = [];
+    if (this.ladderShown >= 1) this.ladders.push({ x: this.towers[1].ladderX, y1: TOWER_ROOF_Y, y2: FLOOR_Y });
+    if (this.ladderShown1 >= 1) this.ladders.push({ x: this.towers[0].ladderX, y1: TOWER_ROOF_Y, y2: FLOOR_Y });
   }
 
   // ======================================================================== geometry
@@ -432,12 +526,47 @@ export class Level2 {
       if (pit.area === this.area && pit.sand !== false) list.push({ id: 'quicksand', pit, x1: pit.x1, x2: pit.x2, y: SAND_Y + this.qsDepth, oneWay: false });
     }
     if (this.area === 'out') {
-      for (const s of this.slabs) if (s.state === 'solid') list.push({ id: 'slab', ...this.slabBox(s), oneWay: true });
-      for (const f of this.fallers) {
-        if (f.state === 'idle' || f.state === 'shaking') list.push({ id: 'faller', faller: f, ...this.slabBox(f), oneWay: true });
+      const back = this.onWayBack;
+      if (back) {
+        // the way back: the [Q] slabs crumble, and the second chasm's slabs rise and sink in their wave
+        for (const q of this.slabFallers) if (q.state === 'idle' || q.state === 'shaking') list.push({ id: 'faller', faller: q, ...this.slabBox(q), oneWay: true });
+        for (const f of this.fallers) if (f.state === 'idle' || f.state === 'shaking') list.push({ id: 'faller', faller: f, ...this.slabBox(f), oneWay: true });
+      } else {
+        for (const s of this.slabs) if (s.state === 'solid') list.push({ id: 'slab', ...this.slabBox(s), oneWay: true });
+        for (const f of this.fallers) {
+          if (f.state === 'idle' || f.state === 'shaking') list.push({ id: 'faller', faller: f, ...this.slabBox(f), oneWay: true });
+        }
       }
     }
     return list;
+  }
+
+  /** On the way back for the key (the desert quickened, the key not yet taken). */
+  get onWayBack() { return this.progress.doorTried && !this.progress.keyTaken; }
+
+  /** Chasm 2 on the way back: where each slab is in its wave (k = its order westward from the door). */
+  updateSlabWave(dt, player) {
+    const W = SLAB_WAVE;
+    this.waveClock = (this.waveClock || 0) + dt * W.rush;
+    const order = [...this.fallers].sort((a, b) => b.cx - a.cx);
+    order.forEach((f, k) => {
+      f.wave = true;
+      f.state = 'wave';
+      f.alpha = 1;
+      const u = (((this.waveClock - k * W.step) % W.period) + W.period) % W.period;
+      const wasSolid = f.waveSolid;
+      f.waveSolid = u <= W.window;
+      // it surfaces just before its window and goes under just after it
+      if (f.waveSolid) f.dy = 0;
+      else if (u < W.window + W.rise) f.dy = ((u - W.window) / W.rise) * W.sunk;
+      else if (u > W.period - W.rise) f.dy = ((W.period - u) / W.rise) * W.sunk;
+      else f.dy = W.sunk;
+      if (!f.waveSolid && wasSolid) {
+        if (this.inView(f.cx - 40, f.cx + 40)) this.burst(f.cx, SAND_Y - 2, 8, ['#dca15c', '#c3823f', '#ffe1a8'], 60, 0.4);
+        if (player && player.currentPlatform?.faller === f) { player.isGrounded = false; player.currentPlatform = null; }
+      }
+      if (f.waveSolid && !wasSolid && this.inView(f.cx - 40, f.cx + 40)) this.burst(f.cx, SAND_Y - 2, 6, ['#ffe1a8', '#dca15c'], 50, 0.35);
+    });
   }
 
   slabBox(s) {
@@ -481,15 +610,37 @@ export class Level2 {
   // ======================================================================== interactions
   getNearbyInteractable(px, py) {
     const p = this.progress;
-    if (this.transition || this.intro) return null;
+    if (this.transition || this.intro || this.rewind) return null;
     if (this.area === 'out') {
-      // Sun Key over tower 2's roof
-      const t2 = this.towers[1];
-      if (this.key.shown >= 1 && !this.key.taken && Math.abs(px - this.key.x) < 44 && Math.abs(py - t2.roof.y) < 8) {
+      // the Sands of Time over tower 2's roof
+      const t2 = this.towers[1], t1 = this.towers[0];
+      if (this.hourglass.shown >= 1 && !this.hourglass.taken && Math.abs(px - this.hourglass.x) < 44 && Math.abs(py - t2.roof.y) < 8) {
+        return {
+          type: 'l2_sands', x: this.hourglass.x, y: this.hourglass.y, prompt: '[E] TAKE THE SANDS OF TIME', speaker: 'kali', title: '⚜ THE SANDS OF TIME ⚜',
+          text: 'The Sands of Time, Rakti: the archer was guarding my hourglass. Press [F] and the world around you slows for eight breaths, its blades, its arrows and its traps, while you move as you always do. Then the sands must fall back before you can turn them again.',
+          onInteract: () => this.takeSands()
+        };
+      }
+      // the Sun Key over tower 1's roof (once its second archer has fallen)
+      if (this.key.shown >= 1 && !this.key.taken && Math.abs(px - this.key.x) < 44 && Math.abs(py - t1.roof.y) < 8) {
         return {
           type: 'l2_key', x: this.key.x, y: this.key.y, prompt: '[E] TAKE THE SUN KEY', speaker: 'kali', title: '⚜ THE SUN KEY ⚜',
-          text: 'The Sun Key. The archers guarded it with their lives. The great door at the end of these sands has waited a long time for it, Rakti.',
+          text: 'The Sun Key, at last. Feel that? The sands are settling: the desert has lost its hurry now that the key is yours. Back to the sun door, Rakti.',
           onInteract: () => this.takeKey()
+        };
+      }
+      // the rewind: by the broken boulder's pile at tower 1, while its second archer stands
+      if (this.rewindPending() && Math.abs(px - this.balls[0].x0) < 190 && Math.abs(py - FLOOR_Y) < 8) {
+        const c = this.sandsCharge();
+        if (!c.ready) {
+          return {
+            type: 'inspection', x: this.balls[0].x0, y: FLOOR_Y, prompt: `⟲ SANDS NOT CHARGED · ${c.have}/${c.need}`, speaker: 'kali', title: '⚜ THE SANDS OF TIME ⚜',
+            text: `The hourglass is not full yet, Rakti. Every warrior the desert sent after you fills it as he falls: ${c.need - c.have} still stand.`
+          };
+        }
+        return {
+          type: 'inspection', x: this.balls[0].x0, y: FLOOR_Y, prompt: '[F] TURN BACK THE SANDS', speaker: 'kali', title: '⚜ THE SANDS OF TIME ⚜',
+          text: 'Your boulder lies shattered on that roof. Press [F] here and turn the sands backward: only once, Rakti, and only for this stone.'
         };
       }
       // The sun door
@@ -501,9 +652,19 @@ export class Level2 {
             onInteract: () => this.openSunDoor()
           };
         }
+        if (p.sandsTaken && !p.doorTried) {
+          // the twist: there is no key
+          return {
+            type: 'inspection', x: this.door1.cx, y: FLOOR_Y, prompt: '[E] OPEN THE SUN DOOR', speaker: 'rakti', title: '⚜ THE SUN DOOR ⚜',
+            text: 'It will not move... there is a sun-shaped lock, and I have no key! The archer on the second tower was guarding the hourglass, not a key.',
+            onInteract: () => this.startDoorTwist()
+          };
+        }
         return {
           type: 'inspection', x: this.door1.cx, y: FLOOR_Y, prompt: '[E] SEALED DOOR', speaker: 'stele', title: '⚜ THE SUN DOOR ⚜',
-          text: 'A sun-shaped lock holds the great doors shut. Its key must lie somewhere in these sands, where the archers keep watch.'
+          text: p.doorTried
+            ? 'The sun-shaped lock waits for its key. It lies back at the first tower.'
+            : 'A sun-shaped lock holds the great doors shut. Something on the second tower still calls to you.'
         };
       }
       // [Q] hints once Kali has taught it
@@ -541,6 +702,296 @@ export class Level2 {
     return null;
   }
 
+  // ======================================================================== the Sands of Time & the way back
+  takeSands() {
+    const H = this.hourglass;
+    if (H.taken) return;
+    H.taken = true;
+    H.fly = 0; H.fromX = H.x; H.fromY = H.y;
+    this.progress.sandsTaken = true;
+    if (this.player) this.player.hasSands = true;
+    Sfx.play('item_get');
+    this.cameraShake = 0.4;
+    this.toast('⏳ SANDS OF TIME · PRESS [F]', 2.6);
+    const flash = typeof document !== 'undefined' && document.getElementById('divineFlash');
+    if (flash) { flash.classList.add('active'); setTimeout(() => flash.classList.remove('active'), 250); }
+  }
+
+  /** [E] at the sun door with the hourglass but no key: Kali tells her the key is back at the first tower, and
+   *  when the talk ends the desert quickens (startHaste). */
+  startDoorTwist() {
+    this.pendingDialogue = {
+      lines: [
+        { s: 'kali', t: 'Look at the lock, Rakti: the shape of the sun, burnt into the stone. I have seen that mark once today... on the first tower.' },
+        { s: 'rakti', t: 'The first tower? All the way back, past the slabs and the quicksand?' },
+        { s: 'kali', t: 'And faster than before. Feel it? The desert has woken against you: its traps quicken, and its warriors are coming through the door behind you. Turn the Sands with [F] when they press you, and slay every one of them: each that falls fills the hourglass, and you will need it full.' }
+      ],
+      onDone: () => this.startHaste()
+    };
+  }
+
+  startHaste() {
+    const p = this.progress;
+    if (p.doorTried) return;
+    p.doorTried = true;
+    this.cameraShake = 0.8;
+    this.toast('⚠ THE DESERT QUICKENS ⚠', 2.6);
+    this.archers.A2.hidden = false;
+    this.archers.A2.appear = 1;
+    // the desert's first Betal melt back into the sand: only the way back's enemies remain
+    for (const b of this.betals) {
+      if (!b.orig || b.dead) continue;
+      if (this.inView(b.x - 30, b.x + 30)) this.burst(b.x, b.y - 30, 18, ['#dca15c', '#c3823f', '#ffe1a8'], 90, 0.6);
+      b.dead = true; b.removed = true;
+    }
+    const anchor = this.player ? this.player.x : this.door1.cx;
+    for (const m of this.returnMembers) this.placeReturnMember(m, p, anchor);
+    this.saveCheckpoint(5, false);
+  }
+
+  /** Puts one enemy of the way back where he belongs: nothing before the desert quickens; slain ones stay slain;
+   *  the door's wave walks in from beyond the sun door; the others wait at their posts on their own floors. */
+  /** Where one of the door's wave ends up, around where Rakti stands (anchorX): the Betal come right at her and
+   *  hunt over the whole door floor; the archers take posts well spread out, on the side of her with more room
+   *  (when she stands by the door they run past her to the west). */
+  waveOnePost(m, anchorX) {
+    const [f1, f2] = RETURN_FLOORS[3];
+    const k = m.id === 'R2' || m.id === 'R4' ? 1 : 0;
+    if (m.kind === 'betal') return Math.max(f1 + 30, Math.min(f2 - 15, anchorX + 110 + k * 45));
+    const east = anchorX < (f1 + f2) / 2;
+    return east ? Math.min(f2 - 15, anchorX + 300 + k * 95) : Math.max(f1 + 30, anchorX - 260 - k * 95);
+  }
+
+  placeReturnMember(m, p, anchorX = null) {
+    const w = m.who;
+    w.entry = null;
+    w.walking = false;
+    m.floor = RETURN_WAVES.find((d) => d.id === m.id).floor;
+    const [f1, f2] = RETURN_FLOORS[m.floor];
+    w.reset();
+    if (m.kind === 'betal') {
+      w.spawn.x = m.post; w.minX = Math.max(f1, m.post - 170); w.maxX = Math.min(f2, m.post + 170);
+      w.x = m.post;
+    } else {
+      w.x = m.post; w.y = FLOOR_Y; w.appear = 1; w.goneT = 0; w.gone = false; w.fadeAlpha = 1;
+      w.dormant = true;
+    }
+    w.hidden = !p.doorTried;
+    if (!p.doorTried) return;
+    if (p.herdDead[m.id]) {
+      if (m.kind === 'betal') { w.dead = true; w.removed = true; }
+      else { w.alive = false; w.gone = true; w.arrows = []; w.attachedArrow = null; }
+      return;
+    }
+    this.applyReturnRush(w);
+    const view = 430;   // about half a screen: beyond this from her, an enemy is out of sight
+    if (m.wave === 1) {
+      // the door's wave: the Betal walk in from the door side and come at her; an archer whose post is on her
+      // far side drops from the gate's wall instead of walking through her
+      if (anchorX === null || anchorX < f1 - 20 || anchorX > f2 + 20) {
+        // she is on another floor: they simply wait by the door
+        if (m.kind === 'betal') { w.minX = f1; w.maxX = f2; }
+        return;
+      }
+      const toX = this.waveOnePost(m, anchorX);
+      if (m.kind === 'betal') {
+        w.minX = f1; w.maxX = f2; w.spawn.x = toX;
+        this.startReturnEntry(w, { delay: m.delay, x: OUT_W + 40 + m.delay * 25, toX });
+      } else if (anchorX !== null && toX < anchorX) {
+        w.startX = toX;
+        this.startReturnEntry(w, { delay: m.delay, x: toX, toX, drop: true });
+      } else {
+        w.startX = toX;
+        this.startReturnEntry(w, { delay: m.delay, x: OUT_W + 40 + m.delay * 25, toX });
+      }
+      return;
+    }
+    // waves 2 and 3 wait at their posts; after a respawn nobody stands on top of her: whoever is too close walks in
+    // from out of sight on the same floor to a post well clear of where she stands
+    if (anchorX !== null && Math.abs(m.post - anchorX) < view) {
+      const east = anchorX + view + 40 <= f2;
+      const fromX = east ? Math.min(f2 - 10, anchorX + view + 40) : Math.max(f1 + 10, anchorX - view - 40);
+      let toX = m.post;
+      if (Math.abs(toX - anchorX) < 220) toX = east ? Math.min(f2 - 20, anchorX + 240) : Math.max(f1 + 20, anchorX - 240);
+      if (m.kind === 'betal') w.spawn.x = toX;
+      else w.startX = toX;
+      this.startReturnEntry(w, { delay: 0.6 + (m.kind === 'archer' ? 0.8 : 0), x: fromX, toX });
+    }
+  }
+
+  /** An enemy of the way back on the move: walking in from beyond the sun door, or running to a chasm's edge and
+   *  leaping the quicksand after Rakti (takeoff/land), then walking to his post. */
+  startReturnEntry(w, { delay = 0, x = null, toX, drop = false }) {
+    w.hidden = false;
+    if (x !== null) w.x = x;
+    w.y = drop ? -70 : FLOOR_Y;
+    w.entry = { delay, toX, drop, vy: 0 };
+    w.walking = !drop;
+    w.facing = toX < w.x ? 'left' : 'right';
+    if (w.isArcher) { w.dormant = true; w.appear = 1; w.state = 'idle'; w.frame = 0; w.arrows = []; }
+    else { w.fadeAlpha = 1; w.isMoving = !drop; }
+    this.applyReturnRush(w);
+  }
+
+  updateReturnEntry(w, dt) {
+    const e = w.entry;
+    if (e.delay > 0) { e.delay -= dt; if (e.drop) w.y = -70; return; }
+    if (e.drop) {
+      // an archer drops from the top of the sun gate's wall and lands in a crouch of dust
+      e.vy += 900 * dt;
+      w.y = Math.min(FLOOR_Y, w.y + e.vy * dt);
+      if (w.y >= FLOOR_Y) {
+        this.burst(w.x, FLOOR_Y - 2, 14, ['#c8955a', '#ffe1a8', '#7a4a20'], 80, 0.5);
+        this.cameraShake = Math.max(this.cameraShake, 0.18);
+        this.finishReturnEntry(w);
+      }
+      return;
+    }
+    // a steady walk in, like a cutscene: no faster than a normal walk, with the walk cycle at the matching pace
+    const speed = 78;
+    w.isMoving = true;
+    if (w.isArcher) w.animTimer = (w.animTimer || 0) + dt * 1.3;
+    else w.animTime = (w.animTime || 0) + dt;
+    const d = e.toX - w.x;
+    w.facing = d < 0 ? 'left' : 'right';
+    if (Math.abs(d) > 2) w.x += Math.sign(d) * Math.min(Math.abs(d), speed * dt);
+    else this.finishReturnEntry(w);
+  }
+
+  finishReturnEntry(w) {
+    w.x = w.entry.toX;
+    w.y = FLOOR_Y;
+    w.entry = null;
+    w.walking = false;
+    w.isMoving = false;
+    if (w.isArcher) { w.dormant = false; w.cooldownTimer = 1.0; w.animTimer = 0; w.state = 'idle'; }
+  }
+
+  /** The enemies of the way back: their entries, their fights, and following Rakti west over the quicksand when she
+   *  leaves them behind (so every one of them can still be slain to fill the hourglass). */
+  updateReturnWave(dt, player, frozen) {
+    for (const m of this.returnMembers) {
+      const w = m.who;
+      if (w.hidden || frozen) continue;
+      if (w.entry) { this.updateReturnEntry(w, dt); continue; }
+      if (m.kind === 'archer') {
+        if (w.gone) continue;
+        // (a slain archer keeps updating: his death frames play, he fades out and is gone, his last arrows land)
+        w.dormant = !player || Math.abs(player.x - w.x) > 620;
+        this.updateArcher(w, dt, player);
+      }
+      // (the Betal update with the other Betal outside; slain ones fade and are removed there)
+    }
+  }
+
+  /** The hourglass fills with every enemy of the way back slain; full, it can turn time back (engine HUD hook). */
+  sandsCharge() {
+    const p = this.progress;
+    if (!p.doorTried || p.rewound || p.keyTaken) return null;
+    const have = this.returnMembers.filter((m) => p.herdDead[m.id]).length;
+    return { have, need: this.returnMembers.length, ready: have >= this.returnMembers.length };
+  }
+
+  get chargeFull() { const c = this.sandsCharge(); return Boolean(c && c.ready); }
+
+  /** While the way back for the key lasts, the desert outside runs HASTE x faster (engine hook). */
+  worldTimeScale() {
+    // (the desert no longer runs everything faster: its enemies walk at their own pace but strike and shoot
+    // quicker (applyReturnRush), and its traps are quickened one by one)
+    return 1;
+  }
+
+  /** On the way back the desert's warriors attack faster, but do not move faster. */
+  applyReturnRush(w) {
+    if (w.isArcher) { w.shootCooldown = 1.7; w.frameDuration = 0.085; }
+    else { w.attackAnimDuration = 0.5; w.attackHitAt = 0.27; w.rushCooldown = 0.55; }
+  }
+
+  /** The rewind is waiting to be used (whether or not the hourglass is full yet). */
+  rewindPending() {
+    const p = this.progress;
+    return this.area === 'out' && p.doorTried && p.sandsTaken && !p.rewound && !p.archerA2 && !this.rewind && this.balls[0].state === 'gone';
+  }
+
+  canRewind() { return this.rewindPending() && this.chargeFull; }
+
+  /** Engine hook for [F]: by tower 1's boulder pile the sands run backward (once) instead of slowing the world. */
+  useSands(player) {
+    if (!this.rewindPending() || !player.isGrounded || Math.abs(player.x - this.balls[0].x0) > 190) return false;
+    if (!this.chargeFull) {
+      const c = this.sandsCharge();
+      this.toast(`⟲ THE SANDS ARE NOT CHARGED · ${c.have}/${c.need} SLAIN`, 2.2);
+      return false;     // (the sands still slow time)
+    }
+    this.startRewind(player);
+    return true;
+  }
+
+  startRewind(player) {
+    const b = this.balls[0], t = this.archers.A2;
+    this.rewind = { t: 0, from: { x: b.x0, y: b.y0 }, to: { x: this.towers[0].cx, y: TOWER_ROOF_Y - 22 }, focusX: (b.x0 + t.x) / 2 };
+    player.inputLocked = true;
+    player.vx = 0;
+    player.facing = b.x0 > player.x ? 'right' : 'left';
+    Sfx.play('portal_open');
+    this.toast('⏳ THE SANDS RUN BACKWARD', 2.4);
+    this.cameraShake = 0.4;
+  }
+
+  /** The boulder's flight in reverse: shards gather on the roof into the sphere, it flies back down its arc,
+   *  and the sphere un-forms into the rough boulder (frames 5 -> 0). */
+  updateRewind(dt, player) {
+    const r = this.rewind;
+    if (!r) return;
+    r.t += dt;
+    if (player) { player.inputLocked = true; player.vx = 0; }
+    const b = this.balls[0];
+    b.trail = b.trail || [];
+    if (r.t < REWIND.gather) {
+      b.state = 'rewinding';
+      b.x = r.to.x; b.y = r.to.y;
+      // shards stream back in from all around the roof
+      if (Math.random() < 0.9) {
+        const a = Math.random() * Math.PI * 2, d = 40 + Math.random() * 40;
+        this.particles.push({ x: r.to.x + Math.cos(a) * d, y: r.to.y + Math.sin(a) * d * 0.6, vx: -Math.cos(a) * d * 1.6, vy: -Math.sin(a) * d * 1.0,
+          life: 0.55, maxLife: 0.55, size: 2 + Math.random() * 2, color: Math.random() > 0.5 ? '#c8955a' : '#ffe39a', g: 0 });
+      }
+    } else if (r.t < REWIND.fly) {
+      const u = 1 - (r.t - REWIND.gather) / (REWIND.fly - REWIND.gather);   // 1 -> 0 along the old arc
+      b.x = r.from.x + (r.to.x - r.from.x) * u;
+      b.y = r.from.y + (r.to.y - r.from.y) * u - Math.sin(u * Math.PI) * 110;
+      b.spin = (b.spin || 0) - dt * 9;
+      b.trail.push({ x: b.x, y: b.y });
+      if (b.trail.length > 12) b.trail.shift();
+    } else if (r.t < REWIND.end) {
+      b.x = r.from.x; b.y = r.from.y; b.spin = 0;
+      if (b.trail.length) b.trail.shift();
+      if (!r.landed) { r.landed = true; this.cameraShake = 0.5; this.burst(b.x, b.y, 22, ['#9ff6e8', '#ffe39a', '#c8955a'], 110, 0.6); }
+    } else {
+      this.rewind = null;
+      b.state = 'idle'; b.t = 0; b.trail = []; b.spin = 0;
+      b.target = 'A2';
+      this.progress.rewound = true;
+      if (player) player.inputLocked = false;
+      this.say('rewound', '⚜ MAA KALI ⚜', 'The stone is whole again, and it will not be twice. Now, [Q]: send it at him.');
+    }
+  }
+
+  /** The boulder's frame while it rewinds (the sphere until it lands, then it un-forms 5 -> 0). */
+  rewindFrame() {
+    const r = this.rewind;
+    if (!r || r.t < REWIND.fly) return 5;
+    return Math.max(0, 5 - Math.floor(((r.t - REWIND.fly) / (REWIND.unform - REWIND.fly)) * 6));
+  }
+
+  /** Engine hook: what the camera frames during the rewind. */
+  cameraFocus() {
+    const r = this.rewind;
+    return r ? { x: r.focusX, y: FLOOR_Y - 120 } : null;
+  }
+
+  get cutscene() { return Boolean(this.rewind); }
+
   takeKey() {
     if (this.key.taken) return;
     this.key.taken = true;
@@ -550,8 +1001,9 @@ export class Level2 {
     this.key.fromY = this.key.y;
     this.progress.keyTaken = true;
     this.cameraShake = 0.3;
-    this.killToastText = '⚜ SUN KEY ⚜';
-    this.killToastTimer = 2;
+    this.killToastText = '⚜ SUN KEY · THE SANDS SETTLE ⚜';
+    this.killToastTimer = 2.4;
+    this.saveCheckpoint(1, false);
   }
 
   openSunDoor() {
@@ -641,6 +1093,8 @@ export class Level2 {
   say(id, title, text, flash = false) {
     if (this.progress.said[id]) return;
     this.progress.said[id] = true;
+    // spoken once is enough: a respawn from an earlier checkpoint does not play it again
+    if (this.saved?.said) this.saved.said[id] = true;
     this.pendingDialogue = { speaker: 'kali', title, text, flash };
   }
 
@@ -657,6 +1111,16 @@ export class Level2 {
   registerKill(enemy) {
     if (enemy instanceof Archer) this.toast('⚔ ARCHER SLAIN', 1.6);
     const p = this.progress;
+    if (enemy.ret && !p.herdDead[enemy.id]) {
+      // slain stays slain, even after a respawn (written into the checkpoint too)
+      p.herdDead[enemy.id] = true;
+      this.saved.herdDead = { ...(this.saved.herdDead || {}), [enemy.id]: true };
+      const c = this.sandsCharge();
+      if (c && c.ready) {
+        this.toast('⏳ THE SANDS OF TIME ARE CHARGED', 2.8);
+        this.say('charged', '⚜ MAA KALI ⚜', 'The hourglass is full, Rakti: the Sands of Time are charged. Go to the broken stone\'s pile at the first tower and turn them back with [F].');
+      } else if (c) this.toast(`⟲ SANDS ${c.have}/${c.need}`, 1.4);
+    }
     if (enemy === this.archers.C && !p.archerC) {
       p.archerC = true;
       this.hordeTimer = 1.2;
@@ -803,11 +1267,31 @@ export class Level2 {
         this.say('slabs', '⚜ MAA KALI ⚜', 'Rocks float over the chasm, too rough to stand on. Press [Q] here and I will flatten them into a path.');
       }
 
+      // the rewind at tower 1 (a cutscene: everything else holds still)
+      this.updateRewind(dt, player);
+      const frozen = talking || Boolean(this.rewind);
+
       // archers on the two towers: they shoot once Rakti comes near
-      const A = this.archers.A, Bq = this.archers.B;
+      const A = this.archers.A, Bq = this.archers.B, A2 = this.archers.A2;
       A.dormant = !(playerX > 700 && playerX < A.x + 560);
       Bq.dormant = !(playerX > 2040 && playerX < Bq.x + 560);   // not while she is still crossing the floating rocks
-      if (!talking) for (const id of ['A', 'B']) this.updateArcher(this.archers[id], dt, player);
+      A2.dormant = !(playerX > 640 && playerX < A2.x + 560);
+      if (!frozen) for (const id of ['A', 'B', 'A2']) this.updateArcher(this.archers[id], dt, player);
+      // the herd on the way back for the key
+      if (p.doorTried) this.updateReturnWave(dt, player, frozen);
+      if (p.doorTried && !p.keyTaken) {
+        // the quickened desert: sand blows hard across the view
+        this.hasteWind = Math.min(1, (this.hasteWind || 0) + dt);
+        const v = this.view;
+        if (v && Math.random() < dt * 40) {
+          this.particles.push({ x: v.x2 + 10, y: 20 + Math.random() * (FLOOR_Y - 20), vx: -260 - Math.random() * 160, vy: 10 + Math.random() * 20,
+            life: 2.4, maxLife: 2.4, size: 1 + Math.random() * 1.6, color: Math.random() > 0.5 ? '#ffd890' : '#d09048', g: 0 });
+        }
+        // Kali, as Rakti nears the first tower again
+        if (playerX < 1560 && !p.archerA2) {
+          this.say('a2', '⚜ MAA KALI ⚜', 'Another archer on the first tower, Rakti, and the key is up there with him. Your boulder lies broken on his roof... but a full hourglass can turn time back, once. Every warrior the desert sent after you fills it as he falls: slay them all, then stand by the stone pile and press [F].');
+        }
+      } else this.hasteWind = Math.max(0, (this.hasteWind || 0) - dt);
 
       // boulders: forming -> flying in an arc onto the tower top -> falling away
       for (const b of this.balls) this.updateBall(b, dt);
@@ -830,21 +1314,39 @@ export class Level2 {
         }
       }
 
-      // crumbling slabs: shake once stood on, drop after FALL_DELAY, come back a little later
-      for (const f of this.fallers) this.updateFaller(f, dt, player);
-
-      // tower 2: the ladder unfurls and the key appears once its archer has fallen
-      if (p.archerB) {
-        if (this.ladderShown < 1) {
-          this.ladderShown = Math.min(1, this.ladderShown + dt / 0.9);
-          if (Math.random() < 0.9) {
-            const t2 = this.towers[1];
-            this.burst(t2.ladderX + (Math.random() - 0.5) * 10, TOWER_ROOF_Y + Math.random() * (FLOOR_Y - TOWER_ROOF_Y), 1, ['#ffe39a', '#ffffff'], 30, 0.6);
-          }
-          if (this.ladderShown >= 1) this.updateLadders();
+      // crumbling slabs: shake once stood on, drop after FALL_DELAY, come back a little later.
+      // On the way back the second chasm's slabs rise and sink in a wave instead, and the [Q] slabs crumble too.
+      if (this.onWayBack) {
+        // the second chasm's slabs stay up until stepped on; then, unless the Sands slow time, they drop at once
+        for (const f of this.fallers) this.updateFaller(f, dt, player, this.sandsActive ? RETURN_FALL_SANDS : 0);
+        for (const q of this.slabFallers) this.updateFaller(q, dt, player, FALL_DELAY / HASTE);
+        if (player && player.isGrounded && playerX > 3411 && playerX < 3530) {
+          this.say('wave', '⚜ MAA KALI ⚜', 'Careful, Rakti: the desert has quickened these slabs. They will drop the instant you touch them. Turn the Sands [F] first, and they will hold you just long enough to leap on.');
         }
+      } else {
+        for (const f of this.fallers) {
+          if (f.wave) Object.assign(f, { wave: false, waveSolid: false, state: 'idle', t: 0, dy: 0, vy: 0, alpha: 1, sank: false });
+          this.updateFaller(f, dt, player);
+        }
+      }
+
+      // tower 2: the ladder unfurls and the hourglass appears once its archer has fallen;
+      // tower 1: the same for the Sun Key once its second archer falls
+      const unfurl = (key, t) => {
+        if (this[key] >= 1) return;
+        this[key] = Math.min(1, this[key] + dt / 0.9);
+        if (Math.random() < 0.9) this.burst(t.ladderX + (Math.random() - 0.5) * 10, TOWER_ROOF_Y + Math.random() * (FLOOR_Y - TOWER_ROOF_Y), 1, ['#ffe39a', '#ffffff'], 30, 0.6);
+        if (this[key] >= 1) this.updateLadders();
+      };
+      if (p.archerB) {
+        unfurl('ladderShown', this.towers[1]);
+        if (!this.hourglass.taken && this.hourglass.shown < 1) this.hourglass.shown = Math.min(1, this.hourglass.shown + dt / 1.0);
+      }
+      if (p.archerA2) {
+        unfurl('ladderShown1', this.towers[0]);
         if (!this.key.taken && this.key.shown < 1) this.key.shown = Math.min(1, this.key.shown + dt / 1.0);
       }
+      if (this.hourglass.taken && this.hourglass.fly < 1) this.hourglass.fly = Math.min(1, this.hourglass.fly + dt * 1.5);
       if (this.key.taken && this.key.fly < 1) this.key.fly = Math.min(1, this.key.fly + dt * 1.5);
 
       // the sun door: the key flies into the lock, then the doors swing open
@@ -859,12 +1361,17 @@ export class Level2 {
       }
 
       // Betal before the door
-      for (const b of this.betals) if (b.area === 'out') b.update(dt, player, this, !talking);
+      for (const b of this.betals) if (b.area === 'out' && !b.entry) b.update(dt, player, this, !frozen);
 
       if (player && !player.isDead && player.isGrounded) {
         // checkpoints past each tower
         for (let i = this.checkpointIndex + 1; i <= 2; i++) {
           if (playerX >= this.checkpoints[i].x) this.saveCheckpoint(i);
+        }
+        // on the way back for the key they follow her west: the door -> past tower 2 -> past tower 1
+        if (p.doorTried && !p.keyTaken) {
+          if (this.checkpointIndex === 5 && playerX <= this.checkpoints[2].x) this.saveCheckpoint(2);
+          else if (this.checkpointIndex === 2 && playerX <= this.checkpoints[1].x) this.saveCheckpoint(1);
         }
         // into the hall
         if (this.door1.anim >= 1 && Math.abs(playerX - this.door1.cx) < 22 && Math.abs(playerY - FLOOR_Y) < 4) {
@@ -911,15 +1418,24 @@ export class Level2 {
     }
   }
 
-  updateFaller(f, dt, player) {
+  updateFaller(f, dt, player, delay = FALL_DELAY) {
     f.t += dt;
     if (f.state === 'idle') {
       const box = this.slabBox(f);
       const on = player && player.isGrounded && player.currentPlatform?.faller === f
         && player.x >= box.x1 - 2 && player.x <= box.x2 + 2;
-      if (on) { f.state = 'shaking'; f.t = 0; this.burst(f.cx, f.top + 10, 6, ['#c8955a', '#7a4f2a'], 40, 0.4); }
-    } else if (f.state === 'shaking') {
-      if (f.t >= FALL_DELAY) {
+      if (on) {
+        f.state = 'shaking'; f.t = 0; this.burst(f.cx, f.top + 10, 6, ['#c8955a', '#7a4f2a'], 40, 0.4);
+        if (delay <= 0) {
+          // it gives way the moment she lands: no last-instant jump (coyote time and a buffered jump are cancelled)
+          player.coyoteTimer = 0;
+          player.jumpBufferTimer = 0;
+          f.t = 1e9;
+        }
+      }
+    }
+    if (f.state === 'shaking') {
+      if (f.t >= delay) {
         f.state = 'falling'; f.t = 0; f.vy = 40;
         this.burst(f.cx, f.top + 8, 14, ['#c8955a', '#7a4f2a', '#e8b878'], 90, 0.6);
         this.cameraShake = Math.max(this.cameraShake, 0.15);
@@ -1000,7 +1516,7 @@ export class Level2 {
     // wading: only part of each step goes through
     player.x = (this.qsLastX ?? px) + moved * QS_SLOW;
     this.qsLastX = player.x;
-    this.qsDepth += dt * (Math.abs(moved) > 0.2 ? QS_SINK_MOVING : QS_SINK);
+    this.qsDepth += dt * (Math.abs(moved) > 0.2 ? QS_SINK_MOVING : QS_SINK) * (this.onWayBack ? HASTE : 1);
     if (Math.random() < dt * 14) {
       this.particles.push({ x: player.x + (Math.random() - 0.5) * 22, y: SAND_Y + this.qsDepth * 0.2, vx: (Math.random() - 0.5) * 30, vy: -20 - Math.random() * 20,
         life: 0.5, maxLife: 0.5, size: 2, color: Math.random() > 0.5 ? '#e8b878' : '#a8692e', g: 80 });
@@ -1146,6 +1662,10 @@ export class Level2 {
         target.die('crushed');
         this.registerKill(target);
         if (b.target === 'A') this.progress.archerA = true;
+        if (b.target === 'A2') {
+          this.progress.archerA2 = true;
+          this.say('ladder1', '⚜ MAA KALI ⚜', 'He falls, and a ladder unfurls on the first tower. The Sun Key waits on its roof, Rakti. Climb!');
+        }
         if (b.target === 'B') {
           this.progress.archerB = true;
           this.say('ladder', '⚜ MAA KALI ⚜', 'He was guarding something. A ladder has unfurled on his tower - climb it, Rakti, and see what waits on top.');
@@ -1276,13 +1796,17 @@ export class Level2 {
 
     if (this.area === 'out') {
       for (const d of this.decoys) if (d.back) this.drawDecoy(ctx, d);
-      for (const s of this.slabs) this.drawSlab(ctx, s);
+      if (this.onWayBack && this.progress.slabsRaised) for (const q of this.slabFallers) this.drawFaller(ctx, q);
+      else for (const s of this.slabs) this.drawSlab(ctx, s);
       for (const f of this.fallers) this.drawFaller(ctx, f);
       this.renderKey(ctx);
-      for (const id of ['A', 'B']) this.renderArcher(ctx, this.archers[id]);
-      for (const b of this.balls) if (b.state === 'idle' || b.state === 'forming') this.drawBall(ctx, b);
+      this.renderHourglass(ctx);
+      this.renderRubble(ctx);
+      for (const id of ['A', 'B', 'A2']) this.renderArcher(ctx, this.archers[id]);
+      for (const m of this.returnMembers) if (m.kind === 'archer') this.renderArcher(ctx, m.who);
+      for (const b of this.balls) if (b.state === 'idle' || b.state === 'forming' || b.state === 'rewinding') this.drawBall(ctx, b);
       for (const d of this.decoys) if (!d.back) this.drawDecoy(ctx, d);
-      for (const b of this.balls) if (b.state !== 'idle' && b.state !== 'forming') this.drawBall(ctx, b);
+      for (const b of this.balls) if (b.state !== 'idle' && b.state !== 'forming' && b.state !== 'rewinding') this.drawBall(ctx, b);
       this.renderDoorKey(ctx);
       for (const b of this.betals) if (b.area === 'out') b.render(ctx, this.enemySprites);
     } else {
@@ -1308,6 +1832,86 @@ export class Level2 {
   renderForeground(ctx) {
     this.renderPits(ctx);
     this.renderParticles(ctx);
+    // the quickened desert: a hot amber haze; the rewind: a cold sepia wash with the sands flowing backward
+    const v = this.view;
+    if (!v) return;
+    if (this.hasteWind > 0.01 && this.area === 'out') {
+      ctx.save();
+      ctx.fillStyle = `rgba(220, 120, 40, ${0.08 * this.hasteWind})`;
+      ctx.fillRect(v.x1, -40, v.x2 - v.x1, SCREEN_H + 120);
+      ctx.restore();
+    }
+    if (this.rewind) {
+      const t = this.rewind.t, k = Math.min(1, t / 0.3) * Math.min(1, Math.max(0, (REWIND.end - t) / 0.4));
+      ctx.save();
+      ctx.globalCompositeOperation = 'color';
+      ctx.fillStyle = `rgba(150, 120, 80, ${0.75 * k})`;
+      ctx.fillRect(v.x1, -40, v.x2 - v.x1, SCREEN_H + 120);
+      ctx.globalCompositeOperation = 'source-over';
+      // streaks of sand flowing right-to-left, backward in time
+      ctx.strokeStyle = `rgba(255, 225, 160, ${0.35 * k})`;
+      ctx.lineWidth = 1.2;
+      for (let i = 0; i < 26; i++) {
+        const y = 10 + ((i * 37) % (FLOOR_Y - 10)), x = v.x2 - ((t * 420 + i * 97) % (v.x2 - v.x1 + 120));
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + 40, y + 4); ctx.stroke();
+      }
+      ctx.restore();
+    }
+  }
+
+  /** The shards of tower 1's boulder, left on its roof once the first archer is crushed (until the rewind). */
+  renderRubble(ctx) {
+    const p = this.progress;
+    if (!p.archerA || p.rewound) return;
+    const t = this.towers[0];
+    if (!this.inView(t.cx - 60, t.cx + 60)) return;
+    const k = BALL.scale * 0.42, w = BALL.frameW * k, h = BALL.frameH * k;
+    const c = this.cachedArt('rubble', w, h, ready(this.ballSheet), (g) => g.drawImage(this.ballSheet, 0, 0, BALL.frameW, BALL.frameH, 0, 0, w, h));
+    if (!c) return;
+    const r = this.rewind, gather = r ? Math.min(1, r.t / REWIND.gather) : 0;
+    if (r && r.t >= REWIND.gather) return;
+    const pieces = [[-34, 0, 0.9, 0.3], [-18, 2, 0.7, -0.6], [-2, 1, 1.0, 1.2], [16, 2, 0.75, 2.1], [32, 0, 0.85, -1.4], [8, -6, 0.6, 0.4]];
+    for (const [dx, dy, s, rot] of pieces) {
+      // during the rewind each shard rises to where the sphere re-forms
+      const e = gather * gather;
+      const x = t.cx + dx * (1 - e), y = TOWER_ROOF_Y + 2 + dy - (h * s) / 2 + (-22 - dy) * e;
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(rot + gather * 6);
+      ctx.drawImage(c, (-w * s) / 2, (-h * s) / 2, w * s, h * s);
+      ctx.restore();
+    }
+  }
+
+  /** The Sands of Time float over tower 2's roof once its archer has fallen, then fly to Rakti. */
+  renderHourglass(ctx) {
+    const H = this.hourglass;
+    if (H.shown <= 0 || (H.taken && H.fly >= 1) || !ready(this.hourglassImg)) return;
+    const h = HOURGLASS.draw, w = h * (HOURGLASS.w / HOURGLASS.h);
+    let x = H.x, y = H.y + Math.sin(this.animTime * 2.2) * 3, alpha = H.shown, size = 1;
+    if (H.taken && this.player) {
+      const t = H.fly, e = t * t * (3 - 2 * t);
+      x = H.fromX + (this.player.x - H.fromX) * e;
+      y = H.fromY + (this.player.y - 40 - H.fromY) * e - Math.sin(t * Math.PI) * 26;
+      alpha = 1 - Math.max(0, (t - 0.7) / 0.3);
+      size = 1 - 0.4 * t;
+    }
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const g = ctx.createRadialGradient(x, y, 2, x, y, 40);
+    g.addColorStop(0, `rgba(255, 210, 120, ${0.6 * alpha})`);
+    g.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(x - 42, y - 42, 84, 84);
+    ctx.restore();
+    const c = this.cachedArt('hourglass', w, h, true, (gg) => gg.drawImage(this.hourglassImg, 0, 0, w, h));
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.translate(x, y);
+    ctx.rotate(Math.sin(this.animTime * 1.3) * 0.08);
+    ctx.drawImage(c, (-w * size) / 2, (-h * size) / 2, w * size, h * size);
+    ctx.restore();
+    if (!H.taken) this.drawMarker(ctx, x, y - h / 2 - 10);
   }
 
   /** Arrows break on anything solid: floors, pillars, the tower bodies and the quicksand. */
@@ -1474,7 +2078,7 @@ export class Level2 {
       const x = t.cx - TOWER.cx * s, y = FLOOR_Y + 4 - TOWER.baseY * s;
       if (!this.inView(x, x + w)) continue;
       const plain = this.cachedArt('tower', w, h, ready(this.towerImg), (g) => g.drawImage(this.towerImg, 0, 0, w, h));
-      const ladderAlpha = t.id === 'T2' ? this.ladderShown : 0;
+      const ladderAlpha = t.id === 'T2' ? this.ladderShown : t.id === 'T1' ? this.ladderShown1 : 0;
       if (plain && ladderAlpha < 1) ctx.drawImage(plain, x, y, w, h);
       if (ladderAlpha > 0) {
         const lad = this.cachedArt('tower_ladder', w, h, ready(this.towerLadderImg), (g) => g.drawImage(this.towerLadderImg, 0, 0, w, h));
@@ -1604,6 +2208,7 @@ export class Level2 {
       }
     }
     else if (b.state === 'forming') frame = Math.min(5, Math.floor(b.t / 0.1));
+    else if (b.state === 'rewinding') frame = this.rewindFrame();
     else frame = 5;
     const cache = (f) => this.cachedArt('ball:' + f, w, h, ready(this.ballSheet),
       (g) => g.drawImage(this.ballSheet, f * BALL.frameW, 0, BALL.frameW, BALL.frameH, 0, 0, w, h));
@@ -1627,6 +2232,7 @@ export class Level2 {
     if (b.spin) ctx.rotate(b.spin);
     ctx.globalAlpha = b.state === 'idle' ? this.rockFade : 1;
     if (b.state === 'falling') ctx.globalAlpha = Math.max(0, 1 - Math.max(0, b.t - 0.9) / 0.5);
+    if (b.state === 'rewinding' && this.rewind) ctx.globalAlpha = Math.min(1, this.rewind.t / REWIND.gather);
     ctx.drawImage(c, -BALL.anchorX * k, -BALL.anchorY * k, w, h);
     if (glow > 0) {
       const c1 = cache(1);
@@ -1660,7 +2266,7 @@ export class Level2 {
       ctx.restore();
       return;
     }
-    a.render(ctx, this.archerSprites);
+    a.render(ctx, a.walking ? this.archerWalkSprites : this.archerSprites);
   }
 
   /** The Sun Key floats over tower 2's roof once its archer has fallen, then flies to Rakti. */
