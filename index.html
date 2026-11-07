@@ -42,7 +42,7 @@
     <div class="sands-power locked" id="sandsPower" data-state="ready" aria-label="Sands of Time, key F">
       <div class="sp-halo"></div>
       <div class="sp-glass" id="sandsGlass"></div>
-      <span class="sp-key">F</span>
+      <span class="sp-key" data-key="F">F</span>
       <span class="sp-time" id="sandsTime"></span>
       <!-- Level 2's way back: the rewind charges with every enemy slain -->
       <span class="sp-charge" id="sandsCharge"></span>
@@ -220,7 +220,7 @@
   <section class="intro-cutscene" id="introCutscene" aria-label="Opening cutscene" aria-hidden="true">
     <video id="introVideo" src="assets/video/start_cutscene.mp4" preload="auto" playsinline></video>
     <div class="ic-skip" id="introSkip">
-      <span class="ic-skip-text">HOLD <b data-key="ESC">ESC</b> TO SKIP</span>
+      <span class="ic-skip-text">HOLD <span data-key="ESC">ESC</span> TO SKIP</span>
     </div>
   </section>
 

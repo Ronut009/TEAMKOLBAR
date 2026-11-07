@@ -332,6 +332,11 @@ html, body {
   opacity: 0.45;
   animation: none;
 }
+/* a line that teaches a key: the prompt waits, dimmed, until the line can be moved on (KEY_LINE_HOLD in engine.js) */
+.dialogue-dismiss.locked {
+  opacity: 0.22;
+  animation: none;
+}
 
 @keyframes pulseDismiss {
   0% { color: #cda24e; border-color: rgba(205, 162, 78, 0.4); }
@@ -1265,7 +1270,7 @@ html, body {
 .eh-v { font-size: 13px; font-weight: 900; color: #f4dca0; }
 .eh-mud { margin-top: 8px; display: flex; align-items: center; justify-content: center; gap: 7px; padding: 4px 6px; border-radius: 3px; border: 1px solid rgba(205, 162, 78, 0.4); background: rgba(0, 0, 0, 0.3); font-size: 10px; font-weight: 700; letter-spacing: 2px; color: #b9c9c2; }
 .eh-mud.ready { color: #c9ffe4; border-color: rgba(80, 230, 160, 0.75); box-shadow: 0 0 10px rgba(60, 230, 160, 0.3); }
-.eh-key { display: inline-grid; place-items: center; width: 17px; height: 17px; border-radius: 3px; border: 1px solid #c9a24e; background: #0b2c2a; color: #ffd36b; font-size: 10px; letter-spacing: 0; }
+.eh-key { display: inline-grid; place-items: center; min-width: 17px; padding: 0 3px; height: 17px; border-radius: 3px; border: 1px solid #c9a24e; background: #0b2c2a; color: #ffd36b; font-size: 10px; letter-spacing: 0; }
 .eh-best { margin-top: 7px; font-size: 9px; font-weight: 700; letter-spacing: 3px; color: #a9cfc4; }
 .eh-best span { color: #ffd36b; letter-spacing: 1px; font-size: 11px; }
 @media (max-width: 600px) { .endless-hud { top: 10px; right: 8px; } }
@@ -1567,23 +1572,26 @@ html, body {
   object-position: 50% 85%;
   background: #000;
 }
-/* "hold Esc to skip": the main menu's button, in the top right corner over the film. While it is held, the
-   button's lit art (menu-button-pressed.png) fills it from left to right; let go and it drains. */
+/* "hold Esc to skip": the main menu's button, bottom centre just above the film's subtitles. It shows when the film
+   starts and whenever a key is pressed. While it is held, the button's lit art (menu-button-pressed.png) fills it
+   from left to right; let go and it drains. */
 .ic-skip {
   position: absolute;
-  top: clamp(14px, 2.4vh, 26px);
-  right: clamp(16px, 2vw, 30px);
+  left: 50%;
+  bottom: 13.5%;
   display: grid;
   place-items: center;
-  width: clamp(330px, 26vw, 430px);
-  height: clamp(54px, 6.6vh, 68px);
+  width: clamp(300px, 24vw, 400px);
+  height: clamp(50px, 6.2vh, 64px);
   padding: 0 56px;
+  transform: translate(-50%, 8px);
   background: url('../assets/title/menu-button.png') center / 100% 100% no-repeat;
-  opacity: 0.82;
-  transition: opacity 0.25s ease, filter 0.25s ease;
+  opacity: 0;
+  transition: opacity 0.35s ease, transform 0.35s ease, filter 0.25s ease;
   pointer-events: none;
   --fill: 0%;
 }
+.ic-skip.show { opacity: 0.9; transform: translate(-50%, 0); }
 .ic-skip::before {
   content: '';
   position: absolute;
@@ -1595,19 +1603,10 @@ html, body {
 .ic-skip-text {
   position: relative;
   font: 900 clamp(11px, 0.9vw, 14px)/1 'Cinzel', Georgia, serif;
-  letter-spacing: 1.5px;
+  letter-spacing: 2px;
   white-space: nowrap;
   color: #f8e8bb;
   text-shadow: 0 2px 4px #06130f, 0 0 10px rgba(233, 192, 93, 0.42);
-}
-.ic-skip-text b {
-  display: inline-block;
-  margin: 0 3px;
-  padding: 2px 6px;
-  border: 1px solid #c9a24e;
-  border-radius: 3px;
-  color: #ffd76b;
-  background: rgba(6, 19, 15, 0.55);
 }
 
 /* ==========================================================================

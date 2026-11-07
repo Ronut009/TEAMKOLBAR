@@ -20,6 +20,13 @@ const SANDS_DURATION = 8, SANDS_COOLDOWN = 15, SANDS_SLOW = 0.35;
 const AUTO_CONTINUE = 5;
 // The opening cutscene: hold [Esc] this long to skip it
 const INTRO_SKIP_HOLD = 1.5;
+// A dialogue line that teaches a key cannot be skipped before it is fully shown and this many seconds have passed
+const KEY_LINE_HOLD = 3;
+const KEY_TOKEN = /\[(E|F|Q|X|1|2|R|C|ESC|SPACE|ENTER|CLICK)\]/i;
+const teachesKey = (text) => KEY_TOKEN.test(String(text || ''));
+// The skip button shows for INTRO_SKIP_CUE s when the film starts and again after any key or button press (it sits
+// just above the film's subtitles, so it does not stay over the picture the whole time)
+const INTRO_SKIP_CUE = 4;
 // Demo shortcuts (hackathon): straight to the story's big moments, from the title screen or in game (demoJump)
 //  [J] Level 2: the Sands of Time on tower 2   [H] Level 2: the Trishul's shrine in the Hall of the Sun
 //  [K] Level 3: the Forest Heart wakes, the 50 s race   [G] Level 4: Pitaji falls and the Asura rises
@@ -179,7 +186,7 @@ export class Engine {
     on('pauseContinue', () => this.resume());
     // Settings: from the pause menu and the title screen (js/core/settings.js)
     this.settings = new SettingsMenu();
-    on('pauseSettings', () => this.settings.show(document.getElementById('pauseSettings')));
+    on('pauseSettings', () => this.settings.show(document.getElementById('pauseSettings'), this.controlsHave()));
     on('titleSettingsButton', () => this.settings.show(document.getElementById('titleSettingsButton')));
     on('pauseRestart', () => this.showRestartConfirm(true));
     on('pauseExit', () => { this.resume(); this.returnToTitle(); });
@@ -412,7 +419,7 @@ export class Engine {
   playIntroCutscene(onDone) {
     const box = document.getElementById('introCutscene'), video = document.getElementById('introVideo');
     if (!box || !video) { onDone(); return; }
-    this.intro = { onDone, hold: 0, done: false };
+    this.intro = { onDone, hold: 0, done: false, cue: INTRO_SKIP_CUE };
     this.titleScreen?.classList.remove('active');
     box.classList.add('active');
     box.setAttribute('aria-hidden', 'false');
@@ -433,9 +440,12 @@ export class Engine {
     it.hold = Input.isDown('Escape') ? it.hold + dt : Math.max(0, it.hold - dt * 2);
     // the skip button (the menu's button art) lights up from left to right while it is held
     const skip = document.getElementById('introSkip');
+    if (Input.keysPressed.size || Input.padPressed.size) it.cue = 3;
+    it.cue = Math.max(0, it.cue - dt);
     if (skip) {
       skip.style.setProperty('--fill', `${Math.min(100, (it.hold / INTRO_SKIP_HOLD) * 100).toFixed(1)}%`);
       skip.classList.toggle('holding', it.hold > 0);
+      skip.classList.toggle('show', it.cue > 0 || it.hold > 0);
     }
     if (it.hold >= INTRO_SKIP_HOLD) { this.finishIntroCutscene(); return; }
   }
@@ -477,6 +487,7 @@ export class Engine {
     if (i === 3) return 'level3';
     if (i === 5) return 'pitaji_fight';
     if (i === 4) {
+      if (L.ending) return 'reunited';   // the ending: Rakti and Pitaji together, the talk, the embrace, the card
       if (!L.fightStage) return L.malaTaken ? null : 'level4_start';
       if (L.fightStage === 1) return L.cutscene?.kind === 'turn' ? null : 'pitaji_fight';
       if (L.fightStage === 2) return 'demon_fight';
@@ -646,6 +657,24 @@ export class Engine {
       return true;
     }
     return false;
+  }
+
+  /** Which controls Settings lists from the pause menu: only what the player has so far in the campaign (the powers
+   *  appear as the story gives them), and only what the arena uses in Chaos mode. */
+  controlsHave() {
+    const i = this.currentLevelIndex, p = this.player;
+    if (i === 5) return { attack: true, trishul: true, kali: true, earth: true, sands: true, arena: true };
+    return {
+      climb: i >= 2,                                   // ladders begin in Level 2
+      ledge: true,
+      attack: !p.isCivilian,                           // not before the blade (Level 1's prologue)
+      trishul: Boolean(p.hasTrishul),
+      kali: Boolean(p.hasDivineUnlocked),
+      earth: i === 2 ? Boolean(this.level2?.progress?.qUnlocked) : i >= 3 && Boolean(p.hasPearl),
+      sands: Boolean(p.hasSands),
+      story: true,
+      checkpoint: true
+    };
   }
 
   /** Restart asks first: true shows "Are you sure?", false goes back to the three buttons. */
@@ -994,10 +1023,8 @@ export class Engine {
     } else if (Input.isPressed('cancel')) {
       if (this.dialogueActive) {
         // [C] skips the whole conversation ([Esc] pauses), but its outcome (e.g. the blessing) still happens
-        const c = this.convo;
         Input.consume('PadBack');   // (on a controller the same button restarts at the checkpoint: not this time)
-        this.closeDialogue();
-        c?.onDone?.();
+        this.skipConversation();
       }
     }
 
@@ -1470,7 +1497,7 @@ export class Engine {
           <div><span class="eh-k">KILLS</span><span class="eh-v eh-kills"></span></div>
           <div><span class="eh-k">DAMAGE TAKEN</span><span class="eh-v eh-dmg"></span></div>
         </div>
-        <div class="eh-mud"><span class="eh-key">Q</span><span class="eh-mud-text"></span></div>
+        <div class="eh-mud"><span class="eh-key" data-key="Q">Q</span><span class="eh-mud-text"></span></div>
         <div class="eh-best">BEST <span></span></div>`;
     }
     const q = (s) => el.querySelector(s);
@@ -1495,9 +1522,12 @@ export class Engine {
     this.dialogueActive = true;
     this.dialogueSpeaker = speaker;
     if (speaker !== prevSpeaker) Sfx.play('text_pop');   // the box pops up, or a new speaker takes over
+    // a line that teaches a key ([X], [Q], [F]...) cannot be skipped until it is fully shown and KEY_LINE_HOLD s
+    // have passed (typing cannot be rushed either)
+    const teaches = teachesKey(text);
     text = keyLabel(text);   // [E], [F]... name the controller's buttons while one is in use
     title = keyLabel(title);
-    this.dlg = { text, shown: 0, speaker, gesture, frame: pickPortrait(this.portraitSetName(speaker), gesture, text, portrait) };
+    this.dlg = { text, shown: 0, speaker, gesture, frame: pickPortrait(this.portraitSetName(speaker), gesture, text, portrait), age: 0, teaches };
     this.portraitAnim = 0;
     this.portraitFrame = -1;
     this.portraitPose = null;
@@ -1553,15 +1583,19 @@ export class Engine {
     const d = this.dlg;
     const typing = d.shown < d.text.length;
     if (typing) d.shown = Math.min(d.text.length, d.shown + dt * 70);
+    d.age += dt;
+    const locked = this.dialogueLocked();
     const n = Math.floor(d.shown);
     if (this.dlgShownNode && this.dlgShownNode.nodeValue.length !== n) {
       this.dlgShownNode.nodeValue = d.text.slice(0, n);
       this.dlgRestNode.textContent = d.text.slice(n);
     }
     this.dialogueDismiss?.classList.toggle('typing', d.shown < d.text.length);
+    this.dialogueDismiss?.classList.toggle('locked', locked);
     if (this.dialogueDismiss) {
       const more = this.convo && this.convo.i < this.convo.lines.length - 1;
-      const label = (d.shown < d.text.length ? '[E] SKIP' : more ? '[E] NEXT ▸' : '[E] CONTINUE') + (more ? '   [C] SKIP ALL' : '');
+      const label = locked ? (more ? '[E] NEXT ▸' : '[E] CONTINUE')
+        : (d.shown < d.text.length ? '[E] SKIP' : more ? '[E] NEXT ▸' : '[E] CONTINUE') + (more ? '   [C] SKIP ALL' : '');
       if (this.dialogueDismiss.dataset.label !== label + Input.labelPad + Input.labelStyle) {
         this.dialogueDismiss.dataset.label = label + Input.labelPad + Input.labelStyle;
         this.dialogueDismiss.textContent = label;
@@ -1599,8 +1633,33 @@ export class Engine {
     this.portraitFrame = f;
   }
 
+  /** True while the open line teaches a key and is still typing or younger than KEY_LINE_HOLD s. */
+  dialogueLocked() {
+    const d = this.dlg;
+    return Boolean(d && d.teaches && (d.shown < d.text.length || d.age < KEY_LINE_HOLD));
+  }
+
+  /** [C]: skip the rest of the conversation, but stop at a later line that teaches a key (and never skip one that
+   *  is still locked). */
+  skipConversation() {
+    if (this.dialogueLocked()) return;
+    const c = this.convo;
+    if (c) {
+      for (let j = c.i + 1; j < c.lines.length; j++) {
+        if (!teachesKey(c.lines[j].t)) continue;
+        c.i = j;
+        const l = c.lines[j];
+        this.openDialogue(l.t, l.s, l.title || c.title, l.g ?? null, l.p ?? null);
+        return;
+      }
+    }
+    this.closeDialogue();
+    c?.onDone?.();
+  }
+
   /** [E] in a dialogue: finish the typing, then the next line, then close (running the conversation's onDone). */
   advanceDialogue() {
+    if (this.dialogueLocked()) return;
     const d = this.dlg;
     if (d && d.shown < d.text.length) {
       d.shown = d.text.length;
