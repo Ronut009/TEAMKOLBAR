@@ -9,7 +9,7 @@
  *   pit on two pillars -> final chunk. The sealed forest door waits at the end of the map from the start.
  * Hazards (no spike packs of four any more): jungle spikes in packs of two on a timer, and single
  * jungle vines that rise and sink, and spin at anyone who comes near. Only the sword destroys a vine.
- *   Slay every Betal -> the Forest Heart awakens at the start (an arrow guides Rakti back) -> [E] take it ->
+ *   Slay every Betal -> the Forest Heart awakens at the start (the camera shows Rakti where) -> [E] take it ->
  *   carry it to the door -> [E] offer it -> the door opens -> walk through to Level 4.
  * The old horde level is kept in js/level3.js as a backup.
  * ==========================================================================
@@ -845,7 +845,6 @@ export class Level3 {
     if (this.killToastTimer > 0) this.killToastTimer -= dt;
 
     this.px = playerX; this.py = playerY;
-    this.updateGuideArrow(dt);
     if (this.relic.collected && this.relic.fly < 1) this.relic.fly = Math.min(1, this.relic.fly + dt * 1.4);
     if (this.relic.spawned) this.relic.spawnT += dt;
     if (this.door.opening) {
@@ -1312,7 +1311,7 @@ export class Level3 {
     let alpha = Math.min(1, r.spawnT / 1.0);
     if (r.collected) alpha *= 1 - Math.min(1, r.fly * 1.6);
     const near = (Math.abs(this.px - r.x) < 110 ? 1 : 0.45) * (0.25 + 0.75 * life);
-    // the same light as the Trishul's shrine in Level 2 (its marker is the guide chevron above); it fades to amber
+    // the same light as the Trishul's shrine in Level 2 (with its gold marker); it fades to amber
     const rgb = life > 0.5 ? '120, 255, 170' : life > 0.2 ? '200, 230, 120' : '230, 150, 80';
     if (!r.collected) drawShrineBeacon(ctx, { x: r.x, baseY: seat, relicY: cy, relicH: f.h, t: this.animTime, rgb, marker: true, alpha: alpha * (0.4 + 0.6 * life), shaftH: 100 });
     if (life < 1 && !r.collected && Math.random() < (1 - life) * 0.25) {
@@ -1382,92 +1381,8 @@ export class Level3 {
     ctx.drawImage(f.c, d.x - f.w / 2, FLOOR_Y + 2 - f.h, f.w, f.h);
   }
 
-  /** Guide to the awakened Forest Heart (only the heart; the door needs no arrow).
-   *  Off screen: an arrow circles Rakti's shoulders and points at the heart, eased so it glides instead of
-   *  jumping with every hop. On screen: a marker bobs over the heart itself. */
-  updateGuideArrow(dt) {
-    const r = this.relic;
-    const g = this.guide || (this.guide = { a: 0, x: this.px, y: this.py - 62, alpha: 0, init: false });
-    const active = r.spawned && r.spawnT > 0.8 && !r.collected;
-    const v = this.view;
-    const heartOnScreen = v && r.x > v.x1 + 80 && r.x < v.x2 - 80;
-    g.mode = heartOnScreen ? 'marker' : 'arrow';
-    const want = active && !(g.mode === 'arrow' && Math.abs(r.x - this.px) < 120) ? 1 : 0;
-    g.alpha += (want - g.alpha) * Math.min(1, dt * 6);
-    if (!active && g.alpha < 0.02) { g.init = false; return; }
-    // aim at the heart's glow, from Rakti's chest; mostly sideways (a steep arrow reads poorly)
-    const cx = this.px, cy = this.py - 56;
-    const ty = FLOOR_Y - 45;
-    let a = Math.atan2(ty - cy, r.x - cx);
-    const dir = Math.cos(a) >= 0 ? 1 : -1;
-    const tilt = Math.max(-0.45, Math.min(0.45, Math.atan2(ty - cy, Math.abs(r.x - cx))));
-    a = dir > 0 ? tilt : Math.PI - tilt;
-    if (!g.init) { g.a = a; g.init = true; }
-    let da = a - g.a;
-    while (da > Math.PI) da -= Math.PI * 2;
-    while (da < -Math.PI) da += Math.PI * 2;
-    g.a += da * Math.min(1, dt * 7);
-    const R = 46;
-    const tx = cx + Math.cos(g.a) * R, tyy = cy + Math.sin(g.a) * R * 0.6;
-    if (g.x === undefined || Math.abs(g.x - tx) > 200) { g.x = tx; g.y = tyy; }
-    const k = Math.min(1, dt * 12);
-    g.x += (tx - g.x) * k;
-    g.y += (tyy - g.y) * Math.min(1, dt * 8);   // a softer vertical follow, so jumps do not yank it
-  }
+  /** Drawn over Rakti (engine hook). The old guide arrow to the Forest Heart is gone (playtest feedback): the
+   *  camera pan at the reveal shows where the heart is, and its shrine beacon marks it on screen. */
+  renderForeground() {}
 
-  /** Drawn over Rakti (engine hook). */
-  renderForeground(ctx) { this.renderGuideArrow(ctx); }
-
-  renderGuideArrow(ctx) {
-    const g = this.guide, r = this.relic;
-    if (!g || g.alpha < 0.02) return;
-    ctx.save();
-    ctx.globalAlpha = g.alpha;
-    if (g.mode === 'marker') {
-      // on screen the heart is marked like the other three relics (shrine beacon: light shaft, halo, gold triangle)
-      ctx.restore();
-      return;
-    }
-    if (false) {
-      // a gold chevron bobbing over the heart
-      const bob = Math.sin(this.animTime * 4) * 4;
-      const x = r.x, y = FLOOR_Y - 118 + bob;
-      ctx.translate(x, y);
-      ctx.fillStyle = 'rgba(255, 214, 110, 0.95)';
-      ctx.strokeStyle = 'rgba(70, 30, 6, 0.95)';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(-9, -6); ctx.lineTo(0, 4); ctx.lineTo(9, -6); ctx.lineTo(9, 0); ctx.lineTo(0, 10); ctx.lineTo(-9, 0); ctx.closePath();
-      ctx.fill(); ctx.stroke();
-      ctx.font = 'bold 8px Cinzel, serif';
-      ctx.textAlign = 'center';
-      ctx.lineWidth = 2.5;
-      ctx.strokeStyle = 'rgba(20, 8, 0, 0.9)';
-      ctx.fillStyle = 'rgba(190, 255, 210, 0.95)';
-      ctx.strokeText('FOREST HEART', 0, -11);
-      ctx.fillText('FOREST HEART', 0, -11);
-      ctx.restore();
-      return;
-    }
-    const pulse = 1.35 + Math.sin(this.animTime * 6) * 0.08;
-    ctx.translate(g.x, g.y);
-    ctx.rotate(g.a);
-    ctx.scale(pulse, pulse);
-    // soft green glow behind, then the arrow
-    ctx.globalCompositeOperation = 'lighter';
-    const glow = ctx.createRadialGradient(0, 0, 2, 0, 0, 18);
-    glow.addColorStop(0, 'rgba(120, 255, 170, 0.35)');
-    glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
-    ctx.fillStyle = glow;
-    ctx.fillRect(-18, -18, 36, 36);
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.fillStyle = 'rgba(255, 214, 110, 0.95)';
-    ctx.strokeStyle = 'rgba(70, 30, 6, 0.95)';
-    ctx.lineWidth = 1.3;
-    ctx.beginPath();
-    ctx.moveTo(-10, -3.5); ctx.lineTo(1, -3.5); ctx.lineTo(1, -8); ctx.lineTo(11, 0);
-    ctx.lineTo(1, 8); ctx.lineTo(1, 3.5); ctx.lineTo(-10, 3.5); ctx.closePath();
-    ctx.fill(); ctx.stroke();
-    ctx.restore();
-  }
 }

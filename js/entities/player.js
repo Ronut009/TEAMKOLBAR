@@ -400,6 +400,7 @@ export class Player {
     this.knockTimer = knockTime;
     this.hp = Math.max(0, this.hp - amount);
     this.invulnerableTimer = 0.85;
+    Input.rumble(this.hp <= 0 ? 0.9 : 0.45, this.hp <= 0 ? 420 : 160);   // a controller shakes when she is hit
 
     if (this.hp <= 0) {
       this.hp = 0;
@@ -939,15 +940,13 @@ export class Player {
       this.tryCastOrb();
     }
     if (!this.isCivilian && !this.isDivine && attackPressed) {
-      if (typeof window !== 'undefined' && Input.isPressed('MouseLeft')) {
+      if (typeof window !== 'undefined') {
+        // a mouse click turns her to the cursor; on a controller the right stick does (else she keeps facing).
         // engine.js sets screenX each frame; near map edges the camera stops following,
         // so the screen centre is not where Rakti is.
         const raktiScreenX = Number.isFinite(this.screenX) ? this.screenX : window.innerWidth / 2;
-        if (Input.mouseX > raktiScreenX + 6) {
-          this.facing = 'right';
-        } else if (Input.mouseX < raktiScreenX - 6) {
-          this.facing = 'left';
-        }
+        const face = Input.attackFacing(raktiScreenX);
+        if (face) this.facing = face;
       }
       if (this.weapon === 'trishul' && this.hasTrishul) {
         // Every throw (mouse or key) flies at the cursor: Rakti turns to it and the Trishul goes exactly there
@@ -1172,10 +1171,10 @@ export class Player {
   // ==========================================================================
 
   faceMouse() {
-    if (typeof window === 'undefined' || !Input.isPressed('MouseLeft')) return;
+    if (typeof window === 'undefined') return;
     const sx = Number.isFinite(this.screenX) ? this.screenX : window.innerWidth / 2;
-    if (Input.mouseX > sx + 6) this.facing = 'right';
-    else if (Input.mouseX < sx - 6) this.facing = 'left';
+    const face = Input.attackFacing(sx);
+    if (face) this.facing = face;
   }
 
   tryCastOrb() {

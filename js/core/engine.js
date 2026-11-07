@@ -8,6 +8,8 @@
 
 import { Input } from './input.js';
 import { Music, Sfx } from './audio.js';
+import { keyLabel, startKeyLabels } from './keyLabels.js';
+import { SettingsMenu } from './settings.js';
 
 // An atmosphere hum swells as Rakti nears the item she needs to progress (a level's crucialItem())
 const AURA_RANGE = 380, AURA_CLOSE = 110;
@@ -17,7 +19,7 @@ const SANDS_DURATION = 8, SANDS_COOLDOWN = 15, SANDS_SLOW = 0.35;
 // The level-complete cards of Levels 1-3 continue on their own after this many seconds ([E] / [Space] sooner)
 const AUTO_CONTINUE = 5;
 // The opening cutscene: hold [Esc] this long to skip it
-const INTRO_SKIP_HOLD = 3;
+const INTRO_SKIP_HOLD = 1.5;
 // Demo shortcuts (hackathon): straight to the story's big moments, from the title screen or in game (demoJump)
 //  [J] Level 2: the Sands of Time on tower 2   [H] Level 2: the Trishul's shrine in the Hall of the Sun
 //  [K] Level 3: the Forest Heart wakes, the 50 s race   [G] Level 4: Pitaji falls and the Asura rises
@@ -175,6 +177,10 @@ export class Engine {
     this.pauseConfirm = document.getElementById('pauseConfirm');
     const on = (id, fn) => document.getElementById(id)?.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); fn(); });
     on('pauseContinue', () => this.resume());
+    // Settings: from the pause menu and the title screen (js/core/settings.js)
+    this.settings = new SettingsMenu();
+    on('pauseSettings', () => this.settings.show(document.getElementById('pauseSettings')));
+    on('titleSettingsButton', () => this.settings.show(document.getElementById('titleSettingsButton')));
     on('pauseRestart', () => this.showRestartConfirm(true));
     on('pauseExit', () => { this.resume(); this.returnToTitle(); });
     on('pauseYes', () => this.restartFromStart());
@@ -197,6 +203,7 @@ export class Engine {
     this.prologueComplete = false;
     this.cameraSnap = false;
 
+    startKeyLabels();      // on-screen [KEY] names follow the device in use (keyboard, Xbox or PlayStation pad)
     Music.play('title');   // the start screen's music: it begins at once, or on the first click if the browser blocks that
 
     this.startGameButton?.addEventListener('click', (event) => {
@@ -248,6 +255,7 @@ export class Engine {
     this.lastTime = timestamp;
     if (dt > 0.1) dt = 0.1;
 
+    Input.poll();    // the controller, if one is plugged in
     this.update(dt);
     this.render();
 
@@ -423,10 +431,13 @@ export class Engine {
     const it = this.intro;
     // hold [Esc] to skip: the bar fills while it is held and drains when it is let go
     it.hold = Input.isDown('Escape') ? it.hold + dt : Math.max(0, it.hold - dt * 2);
-    const fill = document.getElementById('introSkipFill');
-    if (fill) fill.style.width = `${Math.min(100, (it.hold / INTRO_SKIP_HOLD) * 100).toFixed(1)}%`;
-    document.getElementById('introSkip')?.classList.toggle('holding', it.hold > 0);
-    if (it.hold >= INTRO_SKIP_HOLD) this.finishIntroCutscene();
+    // the skip button (the menu's button art) lights up from left to right while it is held
+    const skip = document.getElementById('introSkip');
+    if (skip) {
+      skip.style.setProperty('--fill', `${Math.min(100, (it.hold / INTRO_SKIP_HOLD) * 100).toFixed(1)}%`);
+      skip.classList.toggle('holding', it.hold > 0);
+    }
+    if (it.hold >= INTRO_SKIP_HOLD) { this.finishIntroCutscene(); return; }
   }
 
   finishIntroCutscene() {
@@ -590,6 +601,53 @@ export class Engine {
     this.lastTime = performance.now();
   }
 
+  /** A controller in the title and pause menus: up / down (or left / right) moves between the buttons, A presses
+   *  the highlighted one, B backs out of the pause menu. True when it used this frame's input. */
+  padMenu() {
+    const pad = Input.device === 'pad';
+    let root = null;
+    if (this.settings?.isOpen) root = this.settings.panel;
+    else if (this.paused) root = this.pauseConfirm && !this.pauseConfirm.hidden ? this.pauseConfirm : this.pauseMain;
+    else if (!this.isGameStarted && !this.isLoading && this.titleScreen?.classList.contains('active')) root = this.titleScreen;
+    if (this.padRoot !== root) { this.padFocus = 0; this.padRoot = root; this.padFresh = true; }
+    for (const b of document.querySelectorAll('.menu-button.pad-focus')) if (!pad || !root || !root.contains(b)) b.classList.remove('pad-focus');
+    if (!pad || !root) return false;
+    const btns = [...root.querySelectorAll('button.menu-button')].filter((b) => b.offsetParent !== null && !b.disabled);
+    if (!btns.length) return false;
+    if (this.padFresh) {
+      // a menu just opened: start on its chosen device (settings) or the button that has focus (back from settings)
+      this.padFresh = false;
+      let c = btns.findIndex((b) => b.classList.contains('chosen'));
+      if (c < 0) c = btns.indexOf(document.activeElement);
+      if (c >= 0) this.padFocus = c;
+    }
+    const prev = ['PadUp', 'StickUp', 'PadLeft', 'StickLeft'].some((c) => Input.isPressed(c));
+    const next = ['PadDown', 'StickDown', 'PadRight', 'StickRight'].some((c) => Input.isPressed(c));
+    let i = Math.min(this.padFocus || 0, btns.length - 1);
+    if (prev) i = (i - 1 + btns.length) % btns.length;
+    if (next) i = (i + 1) % btns.length;
+    if ((prev || next) && i !== this.padFocus) Sfx.play('text_pop');
+    this.padFocus = i;
+    btns.forEach((b, k) => b.classList.toggle('pad-focus', k === i));
+    if (Input.isPressed('PadA')) {
+      Input.consume('PadA');
+      btns[i].click();
+      return true;
+    }
+    if (this.settings?.isOpen && Input.isPressed('PadB')) {
+      Input.consume('PadB');
+      this.settings.hide();
+      return true;
+    }
+    if (this.paused && Input.isPressed('PadB')) {
+      Input.consume('PadB');
+      if (this.pauseConfirm && !this.pauseConfirm.hidden) this.showRestartConfirm(false);
+      else this.resume();
+      return true;
+    }
+    return false;
+  }
+
   /** Restart asks first: true shows "Are you sure?", false goes back to the three buttons. */
   showRestartConfirm(show) {
     if (this.pauseMain) this.pauseMain.hidden = show;
@@ -642,6 +700,14 @@ export class Engine {
     this.updateMusic();
     // The opening cutscene (after New Game): nothing else runs while it plays
     if (this.intro) { this.updateIntroCutscene(dt); return; }
+    // Settings open (over the title screen or the pause menu): only it takes input; [Esc] or B closes it
+    if (this.settings?.isOpen) {
+      this.padMenu();
+      if (Input.isPressed('Escape')) this.settings.hide();
+      return;
+    }
+    // a controller in the title and pause menus
+    if (this.padMenu()) return;
     // the run's clock: story levels only, while actually playing
     if (this.isGameStarted && !this.isLoading && !this.paused && !this.levelCompleted
         && this.currentLevelIndex >= 1 && this.currentLevelIndex <= 4) this.runStats.time += dt;
@@ -811,7 +877,10 @@ export class Engine {
 
     // 2. Handle [E] / [Enter] to interact, pull lever, open chest, or unlock door.
     // Z is reserved for strike so attacking near a landmark never activates it.
-    if (Input.isPressed('interact') || (this.levelCompleted && Input.isPressed('space'))) {
+    // (a controller's A also moves a conversation on, and that press is not also a jump)
+    const padNext = this.dialogueActive && Input.isPressed('PadA');
+    if (padNext) Input.consume('PadA');
+    if (Input.isPressed('interact') || padNext || (this.levelCompleted && Input.isPressed('space'))) {
       if (this.levelCompleted) {
         if (this.currentLevelIndex === 1) {
           this.beginLoadingTransition(2);
@@ -926,6 +995,7 @@ export class Engine {
       if (this.dialogueActive) {
         // [C] skips the whole conversation ([Esc] pauses), but its outcome (e.g. the blessing) still happens
         const c = this.convo;
+        Input.consume('PadBack');   // (on a controller the same button restarts at the checkpoint: not this time)
         this.closeDialogue();
         c?.onDone?.();
       }
@@ -936,6 +1006,11 @@ export class Engine {
     this.player.screenX = (this.player.x - this.camX) * this.zoom;
     // where the cursor is in the world (the Trishul can be thrown at it)
     this.player.aimWorld = { x: Input.mouseX / this.zoom + Math.floor(this.camX), y: Input.mouseY / this.zoom + Math.floor(this.camY) };
+    if (Input.device === 'pad') {
+      // a controller aims with the right stick (300 px out from her chest); no stick = straight ahead
+      const a = Input.aim, m = Math.hypot(a.x, a.y) || 1;
+      this.player.aimWorld = a.active ? { x: this.player.x + (a.x / m) * 300, y: this.player.y - 30 + (a.y / m) * 300 } : null;
+    }
     this.player.update(dt, this.level, this.dialogueActive);
     this.level.update(this.player.x, this.player.y, this.worldDt(dt), this.player.isDivine, this.player);
     Sfx.listenerX = this.player.x;
@@ -1420,6 +1495,8 @@ export class Engine {
     this.dialogueActive = true;
     this.dialogueSpeaker = speaker;
     if (speaker !== prevSpeaker) Sfx.play('text_pop');   // the box pops up, or a new speaker takes over
+    text = keyLabel(text);   // [E], [F]... name the controller's buttons while one is in use
+    title = keyLabel(title);
     this.dlg = { text, shown: 0, speaker, gesture, frame: pickPortrait(this.portraitSetName(speaker), gesture, text, portrait) };
     this.portraitAnim = 0;
     this.portraitFrame = -1;
@@ -1482,7 +1559,14 @@ export class Engine {
       this.dlgRestNode.textContent = d.text.slice(n);
     }
     this.dialogueDismiss?.classList.toggle('typing', d.shown < d.text.length);
-    if (this.dialogueDismiss) this.dialogueDismiss.textContent = d.shown < d.text.length ? '[E] SKIP' : (this.convo && this.convo.i < this.convo.lines.length - 1 ? '[E] NEXT ▸' : '[E] CONTINUE');
+    if (this.dialogueDismiss) {
+      const more = this.convo && this.convo.i < this.convo.lines.length - 1;
+      const label = (d.shown < d.text.length ? '[E] SKIP' : more ? '[E] NEXT ▸' : '[E] CONTINUE') + (more ? '   [C] SKIP ALL' : '');
+      if (this.dialogueDismiss.dataset.label !== label + Input.labelPad + Input.labelStyle) {
+        this.dialogueDismiss.dataset.label = label + Input.labelPad + Input.labelStyle;
+        this.dialogueDismiss.textContent = label;
+      }
+    }
     const set = this.portraitSetFor(d.speaker);
     if (!set || !this.dialoguePortraitImg) return;
     this.portraitAnim += dt;

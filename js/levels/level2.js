@@ -59,7 +59,18 @@ const PORTAL_DY = 54;    // screens continue below the art (a mirrored strip) so
 // ---------------------------------------------------------------- sprites (assets/level2/sprites, measured)
 // Tower: 474 x 744 (tower.png and tower_ladder.png share the canvas). roofY = where feet stand on the roof.
 const TOWER = { w: 474, h: 744, cx: 235.2, roofY: 108, baseY: 729.6, roofL: 43, roofR: 427, ladderX: 339.3 };
+// The first tower (the Sun Key's) has its own art with the sun painted in its window: tower_sun.png and
+// tower_sun_ladder.png, fitted onto the same 474 x 744 canvas (same roof, base and centre); its ladder is a little
+// further in.
+const TOWER1 = { ladderX: 329.8 };
 const TOWER_SCALE = 0.325;
+// The sun mark on the first tower: the golden sun painted in its window (tower_sun.png), the same sun as the sun
+// door's lock. ix / iy = its centre on the tower canvas, r = the half size of the square holding it and its rays.
+// It is quiet from the start; when Rakti finds the lock without a key, the camera pans to it and it ignites: the
+// painted sun itself glows (its gold pixels, drawn again in 'lighter'), with a light shaft into the sky, until she
+// has the Sun Key.
+const SUN_MARK = { ix: 237.5, iy: 404.7, r: 30, glowR: 11.3 };
+const SUN_PAN = { there: 1.6, back: 1.1 };   // s for the camera to glide to the mark, and back to Rakti
 const TOWER_ROOF_Y = Math.round(FLOOR_Y + 4 - (TOWER.baseY - TOWER.roofY) * TOWER_SCALE);   // ~170
 // Pillars: floor pillars stand on the floor, long pillars rise out of a chasm. surface = feet row from the top.
 // Pillars stand on their stepped bases, half buried in the quicksand.
@@ -170,6 +181,8 @@ export class Level2 {
     };
     this.towerImg = img(S + 'tower.png');
     this.towerLadderImg = img(S + 'tower_ladder.png');
+    this.tower1Img = img(S + 'tower_sun.png');
+    this.tower1LadderImg = img(S + 'tower_sun_ladder.png');
     this.pillarImgs = Object.fromEntries(Object.entries(PILLAR_ART).map(([k, v]) => [k, img(S + v.src)]));
     this.ballSheet = img(S + 'stone_ball_sheet.png');
     this.slabSheet = img(S + 'stone_slab_sheet.png');
@@ -262,7 +275,7 @@ export class Level2 {
     const roofHalf = ((TOWER.roofR - TOWER.roofL) / 2) * TOWER_SCALE - 8;
     for (const t of this.towers) {
       t.roof = { x1: t.cx - roofHalf, x2: t.cx + roofHalf, y: TOWER_ROOF_Y };
-      t.ladderX = t.cx + (TOWER.ladderX - TOWER.cx) * TOWER_SCALE;
+      t.ladderX = t.cx + ((t.id === 'T1' ? TOWER1.ladderX : TOWER.ladderX) - TOWER.cx) * TOWER_SCALE;
     }
     this.ladderShown = 0;   // tower 2's ladder (0 hidden .. 1 fully drawn)
     this.ladderShown1 = 0;  // tower 1's ladder (it unfurls when the second archer there falls)
@@ -389,6 +402,7 @@ export class Level2 {
     if (this.area === 'out') {
       if (p.archerB && !p.sandsTaken) return { x: this.hourglass.x, y: TOWER_ROOF_Y };
       if (p.archerA2 && !p.keyTaken) return { x: this.key.x, y: TOWER_ROOF_Y };
+      if (p.doorTried && !p.keyTaken) return { x: this.sunMarkPos().x, y: TOWER_ROOF_Y };
       return null;
     }
     return p.trishulTaken ? null : { x: this.shrine.x, y: FLOOR_Y };
@@ -437,6 +451,8 @@ export class Level2 {
     this.qsDepth = 0;
     this.qsWasIn = false;
     this.rockFade = 1;   // the boulder piles are part of the scenery from the start (they used to pop in with [Q])
+    this.sunMark = { lit: Boolean(p.doorTried), ignite: 0 };
+    this.sunPan = null;
     this.setArea(p.inRoom ? 'room' : 'out');
 
     for (const [id, a] of Object.entries(this.archers)) {
@@ -663,7 +679,7 @@ export class Level2 {
         return {
           type: 'inspection', x: this.door1.cx, y: FLOOR_Y, prompt: '[E] SEALED DOOR', speaker: 'stele', title: '⚜ THE SUN DOOR ⚜',
           text: p.doorTried
-            ? 'The sun-shaped lock waits for its key. It lies back at the first tower.'
+            ? 'The sun-shaped lock waits for its key. Look for the burning sun on the first tower.'
             : 'A sun-shaped lock holds the great doors shut. Something on the second tower still calls to you.'
         };
       }
@@ -722,9 +738,10 @@ export class Level2 {
   startDoorTwist() {
     this.pendingDialogue = {
       lines: [
-        { s: 'kali', t: 'Look at the lock, Rakti: the shape of the sun, burnt into the stone. I have seen that mark once today... on the first tower.' },
-        { s: 'rakti', t: 'The first tower? All the way back, past the slabs and the quicksand?' },
-        { s: 'kali', t: 'And faster than before. Feel it? The desert has woken against you: its traps quicken, and its warriors are coming through the door behind you. Turn the Sands with [F] when they press you, and slay every one of them: each that falls fills the hourglass, and you will need it full.' }
+        // the camera glides back to the first tower while Kali speaks, and the sun mark there ignites
+        { s: 'kali', t: 'See the sun on this lock? The same sun is carved on the first tower. Look... it is burning now.', focus: 'sunmark' },
+        { s: 'rakti', t: 'The first tower? That is all the way back!' },
+        { s: 'kali', t: 'Then run. The desert is turning on you: faster traps, more warriors. Use the Sands [F] when it gets bad, and cut every warrior down. Each one fills the hourglass, and you will need it full.' }
       ],
       onDone: () => this.startHaste()
     };
@@ -734,6 +751,7 @@ export class Level2 {
     const p = this.progress;
     if (p.doorTried) return;
     p.doorTried = true;
+    this.sunMark.lit = true;   // (a skipped talk never reached the mark, so light it here)
     this.cameraShake = 0.8;
     this.toast('⚠ THE DESERT QUICKENS ⚠', 2.6);
     this.archers.A2.hidden = false;
@@ -985,9 +1003,115 @@ export class Level2 {
   }
 
   /** Engine hook: what the camera frames during the rewind. */
-  cameraFocus() {
+  cameraFocus(line) {
     const r = this.rewind;
-    return r ? { x: r.focusX, y: FLOOR_Y - 120 } : null;
+    if (r) return { x: r.focusX, y: FLOOR_Y - 120 };
+    // the sun door talk: glide to the first tower's sun mark while Kali speaks of it, then glide back
+    const want = line?.focus === 'sunmark';
+    if (want && !this.sunPan) this.sunPan = { u: 0, dir: 1 };
+    const P = this.sunPan;
+    if (!P) return null;
+    P.dir = want ? 1 : -1;
+    const pl = this.player, fx = pl ? pl.x : this.door1.cx, fy = (pl ? pl.y : FLOOR_Y) - 20;
+    const m = this.sunMarkPos(), u = P.u, e = u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2;
+    return { x: fx + (m.x - fx) * e, y: fy + (m.y - 8 - fy) * e };
+  }
+
+  /** Where the sun mark sits in the world (the middle of the first tower, over its window). */
+  sunMarkPos() {
+    const t = this.towers[0], s = TOWER_SCALE;
+    return { x: t.cx + (SUN_MARK.ix - TOWER.cx) * s, y: FLOOR_Y + 4 - TOWER.baseY * s + SUN_MARK.iy * s };
+  }
+
+  /** The camera glide (real time, so the Sands never slow it), the ignition flash, and embers while it burns. */
+  updateSunMark(dt) {
+    const m = this.sunMark, P = this.sunPan, rd = this.realDt ?? dt;
+    if (!m) return;
+    if (P) {
+      P.u = Math.max(0, Math.min(1, P.u + (rd / (P.dir > 0 ? SUN_PAN.there : SUN_PAN.back)) * P.dir));
+      if (P.dir > 0 && P.u >= 0.92 && !m.lit) {
+        m.lit = true;
+        m.ignite = 1;
+        this.cameraShake = Math.max(this.cameraShake, 0.35);
+        Sfx.play('portal_open');
+        const pos = this.sunMarkPos();
+        this.burst(pos.x, pos.y, 26, ['#fff2b0', '#ffd25a', '#ffae2e', '#ff8a1e'], 120, 1.0);
+      }
+      if (P.dir < 0 && P.u <= 0) this.sunPan = null;
+    }
+    if (m.ignite > 0) m.ignite = Math.max(0, m.ignite - rd * 0.8);
+    const burning = (m.lit || this.progress.doorTried) && !this.progress.keyTaken && this.area === 'out';
+    if (burning && Math.random() < rd * 9) {
+      const pos = this.sunMarkPos();
+      this.particles.push({ x: pos.x + (Math.random() - 0.5) * 22, y: pos.y + (Math.random() - 0.5) * 16, vx: (Math.random() - 0.5) * 10,
+        vy: -22 - Math.random() * 26, life: 1.6, maxLife: 1.6, size: 0.8 + Math.random() * 1.2, color: Math.random() > 0.4 ? '#ffd25a' : '#ff9a2e', g: 0 });
+    }
+  }
+
+  /** The painted sun's gold, cut from the first tower's art once: drawn again in 'lighter' it makes the sun burn. */
+  sunGlowArt() {
+    const r = SUN_MARK.r, k = TOWER_SCALE, size = r * 2 * k;
+    return this.cachedArt('sunGlow', size, size, ready(this.tower1Img), (g) => {
+      g.drawImage(this.tower1Img, SUN_MARK.ix - r, SUN_MARK.iy - r, r * 2, r * 2, 0, 0, size, size);
+      const c = g.canvas, x = c.getContext('2d');
+      let d;
+      try { d = x.getImageData(0, 0, c.width, c.height); } catch (e) { return; }   // (a file:// page cannot read it)
+      const px = d.data;
+      for (let i = 0; i < px.length; i += 4) {
+        const R = px[i], G = px[i + 1], B = px[i + 2];
+        const gold = R > 150 && G > 90 && R - B > 90;   // the sun and its rays, not the navy window or the stone
+        const cx = ((i / 4) % c.width) / c.width - 0.5, cy = Math.floor(i / 4 / c.width) / c.height - 0.5;
+        if (!gold || Math.hypot(cx, cy) > 0.5) px[i + 3] = 0;
+      }
+      x.putImageData(d, 0, 0);
+    });
+  }
+
+  /** The sun mark: the sun painted in the first tower's window. Quiet until it ignites; then it burns and pulses,
+   *  with a glow and a light shaft into the sky; once the key is hers it stays lit, calmly. */
+  drawSunMark(ctx) {
+    const m = this.sunMark, p = this.progress;
+    if (!m) return;
+    const pos = this.sunMarkPos(), t = this.animTime;
+    const lit = m.lit || p.doorTried, burning = lit && !p.keyTaken;
+    const R = SUN_MARK.glowR;
+    const pulse = burning ? 0.85 + Math.sin(t * 3.2) * 0.15 : 1;
+    const half = SUN_MARK.r * TOWER_SCALE;
+    ctx.save();
+    ctx.translate(pos.x, pos.y);
+    const glowArt = lit ? this.sunGlowArt() : null;
+    if (glowArt) {
+      // the painted sun burning: pulsing while it calls her, steady once the key is taken (and a flash as it ignites)
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = Math.min(1, (burning ? 0.55 + 0.35 * Math.sin(t * 3.2) : 0.4) + m.ignite);
+      ctx.drawImage(glowArt, -half, -half, half * 2, half * 2);
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = 'source-over';
+    }
+    if (burning) {
+      // a shaft of light into the sky: it can be seen from far down the dunes
+      ctx.globalCompositeOperation = 'lighter';
+      const top = -pos.y - 40, w = R * 1.5 * pulse, y0 = -half * 0.6;   // it rises from the top of the sun
+      const shaft = ctx.createLinearGradient(0, y0, 0, top);
+      shaft.addColorStop(0, 'rgba(255, 200, 80, 0.4)');
+      shaft.addColorStop(0.5, 'rgba(255, 190, 70, 0.2)');
+      shaft.addColorStop(1, 'rgba(255, 180, 60, 0)');
+      ctx.fillStyle = shaft;
+      ctx.beginPath();
+      ctx.moveTo(-w * 0.5, y0); ctx.lineTo(w * 0.5, y0); ctx.lineTo(w * 1.3, top); ctx.lineTo(-w * 1.3, top);
+      ctx.closePath();
+      ctx.fill();
+    }
+    if (lit) {
+      ctx.globalCompositeOperation = 'lighter';
+      const gr = R * (burning ? 3.4 * pulse : 2.2);
+      const glow = ctx.createRadialGradient(0, 0, R * 0.3, 0, 0, gr);
+      glow.addColorStop(0, burning ? 'rgba(255, 170, 50, 0.35)' : 'rgba(255, 180, 80, 0.18)');
+      glow.addColorStop(1, 'rgba(255, 160, 40, 0)');
+      ctx.fillStyle = glow;
+      ctx.fillRect(-gr, -gr, gr * 2, gr * 2);
+    }
+    ctx.restore();
   }
 
   get cutscene() { return Boolean(this.rewind); }
@@ -1161,6 +1285,8 @@ export class Level2 {
       q.vy += (q.g || 0) * dt;
       if (q.life <= 0) this.particles.splice(i, 1);
     }
+
+    this.updateSunMark(dt);
 
     // ---------------------------------------------------- arriving through the portal
     if (this.intro && player) {
@@ -2077,11 +2203,12 @@ export class Level2 {
       if (t.area !== this.area) continue;
       const x = t.cx - TOWER.cx * s, y = FLOOR_Y + 4 - TOWER.baseY * s;
       if (!this.inView(x, x + w)) continue;
-      const plain = this.cachedArt('tower', w, h, ready(this.towerImg), (g) => g.drawImage(this.towerImg, 0, 0, w, h));
+      const sun = t.id === 'T1', im = sun ? this.tower1Img : this.towerImg, imL = sun ? this.tower1LadderImg : this.towerLadderImg;
+      const plain = this.cachedArt(sun ? 'tower1' : 'tower', w, h, ready(im), (g) => g.drawImage(im, 0, 0, w, h));
       const ladderAlpha = t.id === 'T2' ? this.ladderShown : t.id === 'T1' ? this.ladderShown1 : 0;
       if (plain && ladderAlpha < 1) ctx.drawImage(plain, x, y, w, h);
       if (ladderAlpha > 0) {
-        const lad = this.cachedArt('tower_ladder', w, h, ready(this.towerLadderImg), (g) => g.drawImage(this.towerLadderImg, 0, 0, w, h));
+        const lad = this.cachedArt(sun ? 'tower1_ladder' : 'tower_ladder', w, h, ready(imL), (g) => g.drawImage(imL, 0, 0, w, h));
         if (lad) {
           ctx.save();
           ctx.globalAlpha = ladderAlpha;
@@ -2089,6 +2216,7 @@ export class Level2 {
           ctx.restore();
         }
       }
+      if (t.id === 'T1') this.drawSunMark(ctx);
     }
   }
 

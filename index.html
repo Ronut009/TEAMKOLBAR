@@ -155,6 +155,7 @@
       <h1 class="pause-title">PAUSED</h1>
       <div class="pause-divider"></div>
       <button class="menu-button" id="pauseContinue" type="button"><span>CONTINUE</span></button>
+      <button class="menu-button" id="pauseSettings" type="button"><span>SETTINGS</span></button>
       <button class="menu-button" id="pauseRestart" type="button"><span>RESTART</span></button>
       <button class="menu-button" id="pauseExit" type="button"><span>EXIT TO MAIN MENU</span></button>
       <p class="pause-hint">[ESC] RESUME</p>
@@ -182,7 +183,27 @@
         <button class="menu-button" id="endlessGameButton" type="button">
           <span>CHAOS MODE</span>
         </button>
+        <button class="menu-button" id="titleSettingsButton" type="button">
+          <span>SETTINGS</span>
+        </button>
       </div>
+    </div>
+  </section>
+
+  <!-- Settings (title screen and pause menu): what you play with, and what every key or button does (js/core/settings.js) -->
+  <section class="settings-screen" id="settingsScreen" aria-label="Settings" aria-hidden="true">
+    <div class="settings-panel" id="settingsPanel">
+      <h1 class="pause-title">SETTINGS</h1>
+      <div class="pause-divider"></div>
+      <p class="settings-label">CONTROLS</p>
+      <div class="settings-devices">
+        <button class="menu-button" type="button" data-device="keyboard"><span>KEYBOARD &amp; MOUSE</span></button>
+        <button class="menu-button" type="button" data-device="xbox"><span>XBOX</span></button>
+        <button class="menu-button" type="button" data-device="ps"><span>PLAYSTATION</span></button>
+      </div>
+      <p class="settings-note" id="settingsNote"></p>
+      <div class="settings-binds no-keylabel" id="settingsBinds"></div>
+      <button class="menu-button small" id="settingsBack" type="button"><span>BACK</span></button>
     </div>
   </section>
 
@@ -195,12 +216,11 @@
     </div>
   </section>
 
-  <!-- The opening cutscene (New Game): full screen; hold [Esc] for 3 s to skip it -->
+  <!-- The opening cutscene (New Game): full screen; hold [Esc] (a controller's Menu / Options) to skip it -->
   <section class="intro-cutscene" id="introCutscene" aria-label="Opening cutscene" aria-hidden="true">
     <video id="introVideo" src="assets/video/start_cutscene.mp4" preload="auto" playsinline></video>
     <div class="ic-skip" id="introSkip">
-      <span class="ic-skip-text">HOLD <b>ESC</b> TO SKIP</span>
-      <div class="ic-skip-bar"><span id="introSkipFill"></span></div>
+      <span class="ic-skip-text">HOLD <b data-key="ESC">ESC</b> TO SKIP</span>
     </div>
   </section>
 
