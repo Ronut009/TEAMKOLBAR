@@ -80,10 +80,14 @@ const PAD_OVERLAP = 12;      // neighbouring pads overlap by this many world px
 const PAD_SURFACE = 0.42;    // the leaf's top surface sits this far down the pad image
 const PETAL_ART = { c: { w: 113, h: 57 }, d: { w: 79, h: 39 } };
 
-// Geyser art (assets/level1/geyser_sheet.png): 6 frames of 125x395; frames 4-5 are the full column (splash base
-// on row 390). The jet comes DOWN from the surface: its column (rows colTop..colBottom, tiled) is drawn from the
-// top of the screen down to the deck, where the splash (rows colBottom..frameH) lands.
-const GEYSER_ART = { src: 'assets/level1/geyser_sheet.png', frameW: 125, frameH: 395, base: 390, scale: 0.36, colTop: 60, colBottom: 290 };
+// Jet art (assets/level1/jet/, cut from the jet sheet): four strips of 4 frames each, all 112 px wide except the splash.
+//  head:   the falling tip (its point at the bottom), drawn at the jet's leading end while it drives down
+//  column: the pouring water, tiles top to bottom (scrolled downward so it reads as falling)
+//  splash: where it hits the deck (its ground line `splashBase` px down the frame)
+//  tail:   the water breaking up; drawn flipped above the jet's upper end as it falls away, thinning frame by frame
+// `body` is the width of the solid water in a frame; `scale` sizes it to the jet's hit width (GEYSER.half).
+const JET_ART = { dir: 'assets/level1/jet/', fw: 112, headH: 120, headTip: 118, colH: 128, splashW: 172, splashH: 69,
+  splashBase: 66, tailH: 104, body: 74, scale: 0.52, frameTime: 0.08 };
 
 // Water jets that replace the old bridge orbs: the sea above pours a jet straight down onto each hibiscus span.
 // A thin shimmer from above and a ring on the deck warn first; the jet then drives down from the top of the
@@ -147,7 +151,7 @@ export class Level {
     this.idolImg = img(IDOL_ART.src);
     this.hib = Object.fromEntries(['pad_s', 'pad_m', 'pad_l', 'hib_front', 'hib_side_a', 'hib_side_b', 'leaf_b', 'leaf_c', 'petal_c', 'petal_d']
       .map((n) => [n, img(HIB + n + '.png')]));
-    this.geyserImg = img(GEYSER_ART.src);
+    this.jetImgs = Object.fromEntries(['head', 'column', 'splash', 'tail'].map((k) => [k, img(`${JET_ART.dir}jet_${k}.png`)]));
     this.towerImgs = Object.fromEntries(Object.entries(TOWER_ART).map(([k, v]) => [k, img(v.src)]));
 
     this.platformArt = new PlatformArt('temple');
@@ -501,9 +505,11 @@ export class Level {
     this.updatePrologueScene(player);
     this.updateMovingPillars(playerX, playerY, player);
 
-    // Lever pull, then Kali's flower bridges bloom from both towers and meet in the middle
+    // Lever pull, then Kali's flower bridges bloom from both towers and meet in the middle. They wait until her
+    // words about them are closed, so the player watches them bloom instead of it happening behind the dialogue.
     if (this.lever.activated) {
       this.lever.pullTime += dt;
+      if (this.dialogueOpen && this.bridgeGrow <= 0) this.lever.pullTime = Math.min(this.lever.pullTime, 0.2);
       if (this.lever.pullTime > 0.35 && this.bridgeGrow < 1) {
         this.bridgeGrow = Math.min(1, this.bridgeGrow + dt / BRIDGE_SUMMON_TIME);
         this.cameraShake = Math.max(this.cameraShake, 0.08);
@@ -909,11 +915,15 @@ export class Level {
     ctx.restore();
   }
 
+  /** The deep below each pit (and under the towers): a soft fall into darker water, in the background's own blue
+   *  rather than black, so the bottom of the screen reads as deep sea and not a black bar. */
   renderPits(ctx) {
     for (const pit of this.pits) {
-      const g = ctx.createLinearGradient(0, FLOOR_Y - 6, 0, FLOOR_Y + 70);
-      g.addColorStop(0, 'rgba(2, 8, 24, 0)');
-      g.addColorStop(1, 'rgba(1, 4, 14, 0.95)');
+      if (!this.inView(pit.x1, pit.x2)) continue;
+      const g = ctx.createLinearGradient(0, FLOOR_Y - 6, 0, SCREEN_H);
+      g.addColorStop(0, 'rgba(4, 34, 92, 0)');
+      g.addColorStop(0.45, 'rgba(4, 34, 92, 0.18)');
+      g.addColorStop(1, 'rgba(3, 26, 74, 0.42)');
       ctx.fillStyle = g;
       ctx.fillRect(pit.x1, FLOOR_Y - 6, pit.x2 - pit.x1, SCREEN_H - FLOOR_Y + 8);
     }
@@ -961,6 +971,55 @@ export class Level {
     ctx.drawImage(c, x - w / 2, y - SPIKE_ART.surface * s + 1, w, h);
   }
 
+  /** One frame of a jet strip, cached at device resolution. flip: drawn upside down (the tail). */
+  jetFrame(kind, f, flip = false) {
+    const A = JET_ART, s = A.scale, im = this.jetImgs[kind];
+    const fw = kind === 'splash' ? A.splashW : A.fw;
+    const fh = { head: A.headH, column: A.colH, splash: A.splashH, tail: A.tailH }[kind];
+    const w = fw * s, h = fh * s;
+    const c = this.cachedArt(`jet:${kind}:${f}:${flip ? 1 : 0}`, w, h, true, (g) => {
+      if (flip) { g.translate(0, h); g.scale(1, -1); }
+      g.drawImage(im, f * fw, 0, fw, fh, 0, 0, w, h);
+    });
+    if (c) { c.w = w; c.h = h; }
+    return c;
+  }
+
+  /** A pouring jet: while it drives down, the falling tip at its leading end with the column behind it; once it
+   *  lands, the column all the way down and the splash on the deck; as it ends, its upper end (the tip turned
+   *  upside down, with the breaking-up drops above it) falls after it. A soft additive pass on top makes the water glow. */
+  renderJet(ctx, g, st, by) {
+    const A = JET_ART, s = A.scale, x = g.x;
+    const f = Math.floor(this.animTime / A.frameTime) % 4;
+    const head = this.jetFrame('head', f), col = this.jetFrame('column', f), splash = this.jetFrame('splash', f);
+    if (!head || !col || !splash) return;
+    const ground = by + 5;                                   // the splash's ground line sits just into the flowers
+    const ending = st.k > 0.78, u = ending ? Math.min(1, (st.k - 0.78) / 0.22) : 0;
+    const tail = ending ? this.jetFrame('tail', Math.min(3, Math.floor(u * 4)), true) : null;
+    const cap = ending ? this.jetFrame('head', f, true) : null;   // the upper end: the falling tip, pointing up
+    // the column runs from the upper end down to the tip (falling) or into the splash (landed)
+    const colTop = ending && cap ? st.tail + cap.h - 4 : GEYSER.top;
+    const colBottom = st.landed ? ground - A.splashBase * s * 0.35 : st.head - A.headTip * s + 3;
+    for (let pass = 0; pass < 2; pass++) {
+      ctx.save();
+      if (pass) { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.28; }
+      if (colBottom > colTop) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(x - col.w, colTop, col.w * 2, colBottom - colTop);
+        ctx.clip();
+        const scroll = (this.animTime * 300) % col.h;          // tiles move down: the water reads as falling
+        for (let y = colBottom - col.h + scroll; y > colTop - col.h; y -= col.h) ctx.drawImage(col, x - col.w / 2, y, col.w, col.h);
+        ctx.restore();
+      }
+      if (!st.landed) ctx.drawImage(head, x - head.w / 2, st.head - A.headTip * s, head.w, head.h);
+      else if (!ending || st.tail < ground - 6) ctx.drawImage(splash, x - splash.w / 2, ground - A.splashBase * s, splash.w, splash.h);
+      if (cap) ctx.drawImage(cap, x - cap.w / 2, st.tail - (cap.h - A.headTip * s), cap.w, cap.h);
+      if (tail) ctx.drawImage(tail, x - tail.w / 2, st.tail + 8 - tail.h, tail.w, tail.h);
+      ctx.restore();
+    }
+  }
+
   /** Water jets. 'under' (behind the bridge): the falling motes. 'over': while warning a thin shimmer from above and
    *  a ring where it will land; while pouring the jet itself, its column tiled from the sprite between its tail and
    *  head, a bright leading edge on the way down and the sprite's splash once it hits the deck. */
@@ -977,9 +1036,7 @@ export class Level {
       ctx.restore();
       return;
     }
-    const im = this.geyserImg, A = GEYSER_ART, s = A.scale;
-    const ready = im.complete && im.naturalWidth > 0;
-    const w = A.frameW * s;
+    const ready = Object.values(this.jetImgs).every((im) => im.complete && im.naturalWidth > 0);
     for (const g of this.geysers) {
       const st = this.geyserState(g), by = this.bridges[g.bridge].y, deck = by + 8;
       if (!this.inView(g.x - 40, g.x + 40)) continue;
@@ -1002,39 +1059,7 @@ export class Level {
         continue;
       }
       if (st.stage !== 'burst' || !ready || st.head <= st.tail) continue;
-      const f = Math.floor(this.animTime / 0.09) % 2 ? 5 : 4;
-      const colH = (A.colBottom - A.colTop) * s, splashH = (A.frameH - A.colBottom) * s;
-      const tile = this.cachedArt('jetcol:' + f, w, colH, true,
-        (gg) => gg.drawImage(im, f * A.frameW, A.colTop, A.frameW, A.colBottom - A.colTop, 0, 0, w, colH));
-      const splash = this.cachedArt('jetsplash:' + f, w, splashH, true,
-        (gg) => gg.drawImage(im, f * A.frameW, A.colBottom, A.frameW, A.frameH - A.colBottom, 0, 0, w, splashH));
-      const splashTop = deck - (A.base - A.colBottom) * s;
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(g.x - w, st.tail, w * 2, st.head - st.tail);
-      ctx.clip();
-      for (let pass2 = 0; pass2 < 2; pass2++) {
-        // a normal pass, then an additive one so it glows
-        ctx.globalCompositeOperation = pass2 ? 'lighter' : 'source-over';
-        ctx.globalAlpha = pass2 ? 0.35 : 1;
-        // the column, tiled upward from where the splash begins (scrolling down, so the water reads as falling)
-        const scroll = (this.animTime * 260) % colH;
-        for (let y = splashTop - colH + scroll; y > GEYSER.top - colH; y -= colH) ctx.drawImage(tile, g.x - w / 2, y, w, colH);
-        if (st.landed) ctx.drawImage(splash, g.x - w / 2, splashTop, w, splashH);
-      }
-      ctx.restore();
-      // the leading edge while it drives down
-      if (!st.landed) {
-        ctx.save();
-        ctx.globalCompositeOperation = 'lighter';
-        const gl = ctx.createRadialGradient(g.x, st.head, 1, g.x, st.head, 22);
-        gl.addColorStop(0, 'rgba(235, 255, 255, 0.95)');
-        gl.addColorStop(0.4, 'rgba(120, 220, 255, 0.5)');
-        gl.addColorStop(1, 'rgba(0, 80, 160, 0)');
-        ctx.fillStyle = gl;
-        ctx.fillRect(g.x - 24, st.head - 24, 48, 48);
-        ctx.restore();
-      }
+      this.renderJet(ctx, g, st, by);
     }
     ctx.restore();
   }
@@ -1086,7 +1111,7 @@ export class Level {
     ctx.restore();
   }
 
-  /** The three free-standing towers. Their bases sink into the dark abyss (renderPits draws over them).
+  /** The three free-standing towers. Their bases sink into the deep water (renderPits draws over them).
    *  The door tower crossfades from its closed to its open art as the door opens. */
   renderTowers(ctx) {
     const s = TOWER_SCALE, w = TOWER_W * s, h = TOWER_H * s;

@@ -24,9 +24,6 @@ const INTRO_SKIP_HOLD = 1.5;
 const KEY_LINE_HOLD = 3;
 const KEY_TOKEN = /\[(E|F|Q|X|1|2|R|C|ESC|SPACE|ENTER|CLICK)\]/i;
 const teachesKey = (text) => KEY_TOKEN.test(String(text || ''));
-// The skip button shows for INTRO_SKIP_CUE s when the film starts and again after any key or button press (it sits
-// just above the film's subtitles, so it does not stay over the picture the whole time)
-const INTRO_SKIP_CUE = 4;
 // Demo shortcuts (hackathon): straight to the story's big moments, from the title screen or in game (demoJump)
 //  [J] Level 2: the Sands of Time on tower 2   [H] Level 2: the Trishul's shrine in the Hall of the Sun
 //  [K] Level 3: the Forest Heart wakes, the 50 s race   [G] Level 4: Pitaji falls and the Asura rises
@@ -419,7 +416,7 @@ export class Engine {
   playIntroCutscene(onDone) {
     const box = document.getElementById('introCutscene'), video = document.getElementById('introVideo');
     if (!box || !video) { onDone(); return; }
-    this.intro = { onDone, hold: 0, done: false, cue: INTRO_SKIP_CUE };
+    this.intro = { onDone, hold: 0, done: false };
     this.titleScreen?.classList.remove('active');
     box.classList.add('active');
     box.setAttribute('aria-hidden', 'false');
@@ -438,14 +435,12 @@ export class Engine {
     const it = this.intro;
     // hold [Esc] to skip: the bar fills while it is held and drains when it is let go
     it.hold = Input.isDown('Escape') ? it.hold + dt : Math.max(0, it.hold - dt * 2);
-    // the skip button (the menu's button art) lights up from left to right while it is held
+    // the skip button (the menu's button art, bottom right for the whole film) lights up from left to right while held
     const skip = document.getElementById('introSkip');
-    if (Input.keysPressed.size || Input.padPressed.size) it.cue = 3;
-    it.cue = Math.max(0, it.cue - dt);
     if (skip) {
       skip.style.setProperty('--fill', `${Math.min(100, (it.hold / INTRO_SKIP_HOLD) * 100).toFixed(1)}%`);
       skip.classList.toggle('holding', it.hold > 0);
-      skip.classList.toggle('show', it.cue > 0 || it.hold > 0);
+      skip.classList.add('show');
     }
     if (it.hold >= INTRO_SKIP_HOLD) { this.finishIntroCutscene(); return; }
   }
@@ -1039,6 +1034,7 @@ export class Engine {
       this.player.aimWorld = a.active ? { x: this.player.x + (a.x / m) * 300, y: this.player.y - 30 + (a.y / m) * 300 } : null;
     }
     this.player.update(dt, this.level, this.dialogueActive);
+    this.level.dialogueOpen = this.dialogueActive;   // a level can hold a story beat until Kali has finished speaking
     this.level.update(this.player.x, this.player.y, this.worldDt(dt), this.player.isDivine, this.player);
     Sfx.listenerX = this.player.x;
     this.updateItemAura();

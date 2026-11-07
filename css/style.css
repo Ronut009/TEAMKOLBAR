@@ -1572,26 +1572,25 @@ html, body {
   object-position: 50% 85%;
   background: #000;
 }
-/* "hold Esc to skip": the main menu's button, bottom centre just above the film's subtitles. It shows when the film
-   starts and whenever a key is pressed. While it is held, the button's lit art (menu-button-pressed.png) fills it
-   from left to right; let go and it drains. */
+/* "hold Esc to skip": the main menu's button, in the bottom right corner for the whole film. While it is held, the
+   button's lit art (menu-button-pressed.png) fills it from left to right; let go and it drains. */
 .ic-skip {
   position: absolute;
-  left: 50%;
-  bottom: 13.5%;
+  right: clamp(16px, 2.6vw, 44px);
+  bottom: clamp(16px, 4vh, 40px);
   display: grid;
   place-items: center;
   width: clamp(300px, 24vw, 400px);
   height: clamp(50px, 6.2vh, 64px);
   padding: 0 56px;
-  transform: translate(-50%, 8px);
+  transform: translateY(8px);
   background: url('../assets/title/menu-button.png') center / 100% 100% no-repeat;
   opacity: 0;
   transition: opacity 0.35s ease, transform 0.35s ease, filter 0.25s ease;
   pointer-events: none;
   --fill: 0%;
 }
-.ic-skip.show { opacity: 0.9; transform: translate(-50%, 0); }
+.ic-skip.show { opacity: 0.9; transform: none; }
 .ic-skip::before {
   content: '';
   position: absolute;
