@@ -409,6 +409,10 @@ export class Engine {
     this.level1.checkpointIndex = -1;
     this.level1.abilityGranted = false;
     this.level1.bridgeTold = false;
+    this.level1.lessonHeard = false;
+    this.level1.relicKept = false;
+    this.level1.leverKept = false;
+    this.level1.relicTalked = false;
     this.runStats = { time: 0, deaths: 0 };   // a new campaign: a new run
     this.playIntroCutscene(() => this.beginLoadingTransition(1));
   }
@@ -699,6 +703,10 @@ export class Engine {
       this.level1.checkpointIndex = -1;
       this.level1.abilityGranted = false;
       this.level1.bridgeTold = false;
+      this.level1.lessonHeard = false;
+      this.level1.relicKept = false;
+      this.level1.leverKept = false;
+      this.level1.relicTalked = false;
     }
     this.beginLoadingTransition(i);   // freshStart(): checkpoints and story flags cleared
   }

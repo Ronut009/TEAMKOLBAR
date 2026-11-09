@@ -998,8 +998,8 @@ html, body {
   z-index: 2;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.6));
 }
-.health-bar  { top: 16px; left: 80px; width: 318px; }
-.ability-bar { top: 66px; left: 86px; width: 236px; }
+.health-bar  { top: 16px; left: 98px; width: 304px; }
+.ability-bar { top: 66px; left: 102px; width: 226px; }
 
 .hud-bar-art {
   position: relative;

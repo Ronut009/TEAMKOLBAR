@@ -8,12 +8,11 @@
  *   2. Ruins         - two-pillar pit (spike on a pillar), a ripple of single spikes, a Betal
  *   3. Sun wall      - checkpoint, alternating spike gauntlet, Betal, pit with alternating pillar spikes
  *   4. Ruins (mirrored) - checkpoint, rolling spike wave, three-pillar pit whose middle pillar SPINS
- *   5. Shrine        - checkpoint. Kali grants her form [X] before the towers, and as her words end her hibiscus
- *                      bridges bloom tower -> stone pier -> tower (walkable only as Kali; a mortal sees their ghost).
- *                      No floor between the three towers: leap up to the relic tower as Kali, defeat its Betal,
- *                      claim the Pearl -> the portal tower (its door is shut) -> the lever tower (Betal) -> pull
- *                      the lever (only with the Pearl) -> the portal door opens -> back to it. Geysers from the
- *                      deep burst through the spans.
+ *   5. Shrine        - checkpoint. Kali grants her form [X] before the towers: leap up to the relic tower as Kali,
+ *                      defeat its Betal, claim the Pearl. Kali then promises to carry Rakti on, and the next time
+ *                      she takes Kali's form the hibiscus bridges bloom tower -> stone pier -> tower (walkable only
+ *                      as Kali; a mortal sees their ghost) and the geysers start bursting through them. Portal tower
+ *                      (its door is shut) -> lever tower (Betal) -> pull the lever -> the portal door opens.
  * (The old single-screen temple level is archived in unused_assets/old_code/js/level.js.)
  * ==========================================================================
  */
@@ -298,7 +297,11 @@ export class Level {
     // bloom once her words are closed
     this.abilityGrantX = X(5) - 30;
     this.abilityGranted = false;
-    this.bridgeTold = false;   // Kali's lesson has been heard to the end: only then do her bridges bloom
+    this.bridgeTold = false;   // Kali's words after the Pearl have been heard: her bridges bloom when Rakti next takes her form
+    this.relicTalked = false;  // those words have been queued
+    this.lessonHeard = false;  // Kali's lesson [X] has been heard to the end
+    this.relicKept = false;    // the Pearl stays Rakti's after a death (and the lever stays down once pulled)
+    this.leverKept = false;
     this.pendingDialogue = null;
 
     // The shrine sits on the relic tower's niche sill, centred in the arch; the relic floats above it
@@ -340,20 +343,26 @@ export class Level {
     this.bridgeGrow = 0;
     this.bridgeWait = 0;
     this.petals = [];
+    this.jetStart = 0;   // (animTime restarts at 0 on reset)
+    // a line lost to a death before it was heard is spoken again
+    if (!this.bridgeTold) this.relicTalked = false;
     for (const b of this.bridges) { b.met = false; for (const f of b.blooms) f.landed = false; }
     if (this.bridgeTold) {
       // Kali has already told Rakti about them: after a respawn they stand whole, no bloom
       this.bridgeGrow = 1;
       for (const b of this.bridges) { b.met = true; b.metT = 9; for (const f of b.blooms) f.landed = true; }
     }
+    this.bridgeWait = 0;
     for (const g of this.geysers) g.burstSeen = false;
     this.bubbles = [];
     this.lastSafeLedge = null;
     this.pendingDialogue = null;
     this.test = { started: false, doneT: 0 };
-    this.relic.collected = false;
-    this.relic.fly = 0;
-    this.doorOpen = 0;
+    this.relic.collected = this.relicKept;
+    this.relic.fly = this.relicKept ? 1 : 0;
+    this.lever.activated = this.leverKept;
+    this.lever.pullTime = this.leverKept ? 9 : 0;
+    this.doorOpen = this.leverKept ? 1 : 0;
     this.doorOpenDelay = 0;
     this.cameraShake = 0;
     this.killToastTimer = 0;
@@ -379,6 +388,10 @@ export class Level {
     this.checkpointIndex = -1;
     this.abilityGranted = false;
     this.bridgeTold = false;
+    this.relicTalked = false;
+    this.lessonHeard = false;
+    this.relicKept = false;
+    this.leverKept = false;
     this.testDone = false;
   }
 
@@ -393,6 +406,7 @@ export class Level {
   pullLever() {
     if (this.lever.activated || !this.relic.collected) return false;
     this.lever.activated = true;
+    this.leverKept = true;
     this.lever.pullTime = 0;
     this.doorOpenDelay = 0.9;   // the portal door starts to open just after the lever settles
     this.cameraShake = 0.6;
@@ -402,6 +416,7 @@ export class Level {
   collectRelic(player) {
     if (this.relic.collected) return false;
     this.relic.collected = true;
+    this.relicKept = true;
     Sfx.play('item_get');
     this.relic.fly = 0.0001;
     this.relic.toX = player ? player.x : this.relic.x;
@@ -479,7 +494,7 @@ export class Level {
     if (!this.relic.collected && Math.abs(px - this.relic.x) < 48 && Math.abs(py - this.ledgeY) < 12) {
       return {
         type: 'relic', x: this.relic.x, y: this.ledgeY, prompt: '[E] CLAIM THE RELIC',
-        text: 'The Pearl of the Tide, the first relic. It answers only to your blood, and with it even stone will move for you. The portal ahead is sealed. Find the lever that opens it.'
+        text: 'The Pearl of the Tide, the first relic. It answers only to your blood, and with it even stone will move for you.'
       };
     }
     if (this.doorOpen < 0.95 && px > this.door.x1 - 40 && px < this.door.x2 + 40 && Math.abs(py - this.doorSillY) < 12) {
@@ -515,13 +530,15 @@ export class Level {
     // Kali's lesson [X], then her flower bridges bloom from both towers and meet in the middle. They wait until
     // her words are closed, so the player watches them bloom instead of it happening behind the dialogue.
     if (this.lever.activated) this.lever.pullTime += dt;
+    // (it starts the first time she is in Kali's form once the promise has been heard, and then plays out)
     if (this.bridgeTold && this.bridgeGrow < 1) {
       if (this.dialogueOpen || this.pendingDialogue) this.bridgeWait = 0;
-      else this.bridgeWait = (this.bridgeWait || 0) + dt;
+      else if (this.bridgeGrow > 0 || isDivine) this.bridgeWait = (this.bridgeWait || 0) + dt;
       if (this.bridgeWait > 0.35) {
         this.bridgeGrow = Math.min(1, this.bridgeGrow + dt / BRIDGE_SUMMON_TIME);
         this.cameraShake = Math.max(this.cameraShake, 0.08);
         if (this.bridgeGrow >= 1) {
+          this.jetStart = this.animTime;
           this.killToastText = '⚜ KALI\'S BRIDGES BLOOM ⚜';
           this.killToastTimer = 2.4;
         }
@@ -555,17 +572,25 @@ export class Level {
     for (const b of this.betals) b.update(dt, player, this, blessingDone);
 
     // Kali grants her form [X] as Rakti nears the towers (her bridges bloom once she has spoken)
-    // (a one-line conversation: its end marks the lesson heard; if it was lost before it played, e.g. to a death
-    // while it waited, she gives it again the next time Rakti comes this way)
-    if (blessingDone && playerX >= this.abilityGrantX && !this.bridgeTold && !this.pendingDialogue && !this.dialogueOpen) {
+    if (blessingDone && playerX >= this.abilityGrantX && !this.lessonHeard && !this.pendingDialogue && !this.dialogueOpen) {
       this.abilityGranted = true;
-      this.bridgeWait = 0;
       this.pendingDialogue = {
         flash: true,
-        lines: [{ s: 'kali', p: 7, t: 'No mortal leap clears these towers. Press [X] to take my form and you will leap far higher. My bridge will carry you, but only in my form, and my form cannot fight. Press [X] again on solid ground to be yourself.' }],
-        onDone: () => { this.bridgeTold = true; }
+        lines: [{ s: 'kali', p: 7, t: 'No mortal can leap that high. Press [X] to take my form and you will leap far higher. My form cannot fight. Press [X] again on solid ground to be yourself.' }],
+        onDone: () => { this.lessonHeard = true; }
       };
     }
+    // the Pearl is hers: Kali promises to carry her on (heard to the end, her bridges bloom when she next takes her form)
+    if (this.relic.collected && !this.relicTalked && !this.dialogueOpen && !this.pendingDialogue) {
+      this.relicTalkWait = (this.relicTalkWait || 0) + dt;
+      if (this.relicTalkWait > 0.4) {
+        this.relicTalked = true;
+        this.pendingDialogue = {
+          lines: [{ s: 'kali', p: 6, t: 'The portal waits on the next tower, and the lever that opens it on the last. I will carry you there. Take my form [X], and my road will rise beneath you.' }],
+          onDone: () => { this.bridgeTold = true; }
+        };
+      }
+    } else if (!this.relic.collected || this.dialogueOpen) this.relicTalkWait = 0;
     if (this.abilityGranted && player && !player.hasDivineUnlocked) player.hasDivineUnlocked = true;
 
     if (!player || player.isDead) return;
@@ -716,7 +741,8 @@ export class Level {
   /** Jet cycle: calm, warn, then the jet. While it pours, `head` is its leading (lower) end and `tail` its upper
    *  end in world y: the head drives down from the top to the deck, then the tail follows it down. */
   geyserState(g) {
-    const t = (this.animTime + g.phase) % GEYSER.cycle;
+    // the jets' clock starts once the bridges are whole (each jet begins with a full calm stretch)
+    const t = (Math.max(0, this.animTime - (this.jetStart ?? 0)) + g.phase) % GEYSER.cycle;
     const calm = GEYSER.cycle - GEYSER.warn - GEYSER.burst;
     if (t < calm) return { stage: 'calm', k: t / calm };
     if (t < calm + GEYSER.warn) return { stage: 'warn', k: (t - calm) / GEYSER.warn };
