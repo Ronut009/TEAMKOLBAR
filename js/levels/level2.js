@@ -1,6 +1,6 @@
 /**
  * ==========================================================================
- * LEVEL 2: THE SUN WASTES (js/levels/level2.js)
+ * LEVEL 2: SURYA MANDIR (js/levels/level2.js)
  * (The previous desert-catacombs level is archived in unused_assets/old_code/js/level2.js.)
  *
  * Outside (five background screens, left to right):
@@ -633,7 +633,7 @@ export class Level2 {
       if (this.hourglass.shown >= 1 && !this.hourglass.taken && Math.abs(px - this.hourglass.x) < 44 && Math.abs(py - t2.roof.y) < 8) {
         return {
           type: 'l2_sands', x: this.hourglass.x, y: this.hourglass.y, prompt: '[E] TAKE THE SANDS OF TIME', speaker: 'kali', title: '⚜ THE SANDS OF TIME ⚜',
-          text: 'The Sands of Time, Rakti: the archer was guarding my hourglass. Press [F] and the world around you slows for eight breaths, its blades, its arrows and its traps, while you move as you always do. Then the sands must fall back before you can turn them again.',
+          text: 'My hourglass, the Sands of Time. Press [F] and the world around you slows for eight breaths, but you do not. Then the sands must refill before you turn them again.',
           onInteract: () => this.takeSands()
         };
       }
@@ -641,7 +641,7 @@ export class Level2 {
       if (this.key.shown >= 1 && !this.key.taken && Math.abs(px - this.key.x) < 44 && Math.abs(py - t1.roof.y) < 8) {
         return {
           type: 'l2_key', x: this.key.x, y: this.key.y, prompt: '[E] TAKE THE SUN KEY', speaker: 'kali', title: '⚜ THE SUN KEY ⚜',
-          text: 'The Sun Key, at last. Feel that? The sands are settling: the desert has lost its hurry now that the key is yours. Back to the sun door, Rakti.',
+          text: 'The Sun Key. The desert calms now that it is yours. Back to the door.',
           onInteract: () => this.takeKey()
         };
       }
@@ -651,12 +651,12 @@ export class Level2 {
         if (!c.ready) {
           return {
             type: 'inspection', x: this.balls[0].x0, y: FLOOR_Y, prompt: `⟲ SANDS NOT CHARGED · ${c.have}/${c.need}`, speaker: 'kali', title: '⚜ THE SANDS OF TIME ⚜',
-            text: `The hourglass is not full yet, Rakti. Every warrior the desert sent after you fills it as he falls: ${c.need - c.have} still stand.`
+            text: `Not yet. ${c.need - c.have} warriors still stand, and each one that falls fills the hourglass.`
           };
         }
         return {
           type: 'inspection', x: this.balls[0].x0, y: FLOOR_Y, prompt: '[F] TURN BACK THE SANDS', speaker: 'kali', title: '⚜ THE SANDS OF TIME ⚜',
-          text: 'Your boulder lies shattered on that roof. Press [F] here and turn the sands backward: only once, Rakti, and only for this stone.'
+          text: 'Press [F] and I will turn back time for this stone. Once.'
         };
       }
       // The sun door
@@ -664,7 +664,7 @@ export class Level2 {
         if (p.keyTaken) {
           return {
             type: 'l2_door', x: this.door1.cx, y: FLOOR_Y, prompt: '[E] UNLOCK THE SUN DOOR', speaker: 'kali', title: '⚜ THE SUN DOOR ⚜',
-            text: 'The key turns, and the sun-seals answer. Go in, Rakti. Whatever waits inside has been waiting for you.',
+            text: 'The seals give way. Go in. Whatever is inside has been waiting for you.',
             onInteract: () => this.openSunDoor()
           };
         }
@@ -672,15 +672,15 @@ export class Level2 {
           // the twist: there is no key
           return {
             type: 'inspection', x: this.door1.cx, y: FLOOR_Y, prompt: '[E] OPEN THE SUN DOOR', speaker: 'rakti', title: '⚜ THE SUN DOOR ⚜',
-            text: 'It will not move... there is a sun-shaped lock, and I have no key! The archer on the second tower was guarding the hourglass, not a key.',
+            text: 'It won\'t open. There\'s a sun-shaped lock... and I don\'t have a key.',
             onInteract: () => this.startDoorTwist()
           };
         }
         return {
           type: 'inspection', x: this.door1.cx, y: FLOOR_Y, prompt: '[E] SEALED DOOR', speaker: 'stele', title: '⚜ THE SUN DOOR ⚜',
           text: p.doorTried
-            ? 'The sun-shaped lock waits for its key. Look for the burning sun on the first tower.'
-            : 'A sun-shaped lock holds the great doors shut. Something on the second tower still calls to you.'
+            ? 'The lock waits for its key. Look for the burning sun on the first tower.'
+            : 'A sun-shaped lock holds the doors shut. Something on the second tower still calls to you.'
         };
       }
       // [Q] hints once Kali has taught it
@@ -689,13 +689,13 @@ export class Level2 {
         if (ball) {
           return {
             type: 'inspection', x: ball.x, y: FLOOR_Y, prompt: '[Q] HURL THE BOULDER', speaker: 'kali', title: '⚜ MAA KALI ⚜',
-            text: 'Stand by the stone and press [Q]. I will shape it, and send it where your enemy stands.'
+            text: 'Stand by the stone and press [Q]. I will send it at your enemy.'
           };
         }
         if (this.slabs.some((s) => s.state === 'raw') && px > 1330 && px < 1490) {
           return {
             type: 'inspection', x: 1480, y: FLOOR_Y, prompt: '[Q] RAISE THE STONES', speaker: 'kali', title: '⚜ MAA KALI ⚜',
-            text: 'The floating rocks are rough and will not hold you. Press [Q] and I will press them flat into a path.'
+            text: 'Press [Q] and I will flatten the rocks into a path.'
           };
         }
       }
@@ -705,14 +705,14 @@ export class Level2 {
     if (!p.trishulTaken && Math.abs(px - this.shrine.x) < 52 && Math.abs(py - FLOOR_Y) < 8) {
       return {
         type: 'l2_trishul', x: this.shrine.x, y: FLOOR_Y, prompt: '[E] TAKE THE TRISHUL', speaker: 'kali', title: '⚜ THE SECOND RELIC: THE TRISHUL ⚜',
-        text: 'My Trishul, Rakti: the second of the four relics, and it chose you. Press [2] to take it up and [1] to return to your talwar. Strike to throw it: it flies to the enemy before you and always comes back to your hand. Now - that archer on the tower.',
+        text: 'My Trishul, the second relic. It chose you. Press [2] to wield it and [1] for your talwar. Throw it and it finds its mark, then returns to your hand. Now, the archer on the tower.',
         onInteract: () => this.takeTrishul()
       };
     }
     if (this.door2.anim < 1 && Math.abs(px - this.door2.cx) < 70 && Math.abs(py - FLOOR_Y) < 6) {
       return {
         type: 'inspection', x: this.door2.cx, y: FLOOR_Y, prompt: '[E] SEALED DOOR', speaker: 'stele', title: '⚜ THE HALL DOOR ⚜',
-        text: 'Sun-sigils burn across the doors. They will not open while the guardians of this hall still stand.'
+        text: 'The sigils burn. These doors stay shut while the hall\'s guardians stand.'
       };
     }
     return null;
@@ -739,9 +739,9 @@ export class Level2 {
     this.pendingDialogue = {
       lines: [
         // the camera glides back to the first tower while Kali speaks, and the sun mark there ignites
-        { s: 'kali', t: 'See the sun on this lock? The same sun is carved on the first tower. Look... it is burning now.', focus: 'sunmark' },
-        { s: 'rakti', t: 'The first tower? That is all the way back!' },
-        { s: 'kali', t: 'Then run. The desert is turning on you: faster traps, more warriors. Use the Sands [F] when it gets bad, and cut every warrior down. Each one fills the hourglass, and you will need it full.' }
+        { s: 'kali', t: 'That sun is carved on the first tower too. Look. It is burning.', focus: 'sunmark' },
+        { s: 'rakti', t: 'The first tower? That\'s all the way back!' },
+        { s: 'kali', t: 'Then run. The desert is turning on you. Use the Sands [F] when it gets bad, and cut down every warrior. Each one fills the hourglass, and you will need it full.' }
       ],
       onDone: () => this.startHaste()
     };
@@ -991,7 +991,7 @@ export class Level2 {
       b.target = 'A2';
       this.progress.rewound = true;
       if (player) player.inputLocked = false;
-      this.say('rewound', '⚜ MAA KALI ⚜', 'The stone is whole again, and it will not be twice. Now, [Q]: send it at him.');
+      this.say('rewound', '⚜ MAA KALI ⚜', 'Whole again. Now press [Q] and send it at him.');
     }
   }
 
@@ -1242,7 +1242,7 @@ export class Level2 {
       const c = this.sandsCharge();
       if (c && c.ready) {
         this.toast('⏳ THE SANDS OF TIME ARE CHARGED', 2.8);
-        this.say('charged', '⚜ MAA KALI ⚜', 'The hourglass is full, Rakti: the Sands of Time are charged. Go to the broken stone\'s pile at the first tower and turn them back with [F].');
+        this.say('charged', '⚜ MAA KALI ⚜', 'The hourglass is full. Go to the rubble at the first tower and turn time back with [F].');
       } else if (c) this.toast(`⟲ SANDS ${c.have}/${c.need}`, 1.4);
     }
     if (enemy === this.archers.C && !p.archerC) {
@@ -1315,7 +1315,7 @@ export class Level2 {
         p.introDone = true;
         this.saveCheckpoint(0, false);
         this.say('intro', '⚜ MAA KALI ⚜',
-          'You came through, Rakti. These are the Sun Wastes. The second relic waits beyond a great sealed door to the east, and the Asura keep watch from their towers. Keep moving, and listen for me.');
+          'Surya Mandir. The second relic lies beyond a sealed door to the east, and Asura archers hold the towers. Keep moving.');
       }
       return;
     }
@@ -1353,7 +1353,7 @@ export class Level2 {
           player.inputLocked = false;
           player.spawnAlpha = 1;
           this.say('hall', '⚜ MAA KALI ⚜',
-            'A hall of the sun-kings. Something in here still burns with my light. Find it, Rakti, before its guardians find you.');
+            'A hall of the sun-kings. Something here still burns with my light. Find it before its guardians find you.');
         }
       }
       return;
@@ -1387,10 +1387,10 @@ export class Level2 {
       if (!p.qUnlocked && playerX >= 790) {
         p.qUnlocked = true;
         this.say('q', '⚜ MAA KALI: THE PEARL AWAKENS ⚜',
-          'That archer stands where no leap can reach, Rakti. But the Pearl of the Tide you carry has woken - feel it pulling at the stone. Stand by the boulder and press [Q]: through the Pearl I will shape it and hurl it at him.', true);
+          'No leap will reach that archer. But the Pearl has woken. Stand by the boulder and press [Q], and I will hurl it at him.', true);
       }
       if (p.qUnlocked && !p.slabsRaised && playerX >= 1340 && playerX < 1490) {
-        this.say('slabs', '⚜ MAA KALI ⚜', 'Rocks float over the chasm, too rough to stand on. Press [Q] here and I will flatten them into a path.');
+        this.say('slabs', '⚜ MAA KALI ⚜', 'Those rocks are too rough to stand on. Press [Q] and I will flatten them into a path.');
       }
 
       // the rewind at tower 1 (a cutscene: everything else holds still)
@@ -1415,7 +1415,7 @@ export class Level2 {
         }
         // Kali, as Rakti nears the first tower again
         if (playerX < 1560 && !p.archerA2) {
-          this.say('a2', '⚜ MAA KALI ⚜', 'Another archer on the first tower, Rakti, and the key is up there with him. Your boulder lies broken on his roof... but a full hourglass can turn time back, once. Every warrior the desert sent after you fills it as he falls: slay them all, then stand by the stone pile and press [F].');
+          this.say('a2', '⚜ MAA KALI ⚜', 'Another archer, and the key is up there with him. Your boulder lies broken on his roof. Cut down the desert\'s warriors to fill the hourglass, then stand by the rubble and press [F]. Time will turn back, once.');
         }
       } else this.hasteWind = Math.max(0, (this.hasteWind || 0) - dt);
 
@@ -1447,7 +1447,7 @@ export class Level2 {
         for (const f of this.fallers) this.updateFaller(f, dt, player, this.sandsActive ? RETURN_FALL_SANDS : 0);
         for (const q of this.slabFallers) this.updateFaller(q, dt, player, FALL_DELAY / HASTE);
         if (player && player.isGrounded && playerX > 3411 && playerX < 3530) {
-          this.say('wave', '⚜ MAA KALI ⚜', 'Careful, Rakti: the desert has quickened these slabs. They will drop the instant you touch them. Turn the Sands [F] first, and they will hold you just long enough to leap on.');
+          this.say('wave', '⚜ MAA KALI ⚜', 'These slabs drop the moment you land. Slow time with [F] first, and they will hold you long enough.');
         }
       } else {
         for (const f of this.fallers) {
@@ -1534,7 +1534,7 @@ export class Level2 {
       if (!alive) {
         p.hordeCleared = true;
         this.cameraShake = 0.6;
-        this.say('cleared', '⚜ MAA KALI ⚜', 'The hall is quiet. Look - the sun-door wakes. It will carry you onward, Rakti. Go.');
+        this.say('cleared', '⚜ MAA KALI ⚜', 'It is over. The sun-door is waking. Go.');
       }
     }
     if (p.hordeCleared && this.door2.anim < 1) {
@@ -1731,7 +1731,7 @@ export class Level2 {
       this.hordeTalked = true;
       this.pendingDialogue = {
         speaker: 'kali', title: '⚜ MAA KALI ⚜',
-        text: 'It was a trap. The hall has woken, and they are pouring in from both sides! Keep the Trishul flying, Rakti, and do not stand still.'
+        text: 'A trap! They are coming from both sides. Keep the Trishul flying, and do not stand still.'
       };
     }
   }
@@ -1790,7 +1790,7 @@ export class Level2 {
         if (b.target === 'A') this.progress.archerA = true;
         if (b.target === 'A2') {
           this.progress.archerA2 = true;
-          this.say('ladder1', '⚜ MAA KALI ⚜', 'He falls, and a ladder unfurls on the first tower. The Sun Key waits on its roof, Rakti. Climb!');
+          this.say('ladder1', '⚜ MAA KALI ⚜', 'A ladder has fallen on the first tower. The Sun Key is on its roof. Climb.');
         }
         if (b.target === 'B') {
           this.progress.archerB = true;

@@ -57,8 +57,35 @@ export function bossImages() {
   return IMGS;
 }
 
-/** Draws frame `i` of `name` with its feet at (x, y). */
-export function drawBossFrame(ctx, name, i, x, y, facing = 'right', alpha = 1, flash = 0, extraScale = 1) {
+// A frame turned into a dark silhouette (for Pitaji seen from afar, a shadow on the throne): drawn once per frame
+// image into its own canvas, the figure filled with near-black.
+const SHADE_CACHE = new Map();
+function shadeOf(im, A) {
+  let c = SHADE_CACHE.get(im);
+  if (c) return c;
+  c = document.createElement('canvas');
+  c.width = A.w; c.height = A.h;
+  const g = c.getContext('2d');
+  g.drawImage(im, 0, 0, A.w, A.h);
+  g.globalCompositeOperation = 'source-in';
+  g.fillStyle = '#0a0608';
+  g.fillRect(0, 0, A.w, A.h);
+  // where the head is (the topmost solid rows), for the eyes
+  c.head = null;
+  try {
+    const d = g.getImageData(0, 0, A.w, A.h).data;
+    for (let yy = 0; yy < A.h && !c.head; yy++) {
+      let x1 = -1, x2 = -1;
+      for (let xx = 0; xx < A.w; xx++) if (d[(yy * A.w + xx) * 4 + 3] > 200) { if (x1 < 0) x1 = xx; x2 = xx; }
+      if (x1 >= 0 && x2 - x1 > A.w * 0.05) c.head = { x: (x1 + x2) / 2, y: yy };
+    }
+  } catch (e) { /* a page opened from disk cannot read pixels: no eyes, the silhouette still shows */ }
+  SHADE_CACHE.set(im, c);
+  return c;
+}
+
+/** Draws frame `i` of `name` with its feet at (x, y). shade 0..1 turns it into a dark silhouette with ember eyes. */
+export function drawBossFrame(ctx, name, i, x, y, facing = 'right', alpha = 1, flash = 0, extraScale = 1, shade = 0) {
   const A = ART[name], im = bossImages()[name][Math.max(0, Math.min(A.n - 1, i))];
   if (!ready(im)) return;
   let k = 0.5 * extraScale;
@@ -69,7 +96,30 @@ export function drawBossFrame(ctx, name, i, x, y, facing = 'right', alpha = 1, f
   ctx.scale(facing === 'left' ? -k : k, k);
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(im, -A.ax, -A.ay, A.w, A.h);
+  if (shade < 1) ctx.drawImage(im, -A.ax, -A.ay, A.w, A.h);
+  if (shade > 0) {
+    const c = shadeOf(im, A);
+    ctx.globalAlpha = alpha * shade;
+    ctx.drawImage(c, -A.ax, -A.ay, A.w, A.h);
+    if (c.head) {
+      // two dim embers for eyes, a little below the top of the head, toward the way he faces (+x in frame space)
+      const ex = c.head.x - A.ax + A.w * 0.06, ey = c.head.y - A.ay + A.h * 0.12;
+      const flick = 0.75 + 0.25 * Math.sin(performance.now() / 260), k = flick * alpha * shade;
+      ctx.globalCompositeOperation = 'lighter';
+      for (const dx of [-A.w * 0.026, A.w * 0.026]) {
+        const gl = ctx.createRadialGradient(ex + dx, ey, 0, ex + dx, ey, 6);
+        gl.addColorStop(0, `rgba(255, 90, 50, ${0.9 * k})`);
+        gl.addColorStop(0.3, `rgba(255, 30, 20, ${0.4 * k})`);
+        gl.addColorStop(1, 'rgba(120, 0, 0, 0)');
+        ctx.fillStyle = gl;
+        ctx.fillRect(ex + dx - 6, ey - 6, 12, 12);
+        ctx.fillStyle = `rgba(255, 210, 160, ${0.95 * k})`;   // a hard pinpoint at the centre
+        ctx.fillRect(ex + dx - 1.4, ey - 1, 2.8, 2);
+      }
+      ctx.globalCompositeOperation = 'source-over';
+    }
+    ctx.globalAlpha = alpha;
+  }
   if (flash > 0) {
     ctx.globalCompositeOperation = 'lighter';
     ctx.globalAlpha = Math.min(1, flash * 4) * 0.6 * alpha;
@@ -148,6 +198,7 @@ export class FatherBoss {
     this.anim = 0;
     this.hitFlash = 0;
     this.alpha = stage === 1 ? 0 : 1;   // fades in on the throne when the mala is taken
+    this.shade = 0;                     // 1 = a dark figure on the throne (before Rakti walks up to him), 0 = himself
     this.cd = { energy: 3, blast: 4, slam: 3, fly: 9, attack: 0.8, dodge: 2, lunge: 2.5, jump: 2 };
     this.perchTime = 0;        // how long Rakti has been standing up on a ledge (he comes up after her)
     this.recentDmg = 0;        // damage taken over the last moments (he answers a beating)
@@ -584,7 +635,19 @@ export class FatherBoss {
       ctx.fillRect(this.x - 80, this.y - 130, 160, 160);
       ctx.restore();
     }
-    drawBossFrame(ctx, name, i, this.x, this.y, this.facing, this.alpha, this.hitFlash);
+    if (this.shade > 0) {
+      // the shadow on the throne: a cold purple haze breathing around him (the Asura inside, not yet seen)
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const k = this.shade * this.alpha;
+      const g = ctx.createRadialGradient(this.x, this.y - 40, 4, this.x, this.y - 40, 70);
+      g.addColorStop(0, `rgba(120, 50, 200, ${(0.2 + 0.07 * Math.sin(performance.now() / 500)) * k})`);
+      g.addColorStop(1, 'rgba(40, 0, 80, 0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(this.x - 70, this.y - 110, 140, 140);
+      ctx.restore();
+    }
+    drawBossFrame(ctx, name, i, this.x, this.y, this.facing, this.alpha, this.hitFlash, 1, this.shade || 0);
     for (const p of this.sparks) {
       ctx.save();
       ctx.globalAlpha = Math.max(0, p.life / p.max);

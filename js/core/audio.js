@@ -65,9 +65,9 @@ const MUSIC_BASE = 'assets/audio/music/';
 const TRACKS = {
   title:        { vol: 0.42, loop: true,  label: 'Main Theme' },
   level1:       { vol: 0.19, loop: true,  label: 'Drowned Dwaraka' },
-  level2:       { vol: 0.19, loop: true,  label: 'The Sun Wastes' },
-  level3:       { vol: 0.19, loop: true,  label: 'The Jungle' },
-  level4_start: { vol: 0.23, loop: false, label: 'The Red Fort' },
+  level2:       { vol: 0.19, loop: true,  label: 'Surya Mandir' },
+  level3:       { vol: 0.19, loop: true,  label: 'Vrindavan' },
+  level4_start: { vol: 0.23, loop: false, label: 'Indraprastha' },
   pitaji_fight: { vol: 0.22, loop: true,  label: 'Pitaji' },
   demon_fight:  { vol: 0.22, loop: true,  label: 'The Asura' },
   reunited:     { vol: 0.19, loop: false, label: 'Reunited' },

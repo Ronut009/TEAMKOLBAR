@@ -14,6 +14,26 @@
 
 import { Sfx } from '../core/audio.js';
 
+// A soft round glow per colour, drawn once: trails stamp it with additive blending. (They used canvas shadowBlur on
+// every trail dot, which costs a blur pass per dot on the GPU: with Level 4's arrows and the Asura's orbs in the air
+// at once that was the fight's lag.)
+const GLOW = new Map();
+function glowSprite(color) {
+  let c = GLOW.get(color);
+  if (c) return c;
+  c = document.createElement('canvas');
+  c.width = c.height = 32;
+  const g = c.getContext('2d');
+  const gr = g.createRadialGradient(16, 16, 0, 16, 16, 16);
+  gr.addColorStop(0, color);
+  gr.addColorStop(0.35, color);
+  gr.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  g.fillStyle = gr;
+  g.fillRect(0, 0, 32, 32);
+  GLOW.set(color, c);
+  return c;
+}
+
 export class Arrow {
   constructor(x, y, owner = null) {
     this.x = x;
@@ -193,15 +213,18 @@ export class Arrow {
   render(ctx, arrowImg = null) {
     ctx.save();
 
-    // 1. Render Tracking Trail Particles
+    // 1. Render Tracking Trail Particles: a soft glow (pre-drawn sprite, additive) with a solid core
     for (const p of this.trailParticles) {
       const alpha = Math.max(0, p.life / p.maxLife);
-      ctx.fillStyle = p.color;
+      const r = p.size * alpha;
+      ctx.globalAlpha = alpha * 0.8;
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.drawImage(glowSprite(p.color), p.x - r * 3, p.y - r * 3, r * 6, r * 6);
+      ctx.globalCompositeOperation = 'source-over';
       ctx.globalAlpha = alpha;
-      ctx.shadowColor = p.color;
-      ctx.shadowBlur = 6;
+      ctx.fillStyle = p.color;
       ctx.beginPath();
-      ctx.arc(p.x, p.y, p.size * alpha, 0, Math.PI * 2);
+      ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
       ctx.fill();
     }
     ctx.restore();
@@ -230,9 +253,8 @@ export class Arrow {
     if (!this.isAttached) {
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
+      ctx.drawImage(glowSprite('rgba(255, 34, 0, 0.9)'), this.width / 2 - 11, -11, 22, 22);
       ctx.fillStyle = 'rgba(255, 60, 40, 0.75)';
-      ctx.shadowColor = '#ff2200';
-      ctx.shadowBlur = 8;
       ctx.beginPath();
       ctx.arc(this.width / 2, 0, 3.5, 0, Math.PI * 2);
       ctx.fill();

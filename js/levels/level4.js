@@ -1,7 +1,7 @@
 /**
  * ==========================================================================
- * LEVEL 4: THE RED FORT (js/levels/level4.js)
- * Two screens of the red fort wall at sunset (assets/level4/fort_a.jpg with the portal gate, fort_b.jpg).
+ * LEVEL 4: INDRAPRASTHA (js/levels/level4.js)
+ * The red fort wall at sunset (assets/level4/fort_panorama.jpg, with the portal gate).
  *
  *   1. Rakti steps out of the portal. The last relic, Maa Kali's skull mala, sits on a shrine right
  *      by the gate. Too easy: Rakti says so. Taking it lets her Kali form [X] hurl gold orbs, but from
@@ -19,7 +19,7 @@
 
 import { Arrow } from '../entities/archer.js';
 import { Sfx } from '../core/audio.js';
-import { FatherBoss } from '../entities/fatherBoss.js';
+import { FatherBoss, bossImages } from '../entities/fatherBoss.js';
 import { drawShrineBeacon } from '../render/shrineBeacon.js';
 
 // ---------------------------------------------------------------------------
@@ -109,39 +109,38 @@ const ready = (i) => i && i.complete && i.naturalWidth > 0;
 // Story lines (s: speaker, t: text, g: gesture frame)
 // ---------------------------------------------------------------------------
 const L_ARRIVE = [
-  { s: 'kali', p: 6, g: 4, t: 'The Red Fort, Rakti. The last relic waits inside these walls: my own mala of skulls. Your father\'s trail ends here too.' }
+  { s: 'kali', p: 6, g: 4, t: 'Indraprastha. My mala, the last relic, is inside these walls. Your father\'s trail ends here.' }
 ];
 const L_DOUBT = [
-  { s: 'rakti', p: 3, g: 3, t: 'That\'s it? Maa Kali\'s mala, just sitting here by the gate, with no one guarding it?' },
-  { s: 'rakti', p: 4, g: 4, t: 'Every other relic was buried behind traps and Asura. This is too easy. Something is wrong.' },
-  { s: 'kali', p: 7, g: 1, t: 'Then trust that feeling, Rakti, and take it anyway. Whatever waits in this fort, you will need my mala to face it.' }
+  { s: 'rakti', p: 3, g: 3, t: 'Your mala, just sitting by the gate? No guards, no traps... Something\'s wrong.' },
+  { s: 'kali', p: 7, g: 1, t: 'Trust that feeling. And take it anyway. You will need it for what waits here.' }
 ];
 const L_MALA = [
-  { s: 'kali', p: 6, g: 6, t: 'My mala is yours now. In my form [X] you no longer only leap: strike, and you will hurl my light as golden orbs.' },
-  { s: 'kali', p: 7, g: 1, t: 'But my form is no longer free. Every blow you land with your own talwar or the Trishul feeds it. When the bar is full, call me.' },
-  { s: 'rakti', p: 1, g: 2, focus: 'father', t: 'Wait... someone is standing on the throne at the end of the wall.' }
+  { s: 'kali', p: 6, g: 6, t: 'With my mala, my form [X] can fight. Strike, and you will hurl my light.' },
+  { s: 'kali', p: 7, g: 1, t: 'But my form is no longer free. Every blow you land as yourself fills the bar. When it is full, call me.' },
+  { s: 'rakti', p: 1, g: 2, focus: 'father', t: 'Wait. Someone\'s standing on the throne.' }
 ];
 // father portraits: lines pick a still frame with p (see PORTRAIT_FRAMES in engine.js); g is the old father2 index,
 // 13 / 14 / 15 anger (possessed)
 const L_FATHER = [
-  { s: 'rakti', p: 10, g: 3, focus: 'meet', t: 'Pitaji? PITAJI! It\'s me, Rakti! I followed your trail through every realm...' },
-  { s: 'father', p: 11, g: 0, focus: 'meet', t: 'Rakti. You brought me the mala. Good girl.' },
-  { s: 'rakti', p: 2, g: 3, focus: 'meet', t: 'What is wrong with your eyes? Pitaji, it\'s me!' },
-  { s: 'father', p: 1, g: 15, focus: 'meet', t: 'Your father is not here any more. Put the mala down, child... or I will tear it from your hands.' },
-  { s: 'kali', p: 2, g: 4, focus: 'meet', t: 'That voice is not his! Something is wearing him, Rakti. Defend yourself, and do not let it near my mala!' }
+  { s: 'rakti', p: 10, g: 3, focus: 'meet', t: 'Pitaji? PITAJI! It\'s me! I followed you all this way...' },
+  { s: 'father', p: 11, g: 0, focus: 'meet', t: 'You brought me the mala. Good girl.' },
+  { s: 'rakti', p: 2, g: 3, focus: 'meet', t: 'Pitaji... your eyes. What\'s wrong with your eyes?' },
+  { s: 'father', p: 1, g: 15, focus: 'meet', t: 'Your father is gone, child. Put the mala down, or I will tear it from your hands.' },
+  { s: 'kali', p: 2, g: 4, focus: 'meet', t: 'That is not him. Something is wearing him. Fight, and keep it away from my mala!' }
 ];
 const L_TURN = [
-  { s: 'rakti', p: 9, g: 3, t: 'Pitaji! Stop, please! I don\'t want to hurt you!' },
-  { s: 'demon', p: 10, g: 2, t: 'Your father broke the day he reached for my mala. This body is MINE now, girl!' },
-  { s: 'demon', p: 6, g: 1, t: 'Hand me the last relic, and I will let the rift swallow every realm you love.' },
-  { s: 'kali', p: 11, g: 1, t: 'Strike the demon, not the man, Rakti! Burn it out of him with my light!' }
+  { s: 'rakti', p: 9, g: 3, t: 'Pitaji, stop! Please! I don\'t want to hurt you!' },
+  { s: 'demon', p: 10, g: 2, t: 'He broke the day he reached for my mala. This body is MINE now.' },
+  { s: 'demon', p: 6, g: 1, t: 'Give me the last relic, and I will let the rift swallow everything you love.' },
+  { s: 'kali', p: 11, g: 1, t: 'Strike the demon, not your father! Burn it out with my light!' }
 ];
 const L_FREED = [
-  { s: 'father', p: 2, g: 11, t: 'Rakti...? Is it really you? I couldn\'t fight it. I heard every word it said with my mouth.' },
-  { s: 'rakti', p: 8, g: 2, t: 'It\'s over, Pitaji. Maa Kali brought me all the way here. I\'m taking you home.' },
+  { s: 'father', p: 2, g: 11, t: 'Rakti? Is it really you? I couldn\'t stop it. I heard every word it said.' },
+  { s: 'rakti', p: 8, g: 2, t: 'It\'s over, Pitaji. I\'m taking you home.' },
   { s: 'father', p: 5, g: 12, t: 'My brave girl. Four realms... for your foolish old father.' },
   { s: 'father', p: 6, g: 10, t: 'Come here, beti.' },
-  { s: 'kali', p: 5, g: 7, t: 'The four relics are whole again, and the rift is closing. Go home together, both of you.' }
+  { s: 'kali', p: 5, g: 7, t: 'The relics are whole, and the rift is closing. Go home, both of you.' }
 ];
 
 // ---------------------------------------------------------------------------
@@ -365,7 +364,7 @@ export class Level4 {
     this.arenaMin = ARENA_MIN;
     this.arenaMax = ARENA_MAX;
 
-    this.bgImg = img('assets/level4/fort_panorama.jpg');      // fort_a.jpg / fort_b.jpg are kept as the sources
+    this.bgImg = img('assets/level4/fort_panorama.jpg');
     this.ledgeImg = img(LEDGE_ART.src);
     this.malaImg = img('assets/level4/sprites/mala.png');
     this.parapetImg = img(PARAPET.src);
@@ -374,6 +373,9 @@ export class Level4 {
     this.shrineImg = img(SHRINE.src);
     this.arrowImg = img('assets/anims/archer_arrow.png');
     this.hugImgs = Array.from({ length: 12 }, (_, i) => img(`assets/level4/sprites/hug_${i}.png`));
+    // decode every boss, transformation and reunion frame ahead of time, so no frame is decoded the first time it
+    // is drawn (that hitch is what made the fight's cut-scenes stutter)
+    for (const im of [...Object.values(bossImages()).flat(), ...this.hugImgs]) im.decode?.().catch(() => {});
     const frames = (name, n) => Array.from({ length: n }, (_, i) => img(`${ARCHER_ART.dir}${name}_${i}.png`));
     const aim = frames('aim', 6);
     this.art = { aim, idle: [aim[0], aim[0], aim[5], aim[5]], hurt: frames('hurt', 2), die: frames('die', 3) };
@@ -443,6 +445,7 @@ export class Level4 {
     } else {
       this.boss.reset(1);
       if (this.malaTaken) this.boss.alpha = 1;
+      this.boss.shade = this.malaTaken && !this.fatherTalked ? 1 : 0;   // still a shadow until she walks up to him
     }
   }
 
@@ -556,7 +559,12 @@ export class Level4 {
     this.toast('☠ KALI\'S SKULL MALA ☠', 2.6);
     this.malaFly = 0.0001;
     if (this.player) this.grantMala(this.player, true);
-    this.boss.appearOnThrone();
+    // a dark figure is already standing on the throne as Kali speaks (it is Pitaji: he is shown only when Rakti
+    // walks up to him). It fades in here, not in the boss's own update, which waits while anyone is talking.
+    this.boss.state = 'throne';
+    this.boss.alpha = 0;
+    this.boss.shade = 1;
+    this.shadowIn = 0.0001;
     this.conversation(L_MALA);
   }
 
@@ -742,6 +750,13 @@ export class Level4 {
       if (!this.ending.hold && Math.random() < 0.3) this.burst(HUG_X - 30 + rand(-60, 60), FLOOR_Y - rand(40, 160), 2, ['#ffd700', '#fff1b0', '#ff9d3a'], 40, 1);
     }
     if (this.malaFly > 0 && this.malaFly < 1) this.malaFly = Math.min(1, this.malaFly + dt * 1.5);
+    // the shadow on the throne: it rises out of the dark as the mala is taken, and melts away into Pitaji as Rakti
+    // walks up to him (both run while Kali is speaking too)
+    if (this.shadowIn > 0 && this.shadowIn < 1) {
+      this.shadowIn = Math.min(1, this.shadowIn + dt / 1.2);
+      this.boss.alpha = this.shadowIn;
+    }
+    if (this.meetWalk && this.boss.shade > 0) this.boss.shade = Math.max(0, this.boss.shade - dt / 1.4);
     const quiet = paused || Boolean(this.cutscene && this.cutscene.kind !== 'relaunch' && this.cutscene.kind !== 'relaunch2');
     if (!paused) this.updateWaves(dt);
     for (const a of this.archers) a.update(dt, player, this, quiet);
@@ -759,7 +774,7 @@ export class Level4 {
     if (!this.malaTaken && this.doubtTalked && Math.abs(px - SHRINE.x) < 70 && Math.abs(py - FLOOR_Y) < 20) {
       return {
         type: 'inspection', x: SHRINE.x, y: SHRINE.top, prompt: '[E] TAKE KALI\'S SKULL MALA', speaker: 'kali', title: '⚜ THE FOURTH RELIC ⚜',
-        text: 'The mala answers your hand, Rakti. Feel my strength wake inside it.',
+        text: 'It answers your hand. My strength is waking in it.',
         onInteract: () => this.takeMala()
       };
     }
@@ -803,23 +818,58 @@ export class Level4 {
     return c;
   }
 
+  /** World px -> device px of the current camera, rounded to 1/4 steps; when it changes the cached art is rebuilt. */
+  updateArtScale(ctx) {
+    const a = ctx.getTransform().a || 1;
+    const k = Math.max(1, Math.min(4, Math.ceil(a * 4) / 4));
+    if (k !== this.artScale) { this.artScale = k; this.artCache = new Map(); }
+  }
+
+  /** `im` drawn once at w x h world px at device resolution (maxK caps it for the very wide panorama). Big sources
+   *  (the 3404 px panorama, the 1961 px parapets) were shrunk with high-quality filtering on every frame. */
+  cachedImg(key, im, w, h, maxK = 4) {
+    let c = this.artCache?.get(key);
+    if (c) return c;
+    if (!ready(im)) return null;
+    const k = Math.min(this.artScale || 1, maxK);
+    c = document.createElement('canvas');
+    c.width = Math.max(1, Math.ceil(w * k));
+    c.height = Math.max(1, Math.ceil(h * k));
+    const g = c.getContext('2d');
+    g.imageSmoothingEnabled = true;
+    g.imageSmoothingQuality = 'high';
+    g.drawImage(im, 0, 0, c.width, c.height);
+    if (!this.artCache) this.artCache = new Map();
+    this.artCache.set(key, c);
+    return c;
+  }
+
   renderBackground(ctx) {
-    // 1. the fort panorama
-    if (ready(this.bgImg)) ctx.drawImage(this.bgImg, 0, 0, WORLD_W, SCREEN_H);
-    else { ctx.fillStyle = '#7a2d12'; ctx.fillRect(0, 0, WORLD_W, SCREEN_H); }
+    this.updateArtScale(ctx);
+    // 1. the fort panorama: only the part in view, copied 1:1 from its pre-scaled canvas
+    const pano = this.cachedImg('pano', this.bgImg, WORLD_W, SCREEN_H, 2.5);
+    if (pano) {
+      const m = ctx.getTransform(), a = m.a || 1;
+      const x0 = Math.max(0, Math.floor(-m.e / a) - 2), x1 = Math.min(WORLD_W, Math.ceil((ctx.canvas.width - m.e) / a) + 2);
+      const kx = pano.width / WORLD_W;
+      if (x1 > x0) ctx.drawImage(pano, x0 * kx, 0, (x1 - x0) * kx, pano.height, x0, 0, x1 - x0, SCREEN_H);
+    } else { ctx.fillStyle = '#7a2d12'; ctx.fillRect(0, 0, WORLD_W, SCREEN_H); }
     this.renderPortalGlow(ctx);
 
     // 2. dark chambers behind the openings -> archers -> the carved parapets
     const pw = PARAPET.imgW * PARAPET.scale, ph = PARAPET.imgH * PARAPET.scale;
-    for (const s of STRIPS) if (ready(this.parapetBackImg)) ctx.drawImage(this.parapetBackImg, s.x, s.y, pw, ph);
+    const back = this.cachedImg('parapetBack', this.parapetBackImg, pw, ph), front = this.cachedImg('parapet', this.parapetImg, pw, ph);
+    if (back) for (const s of STRIPS) ctx.drawImage(back, s.x, s.y, pw, ph);
     for (const a of this.archers) a.render(ctx, this.art);
-    for (const s of STRIPS) if (ready(this.parapetImg)) ctx.drawImage(this.parapetImg, s.x, s.y, pw, ph);
+    if (front) for (const s of STRIPS) ctx.drawImage(front, s.x, s.y, pw, ph);
     for (const a of this.archers) a.renderBar(ctx);
     for (const a of this.archers) a.renderSparks(ctx);
 
     // 3. the throne and the shrine
-    if (ready(this.throneImg)) ctx.drawImage(this.throneImg, THRONE.x, THRONE.y, THRONE.w * THRONE.k, THRONE.h * THRONE.k);
-    if (ready(this.shrineImg)) ctx.drawImage(this.shrineImg, SHRINE.x - SHRINE.drawW / 2, SHRINE.top, SHRINE.drawW, SHRINE.h * SHRINE.k);
+    const tw = THRONE.w * THRONE.k, th = THRONE.h * THRONE.k, sh = SHRINE.h * SHRINE.k;
+    const throne = this.cachedImg('throne', this.throneImg, tw, th), shrine = this.cachedImg('shrine', this.shrineImg, SHRINE.drawW, sh);
+    if (throne) ctx.drawImage(throne, THRONE.x, THRONE.y, tw, th);
+    if (shrine) ctx.drawImage(shrine, SHRINE.x - SHRINE.drawW / 2, SHRINE.top, SHRINE.drawW, sh);
     this.renderMala(ctx);
     // raised stone ledges
     if (ready(this.ledgeImg)) {
@@ -831,7 +881,8 @@ export class Level4 {
         ctx.ellipse((l.x1 + l.x2) / 2, FLOOR_Y + 2, (l.x2 - l.x1) * 0.42, 5, 0, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
-        ctx.drawImage(this.ledgeImg, l.x1, l.y - LEDGE_ART.deck, LEDGE_ART.w, LEDGE_ART.h);
+        const lc = this.cachedImg('ledge', this.ledgeImg, LEDGE_ART.w, LEDGE_ART.h);
+        if (lc) ctx.drawImage(lc, l.x1, l.y - LEDGE_ART.deck, LEDGE_ART.w, LEDGE_ART.h);
       }
     }
 

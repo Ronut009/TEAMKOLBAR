@@ -8,10 +8,12 @@
  *   2. Ruins         - two-pillar pit (spike on a pillar), a ripple of single spikes, a Betal
  *   3. Sun wall      - checkpoint, alternating spike gauntlet, Betal, pit with alternating pillar spikes
  *   4. Ruins (mirrored) - checkpoint, rolling spike wave, three-pillar pit whose middle pillar SPINS
- *   5. Shrine        - checkpoint, Kali grants her form [X] near the lever tower. No floor between the
- *                      three towers: leap up to the lever tower as Kali, defeat its Betal, pull the
- *                      lever -> Kali's hibiscus bridges bloom tower -> stone pier -> tower (walkable only as Kali),
- *                      geysers from the deep burst through them -> relic tower (Betal) -> relic -> door
+ *   5. Shrine        - checkpoint. Kali grants her form [X] before the towers, and as her words end her hibiscus
+ *                      bridges bloom tower -> stone pier -> tower (walkable only as Kali; a mortal sees their ghost).
+ *                      No floor between the three towers: leap up to the relic tower as Kali, defeat its Betal,
+ *                      claim the Pearl -> the portal tower (its door is shut) -> the lever tower (Betal) -> pull
+ *                      the lever (only with the Pearl) -> the portal door opens -> back to it. Geysers from the
+ *                      deep burst through the spans.
  * (The old single-screen temple level is archived in unused_assets/old_code/js/level.js.)
  * ==========================================================================
  */
@@ -54,7 +56,8 @@ const TOWER_W = 1024, TOWER_H = 1536;
 const BRIDGE_SUMMON_TIME = 1.9;  // the flower bridges take this long to bloom across
 const TOWER_GAP = 520;          // open water between arm tips: a stone pier stands in the middle of each gap,
                                 // so every hibiscus span (~225 px) is longer than a mortal jump
-const PIER_SCALE = 0.27;        // the piers use the tall pillar art; tall enough that their base sinks into the dark
+const PIER_SCALE = 0.27;        // the piers use the tall pillar art (drawn as a column rising out of the deep)
+const PIER_REPEAT = [248, 543];  // its repeating middle section (image rows: band -> diamond -> ring band -> sun panel)
 
 // Kali's idol (assets/level1/kali_idol.png, 560x840 from the 1024x1536 original): pillared shrine whose
 // plinth stands on the floor. footRow = the plinth's bottom row, faceRow = her eyes.
@@ -80,14 +83,10 @@ const PAD_OVERLAP = 12;      // neighbouring pads overlap by this many world px
 const PAD_SURFACE = 0.42;    // the leaf's top surface sits this far down the pad image
 const PETAL_ART = { c: { w: 113, h: 57 }, d: { w: 79, h: 39 } };
 
-// Jet art (assets/level1/jet/, cut from the jet sheet): four strips of 4 frames each, all 112 px wide except the splash.
-//  head:   the falling tip (its point at the bottom), drawn at the jet's leading end while it drives down
-//  column: the pouring water, tiles top to bottom (scrolled downward so it reads as falling)
-//  splash: where it hits the deck (its ground line `splashBase` px down the frame)
-//  tail:   the water breaking up; drawn flipped above the jet's upper end as it falls away, thinning frame by frame
-// `body` is the width of the solid water in a frame; `scale` sizes it to the jet's hit width (GEYSER.half).
-const JET_ART = { dir: 'assets/level1/jet/', fw: 112, headH: 120, headTip: 118, colH: 128, splashW: 172, splashH: 69,
-  splashBase: 66, tailH: 104, body: 74, scale: 0.52, frameTime: 0.08 };
+// Geyser art (assets/level1/geyser_sheet.png): 6 frames of 125x395; frames 4-5 are the full column (splash base
+// on row 390). The jet comes DOWN from the surface: its column (rows colTop..colBottom, tiled) is drawn from the
+// top of the screen down to the deck, where the splash (rows colBottom..frameH) lands.
+const GEYSER_ART = { src: 'assets/level1/geyser_sheet.png', frameW: 125, frameH: 395, base: 390, scale: 0.36, colTop: 60, colBottom: 290 };
 
 // Water jets that replace the old bridge orbs: the sea above pours a jet straight down onto each hibiscus span.
 // A thin shimmer from above and a ring on the deck warn first; the jet then drives down from the top of the
@@ -100,34 +99,31 @@ const GEYSER = { cycle: 3.4, warn: 0.85, burst: 0.95, half: 17, damage: 3, top: 
 // Rakti gestures: 0 palm, 1 finger up, 2 hand on chest, 3 frown, 4 chin, 5 palm, 7 namaste
 const VOICE = '⚜ A VOICE FROM THE DARK ⚜';
 const PROLOGUE_WAKE = [
-  { s: 'rakti', p: 2, g: 3, t: 'Where... where am I? This isn\'t home. The last thing I remember is the sky over the sea tearing open.' },
-  { s: 'rakti', p: 1, t: 'Pitaji? Pitaji, can you hear me?!' },
+  { s: 'rakti', p: 2, g: 3, t: 'Where... is this? I followed that golden light through the portal, and then...' },
+  { s: 'rakti', p: 1, t: 'Pitaji? Pitaji!' },
   { s: 'voice', title: VOICE, t: 'Rakti...' },
-  { s: 'rakti', p: 3, g: 2, t: 'Who\'s there? Who said my name?' },
-  { s: 'voice', title: VOICE, t: 'Do not be afraid, child. Come to me. Follow the light, deeper into the temple.' },
-  { s: 'rakti', p: 5, g: 4, t: 'That voice... it\'s coming from further in. I have to see.' }
+  { s: 'rakti', p: 3, g: 2, t: 'Who\'s there? How do you know my name?' },
+  { s: 'voice', title: VOICE, t: 'Do not be afraid, child. Follow the light. Come to me.' },
+  { s: 'rakti', p: 5, g: 4, t: 'The same light... Okay. Okay, I\'m coming.' }
 ];
 const PROLOGUE_IDOL = [
-  { s: 'kali', p: 6, g: 4, t: 'You came, Rakti. Good. You have your father\'s courage.' },
-  { s: 'rakti', p: 1, g: 2, t: 'Maa Kali...? You know my father? Where is he? What is this place?' },
-  { s: 'kali', p: 1, g: 0, t: 'This is Dwaraka, the city the sea swallowed long before your time. The rift that split the sky above your home pulled you down into its ruins.' },
+  { s: 'kali', p: 6, g: 4, t: 'You followed my light. Good. You have your father\'s courage.' },
+  { s: 'rakti', p: 1, g: 2, t: 'Maa Kali? That light was yours? Where is my father? Where am I?' },
+  { s: 'kali', p: 1, g: 0, t: 'Dwaraka, the city the sea swallowed. The portal you stepped through opened onto its ruins.' },
   { s: 'rakti', p: 2, g: 3, t: 'And Pitaji?' },
-  { s: 'kali', p: 7, g: 3, t: 'He came through before you. He went after the four relics, the only things that can seal the rift. His trail runs through these ruins and the lands beyond.' },
-  { s: 'rakti', p: 3, g: 4, t: 'Then I\'ll follow it. Whatever it takes, I\'m bringing him home.' },
-  { s: 'kali', p: 3, g: 1, t: 'Betal and Asura walk these halls now. In a sari, with bare hands, you would not last a breath.' },
-  { s: 'kali', p: 6, g: 6, t: 'So take what I give you: armour, a blade, and a little of my strength. Hold still.' },
+  { s: 'kali', p: 7, g: 3, t: 'The rift took him before you. He went after the four relics, the only things that can seal it. Follow his trail and you will find him.' },
+  { s: 'rakti', p: 3, g: 4, t: 'Then I\'ll find him. And I\'m bringing him home.' },
+  { s: 'kali', p: 3, g: 1, t: 'Not like this. Demons walk these halls, and you have no blade. Stand still. I will arm you.' },
   { s: 'rakti', p: 0, g: 7, t: 'I\'m ready, Maa.' }
 ];
 const PROLOGUE_AFTER = [
-  { s: 'rakti', p: 1, g: 2, t: 'This armour... it moves with me, as if it was always mine. And this blade is so light.' },
-  { s: 'kali', p: 7, g: 1, t: 'A blade is only as good as the hand that holds it. Now comes your first test, Rakti.' },
-  { s: 'kali', p: 3, g: 3, t: 'Something in the dark has smelled a mortal. A Betal. Do not run from it. Face it, and strike when it raises its blade.' },
+  { s: 'rakti', p: 1, g: 2, t: 'This armour... it feels like it was always mine.' },
+  { s: 'kali', p: 7, g: 1, t: 'Then prove it. A Betal has caught your scent. Do not run. Strike [CLICK] the moment it raises its blade.' },
   { s: 'rakti', p: 11, g: 3, t: 'Then let it come.' }
 ];
 const TEST_DONE = [
-  { s: 'rakti', p: 1, g: 2, t: 'I... I did it. It\'s gone.' },
-  { s: 'kali', p: 5, g: 4, t: 'Well struck. That was your first test, and you met it. There will be many more.' },
-  { s: 'kali', p: 6, g: 0, t: 'The first relic, the Pearl of the Tide, waits past the towers to the east. The ruins between are full of traps. Watch the floor, Rakti. I am with you.' }
+  { s: 'rakti', p: 1, g: 2, t: 'I did it...' },
+  { s: 'kali', p: 5, g: 4, t: 'Well struck. Now go east, past the towers. The first relic, the Pearl of the Tide, waits there. Watch the floor. These ruins bite.' },
 ];
 
 export class Level {
@@ -143,7 +139,7 @@ export class Level {
     // ------------------------------------------------------------------ backgrounds
     this.bg = {
       portal: img('assets/level1/prologue_portal.jpg'),
-      sanctum: img('assets/level1/sanctum_clean.jpg'),   // the idol is a separate sprite on it (prologue_idol.jpg kept as backup)
+      sanctum: img('assets/level1/sanctum_clean.jpg'),   // the idol is a separate sprite on it
       ruins: img('assets/level1/filler_ruins.jpg'),
       suns: img('assets/level1/sanctum_suns.jpg'),       // the sun wall (screen 3)
       towers: img('assets/level1/towers_bg.jpg')      // open water behind the shrine towers (screens 5+)
@@ -151,7 +147,7 @@ export class Level {
     this.idolImg = img(IDOL_ART.src);
     this.hib = Object.fromEntries(['pad_s', 'pad_m', 'pad_l', 'hib_front', 'hib_side_a', 'hib_side_b', 'leaf_b', 'leaf_c', 'petal_c', 'petal_d']
       .map((n) => [n, img(HIB + n + '.png')]));
-    this.jetImgs = Object.fromEntries(['head', 'column', 'splash', 'tail'].map((k) => [k, img(`${JET_ART.dir}jet_${k}.png`)]));
+    this.geyserImg = img(GEYSER_ART.src);
     this.towerImgs = Object.fromEntries(Object.entries(TOWER_ART).map(([k, v]) => [k, img(v.src)]));
 
     this.platformArt = new PlatformArt('temple');
@@ -218,18 +214,18 @@ export class Level {
       ...row(X(4) + 130, 5, 58, 3.4, (i) => i * 0.42)
     ];
 
-    // Shrine room (screen 5): lever tower -> bridge -> pier -> bridge -> relic tower -> bridge -> pier -> bridge -> door tower.
+    // Shrine room (screen 5): relic tower -> bridge -> pier -> bridge -> portal tower -> bridge -> pier -> bridge -> lever tower.
     // All three arms are ~129 px above the floor, so only Kali's leap reaches the first one.
     this.ledgeY = 239;
     const s = TOWER_SCALE, A = TOWER_ART.shrine, D = TOWER_ART.doorClosed;
     const armHalf = (art) => ({ l: (art.cx - art.armL) * s, r: (art.armR - art.cx) * s });
     const cx1 = X(5) + 380;            // its left arm overhangs the floor's end, so Kali can leap straight up onto it
-    const cx2 = cx1 + armHalf(A).r + TOWER_GAP + armHalf(A).l;
-    const cx3 = cx2 + armHalf(A).r + TOWER_GAP + armHalf(D).l;
+    const cx2 = cx1 + armHalf(A).r + TOWER_GAP + armHalf(D).l;
+    const cx3 = cx2 + armHalf(D).r + TOWER_GAP + armHalf(A).l;
     this.towers = [
-      { id: 'lever', art: 'shrine', cx: cx1 },
-      { id: 'relic', art: 'shrine', cx: cx2 },
-      { id: 'door', art: 'doorClosed', cx: cx3 }
+      { id: 'relic', art: 'shrine', cx: cx1 },
+      { id: 'door', art: 'doorClosed', cx: cx2 },
+      { id: 'lever', art: 'shrine', cx: cx3 }
     ];
     // world y of an image row of a tower (arm tops line up at ledgeY)
     this.towerY = (art, imgY) => this.ledgeY - (art.armY - imgY) * s;
@@ -242,21 +238,21 @@ export class Level {
     const pierHalf = PILLAR_ART.tall.w * PIER_SCALE * 0.4;
     this.piers = [0, 1].map((i) => {
       const cx = (this.ledges[i].x2 + this.ledges[i + 1].x1) / 2;
-      return { art: 'tall', cx, top: this.ledgeY, scale: PIER_SCALE, x1: cx - pierHalf, x2: cx + pierHalf };
+      return { art: 'tall', cx, top: this.ledgeY, scale: PIER_SCALE, x1: cx - pierHalf, x2: cx + pierHalf, sink: true };
     });
     this.doorSillY = this.ledgeY;
-    this.door = { x1: cx3 + (D.doorL - D.cx) * s, x2: cx3 + (D.doorR - D.cx) * s, cx: cx3,
+    this.door = { x1: cx2 + (D.doorL - D.cx) * s, x2: cx2 + (D.doorR - D.cx) * s, cx: cx2,
       midY: this.towerY(D, (D.doorTop + D.doorSill) / 2) };
-    this.width = Math.round(cx3 + armHalf(D).r + 150);
+    this.width = Math.round(cx3 + armHalf(A).r + 150);
 
-    // the lever stands in the lever tower's niche, at Rakti's chest height
-    this.lever = { x: cx1, y: this.towerY(A, A.nicheSill), activated: false, pullTime: 0 };
-    this.leverMessage = "The lever locks into place, and my flowers answer it. Red hibiscus strung on gold now spans the water from tower to pier to tower. That bridge is woven from my power, Rakti, and it holds only for my form [X]. Rest on the stone piers when you must, and beware the deep: it breathes up through the flowers.";
+    // the lever stands in the last tower's niche, at Rakti's chest height; it opens the portal door
+    this.lever = { x: cx3, y: this.towerY(A, A.nicheSill), activated: false, pullTime: 0 };
+    this.leverMessage = 'The lever is down, and the portal door is open. Go back to it, Rakti. Your father went through ahead of you.';
     this.leverImgs = [0, 1, 2].map((i) => img(`assets/level1/lever_${i}.png`));   // idle, moving, pulled
 
-    // Kali's flower bridges: four spans (tower -> pier -> tower -> pier -> tower). The lever calls them, and red
+    // Kali's flower bridges: four spans (tower -> pier -> tower -> pier -> tower). Her lesson [X] calls them, and red
     // hibiscus blooms (her sacred flower) strung on a gold thread fly in from both ends and meet in the middle.
-    // Solid only in Kali form; a mortal Rakti sees just their ghost. (The old golden_bridge_a/b.png art stays as a backup.)
+    // Solid only in Kali form; a mortal Rakti sees just their ghost.
     this.bridges = [
       { x1: this.ledges[0].x2 - 4, x2: this.piers[0].x1 + 3, y: this.ledgeY },
       { x1: this.piers[0].x2 - 3, x2: this.ledges[1].x1 + 4, y: this.ledgeY },
@@ -298,13 +294,15 @@ export class Level {
     this.artCache = new Map();
     this.artScale = 0;
 
-    // Kali grants her form [X] when Rakti nears the lever tower (kept across deaths until a New Game)
+    // Kali grants her form [X] when Rakti nears the towers (kept across deaths until a New Game); her bridges
+    // bloom once her words are closed
     this.abilityGrantX = X(5) - 30;
     this.abilityGranted = false;
+    this.bridgeTold = false;   // Kali's lesson has been heard to the end: only then do her bridges bloom
     this.pendingDialogue = null;
 
     // The shrine sits on the relic tower's niche sill, centred in the arch; the relic floats above it
-    this.relic = { x: cx2, baseY: this.ledgeY, collected: false, fly: 0, fromX: 0, fromY: 0 };
+    this.relic = { x: cx1, baseY: this.ledgeY, collected: false, fly: 0, fromX: 0, fromY: 0 };
     this.shrineSillY = this.towerY(A, A.nicheSill);
     this.shrineW = 40;
     this.relicW = 26;
@@ -321,8 +319,8 @@ export class Level {
       new Betal(X(1) + 640, X(1) + 340, this.testArenaMaxX - 20),
       new Betal(X(2) + 900, X(2) + 820, X(2) + 960),
       new Betal(X(3) + 560, X(3) + 500, X(3) + 610),
-      new Betal(cx1 + 70, this.ledges[0].x1 + 12, this.ledges[0].x2 - 12, this.ledgeY),   // lever tower
-      new Betal(cx2 + 50, this.ledges[1].x1 + 12, this.ledges[1].x2 - 12, this.ledgeY)    // relic tower
+      new Betal(cx1 + 70, this.ledges[0].x1 + 12, this.ledges[0].x2 - 12, this.ledgeY),   // relic tower
+      new Betal(cx3 + 50, this.ledges[2].x1 + 12, this.ledges[2].x2 - 12, this.ledgeY)    // lever tower
     ];
     this.test = { started: false, doneT: 0 };
     this.checkpointIndex = -1;
@@ -340,8 +338,14 @@ export class Level {
     this.lever.activated = false;
     this.lever.pullTime = 0;
     this.bridgeGrow = 0;
+    this.bridgeWait = 0;
     this.petals = [];
     for (const b of this.bridges) { b.met = false; for (const f of b.blooms) f.landed = false; }
+    if (this.bridgeTold) {
+      // Kali has already told Rakti about them: after a respawn they stand whole, no bloom
+      this.bridgeGrow = 1;
+      for (const b of this.bridges) { b.met = true; b.metT = 9; for (const f of b.blooms) f.landed = true; }
+    }
     for (const g of this.geysers) g.burstSeen = false;
     this.bubbles = [];
     this.lastSafeLedge = null;
@@ -365,15 +369,16 @@ export class Level {
   }
 
   /** Arriving from outside (new game, level select): the prologue test and checkpoints start over. */
-  /** What Rakti needs to reach next to go on (the engine hums as she nears it): the lever, then the relic. */
+  /** What Rakti needs to reach next to go on (the engine hums as she nears it): the relic, then the lever. */
   crucialItem() {
-    if (!this.lever.activated) return { x: this.lever.x, y: this.ledgeY };
-    return this.relic.collected ? null : { x: this.relic.x, y: this.ledgeY };
+    if (!this.relic.collected) return { x: this.relic.x, y: this.ledgeY };
+    return this.lever.activated ? null : { x: this.lever.x, y: this.ledgeY };
   }
 
   freshStart() {
     this.checkpointIndex = -1;
     this.abilityGranted = false;
+    this.bridgeTold = false;
     this.testDone = false;
   }
 
@@ -386,9 +391,10 @@ export class Level {
   }
 
   pullLever() {
-    if (this.lever.activated) return false;
+    if (this.lever.activated || !this.relic.collected) return false;
     this.lever.activated = true;
     this.lever.pullTime = 0;
+    this.doorOpenDelay = 0.9;   // the portal door starts to open just after the lever settles
     this.cameraShake = 0.6;
     return true;
   }
@@ -400,7 +406,6 @@ export class Level {
     this.relic.fly = 0.0001;
     this.relic.toX = player ? player.x : this.relic.x;
     this.relic.toY = player ? player.y - 40 : this.ledgeY - 40;
-    this.doorOpenDelay = 0.6;
     this.cameraShake = 0.5;
     return true;
   }
@@ -459,28 +464,30 @@ export class Level {
   // ======================================================================== interactions
   getNearbyInteractable(px, py) {
     if (Math.abs(px - this.lever.x) < 40 && Math.abs(py - this.ledgeY) < 12) {
+      if (!this.lever.activated && !this.relic.collected) {
+        return {
+          type: 'inspection', x: this.lever.x, y: this.lever.y, prompt: '[E] PULL LEVER', speaker: 'kali',
+          text: 'Not yet. The Pearl is still in its shrine on the first tower. Bring it here.'
+        };
+      }
       return {
         type: 'lever', x: this.lever.x, y: this.lever.y, activated: this.lever.activated,
         prompt: this.lever.activated ? '[E] LEVER (ENGAGED)' : '[E] PULL LEVER',
-        text: 'The lever is locked in place. Kali\'s flower bridges hold only for her form [X].'
-      };
-    }
-    if (!this.relic.collected && !this.lever.activated && Math.abs(px - this.relic.x) < 48 && Math.abs(py - this.ledgeY) < 12) {
-      return {
-        type: 'inspection', x: this.relic.x, y: this.ledgeY, prompt: '[E] SEALED SHRINE', speaker: 'stele', title: '⚜ SEALED SHRINE ⚜',
-        text: 'A ward of light closes over the relic. Somewhere in this temple, a mechanism holds it shut.'
+        text: 'The lever is locked down. The portal door stands open.'
       };
     }
     if (!this.relic.collected && Math.abs(px - this.relic.x) < 48 && Math.abs(py - this.ledgeY) < 12) {
       return {
         type: 'relic', x: this.relic.x, y: this.ledgeY, prompt: '[E] CLAIM THE RELIC',
-        text: "The Pearl of the Tide, Rakti. The first of the four relics. It has waited for your bloodline, and it answers to you alone. Keep it close: the strength of the deep sleeps inside it, and with it even stone will move at your call. The gate is open. Your father's trail goes on beyond it."
+        text: 'The Pearl of the Tide, the first relic. It answers only to your blood, and with it even stone will move for you. The portal ahead is sealed. Find the lever that opens it.'
       };
     }
-    if (!this.relic.collected && px > this.door.x1 - 40 && px < this.door.x2 + 40 && Math.abs(py - this.doorSillY) < 12) {
+    if (this.doorOpen < 0.95 && px > this.door.x1 - 40 && px < this.door.x2 + 40 && Math.abs(py - this.doorSillY) < 12) {
       return {
         type: 'doorway_locked', x: this.door.cx, y: this.doorSillY, prompt: '[E] SEALED DOOR',
-        text: 'The great door will not move. Its sun-seals glow faintly, waiting for the relic resting in the shrine.'
+        text: this.relic.collected
+          ? 'The portal door will not move. Its seals answer to a lever on the last tower.'
+          : 'The portal door will not move. Its seals answer to a lever on the last tower, and the Pearl is still in its shrine.'
       };
     }
     return null;
@@ -505,12 +512,13 @@ export class Level {
     this.updatePrologueScene(player);
     this.updateMovingPillars(playerX, playerY, player);
 
-    // Lever pull, then Kali's flower bridges bloom from both towers and meet in the middle. They wait until her
-    // words about them are closed, so the player watches them bloom instead of it happening behind the dialogue.
-    if (this.lever.activated) {
-      this.lever.pullTime += dt;
-      if (this.dialogueOpen && this.bridgeGrow <= 0) this.lever.pullTime = Math.min(this.lever.pullTime, 0.2);
-      if (this.lever.pullTime > 0.35 && this.bridgeGrow < 1) {
+    // Kali's lesson [X], then her flower bridges bloom from both towers and meet in the middle. They wait until
+    // her words are closed, so the player watches them bloom instead of it happening behind the dialogue.
+    if (this.lever.activated) this.lever.pullTime += dt;
+    if (this.bridgeTold && this.bridgeGrow < 1) {
+      if (this.dialogueOpen || this.pendingDialogue) this.bridgeWait = 0;
+      else this.bridgeWait = (this.bridgeWait || 0) + dt;
+      if (this.bridgeWait > 0.35) {
         this.bridgeGrow = Math.min(1, this.bridgeGrow + dt / BRIDGE_SUMMON_TIME);
         this.cameraShake = Math.max(this.cameraShake, 0.08);
         if (this.bridgeGrow >= 1) {
@@ -524,9 +532,9 @@ export class Level {
     // Geysers burst up through the spans once the bridges are out
     this.updateGeysers(dt, player);
 
-    // Relic flies into Rakti's hands, then the door opens
+    // Relic flies into Rakti's hands; the lever opens the portal door
     if (this.relic.collected && this.relic.fly < 1) this.relic.fly = Math.min(1, this.relic.fly + dt * 1.4);
-    if (this.relic.collected) {
+    if (this.lever.activated) {
       if (this.doorOpenDelay > 0) {
         this.doorOpenDelay -= dt;
       } else if (this.doorOpen < 1) {
@@ -546,12 +554,16 @@ export class Level {
     this.updateFirstTest(player, blessingDone, dt);
     for (const b of this.betals) b.update(dt, player, this, blessingDone);
 
-    // Kali grants her form [X] as Rakti nears the lever tower
-    if (blessingDone && playerX >= this.abilityGrantX && !this.abilityGranted) {
+    // Kali grants her form [X] as Rakti nears the towers (her bridges bloom once she has spoken)
+    // (a one-line conversation: its end marks the lesson heard; if it was lost before it played, e.g. to a death
+    // while it waited, she gives it again the next time Rakti comes this way)
+    if (blessingDone && playerX >= this.abilityGrantX && !this.bridgeTold && !this.pendingDialogue && !this.dialogueOpen) {
       this.abilityGranted = true;
+      this.bridgeWait = 0;
       this.pendingDialogue = {
-        speaker: 'kali', title: '⚜ MAA KALI: MY FORM ⚜', flash: true,
-        text: 'These towers stand beyond a mortal leap, Rakti. Take my form for a few breaths: press [X] to become Kali. You will leap far higher, and my bridge will hold you, but in my form your blade is stilled. Fight as yourself: press [X] again on solid ground to let my form go.'
+        flash: true,
+        lines: [{ s: 'kali', p: 7, t: 'No mortal leap clears these towers. Press [X] to take my form and you will leap far higher. My bridge will carry you, but only in my form, and my form cannot fight. Press [X] again on solid ground to be yourself.' }],
+        onDone: () => { this.bridgeTold = true; }
       };
     }
     if (this.abilityGranted && player && !player.hasDivineUnlocked) player.hasDivineUnlocked = true;
@@ -935,6 +947,7 @@ export class Level {
     const sc = pillarScale(p);
     const w = art.w * sc, h = art.h * sc;
     if (!this.inView(p.cx - w / 2, p.cx + w / 2)) return;
+    if (p.sink) { this.drawDeepPier(ctx, p, art, im, sc, w); return; }
     const c = this.cachedArt(`pillar:${p.art}:${sc}`, w, h, im.complete && im.naturalWidth > 0, (g) => g.drawImage(im, 0, 0, w, h));
     if (!c) return;
     const top = p.top - art.surface * sc;
@@ -947,6 +960,26 @@ export class Level {
     }
     ctx.drawImage(c, p.cx - w / 2, top, w, h);
     ctx.restore();
+  }
+
+  /** A stone pier standing in open water (the bridges' piers): the tall pillar from its cap down to its second sun
+   *  panel, then its own middle section (band, diamond panel, ring band, sun panel: image rows PIER_REPEAT) repeated
+   *  until it runs past the bottom of the screen, so it reads as a column rising out of the deep, with no base. */
+  drawDeepPier(ctx, p, art, im, sc, w) {
+    if (!this.inView(p.cx - w / 2, p.cx + w / 2)) return;
+    const [r0, r1] = PIER_REPEAT, top = p.top - art.surface * sc;
+    const need = (SCREEN_H + 30 - top) / sc;                       // image rows down to below the screen
+    const reps = Math.max(0, Math.ceil((need - r1) / (r1 - r0)));
+    const hImg = r1 + reps * (r1 - r0), h = hImg * sc;
+    const c = this.cachedArt(`pier:${p.art}:${sc}:${reps}`, w, h, im.complete && im.naturalWidth > 0, (g) => {
+      const k = w / art.w;
+      g.drawImage(im, 0, 0, art.w, r1, 0, 0, w, r1 * k);
+      for (let i = 0; i < reps; i++) {
+        const y = (r1 + i * (r1 - r0)) * k;
+        g.drawImage(im, 0, r0, art.w, r1 - r0, 0, y - 0.5, w, (r1 - r0) * k + 1);   // a hair of overlap: no seam
+      }
+    });
+    if (c) ctx.drawImage(c, p.cx - w / 2, top, w, h);
   }
 
   /** One spike: its vent is always marked (a dark slot with a thin gold rim), and the spike rises out of it. */
@@ -971,55 +1004,6 @@ export class Level {
     ctx.drawImage(c, x - w / 2, y - SPIKE_ART.surface * s + 1, w, h);
   }
 
-  /** One frame of a jet strip, cached at device resolution. flip: drawn upside down (the tail). */
-  jetFrame(kind, f, flip = false) {
-    const A = JET_ART, s = A.scale, im = this.jetImgs[kind];
-    const fw = kind === 'splash' ? A.splashW : A.fw;
-    const fh = { head: A.headH, column: A.colH, splash: A.splashH, tail: A.tailH }[kind];
-    const w = fw * s, h = fh * s;
-    const c = this.cachedArt(`jet:${kind}:${f}:${flip ? 1 : 0}`, w, h, true, (g) => {
-      if (flip) { g.translate(0, h); g.scale(1, -1); }
-      g.drawImage(im, f * fw, 0, fw, fh, 0, 0, w, h);
-    });
-    if (c) { c.w = w; c.h = h; }
-    return c;
-  }
-
-  /** A pouring jet: while it drives down, the falling tip at its leading end with the column behind it; once it
-   *  lands, the column all the way down and the splash on the deck; as it ends, its upper end (the tip turned
-   *  upside down, with the breaking-up drops above it) falls after it. A soft additive pass on top makes the water glow. */
-  renderJet(ctx, g, st, by) {
-    const A = JET_ART, s = A.scale, x = g.x;
-    const f = Math.floor(this.animTime / A.frameTime) % 4;
-    const head = this.jetFrame('head', f), col = this.jetFrame('column', f), splash = this.jetFrame('splash', f);
-    if (!head || !col || !splash) return;
-    const ground = by + 5;                                   // the splash's ground line sits just into the flowers
-    const ending = st.k > 0.78, u = ending ? Math.min(1, (st.k - 0.78) / 0.22) : 0;
-    const tail = ending ? this.jetFrame('tail', Math.min(3, Math.floor(u * 4)), true) : null;
-    const cap = ending ? this.jetFrame('head', f, true) : null;   // the upper end: the falling tip, pointing up
-    // the column runs from the upper end down to the tip (falling) or into the splash (landed)
-    const colTop = ending && cap ? st.tail + cap.h - 4 : GEYSER.top;
-    const colBottom = st.landed ? ground - A.splashBase * s * 0.35 : st.head - A.headTip * s + 3;
-    for (let pass = 0; pass < 2; pass++) {
-      ctx.save();
-      if (pass) { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.28; }
-      if (colBottom > colTop) {
-        ctx.save();
-        ctx.beginPath();
-        ctx.rect(x - col.w, colTop, col.w * 2, colBottom - colTop);
-        ctx.clip();
-        const scroll = (this.animTime * 300) % col.h;          // tiles move down: the water reads as falling
-        for (let y = colBottom - col.h + scroll; y > colTop - col.h; y -= col.h) ctx.drawImage(col, x - col.w / 2, y, col.w, col.h);
-        ctx.restore();
-      }
-      if (!st.landed) ctx.drawImage(head, x - head.w / 2, st.head - A.headTip * s, head.w, head.h);
-      else if (!ending || st.tail < ground - 6) ctx.drawImage(splash, x - splash.w / 2, ground - A.splashBase * s, splash.w, splash.h);
-      if (cap) ctx.drawImage(cap, x - cap.w / 2, st.tail - (cap.h - A.headTip * s), cap.w, cap.h);
-      if (tail) ctx.drawImage(tail, x - tail.w / 2, st.tail + 8 - tail.h, tail.w, tail.h);
-      ctx.restore();
-    }
-  }
-
   /** Water jets. 'under' (behind the bridge): the falling motes. 'over': while warning a thin shimmer from above and
    *  a ring where it will land; while pouring the jet itself, its column tiled from the sprite between its tail and
    *  head, a bright leading edge on the way down and the sprite's splash once it hits the deck. */
@@ -1036,7 +1020,9 @@ export class Level {
       ctx.restore();
       return;
     }
-    const ready = Object.values(this.jetImgs).every((im) => im.complete && im.naturalWidth > 0);
+    const im = this.geyserImg, A = GEYSER_ART, s = A.scale;
+    const ready = im.complete && im.naturalWidth > 0;
+    const w = A.frameW * s;
     for (const g of this.geysers) {
       const st = this.geyserState(g), by = this.bridges[g.bridge].y, deck = by + 8;
       if (!this.inView(g.x - 40, g.x + 40)) continue;
@@ -1059,7 +1045,39 @@ export class Level {
         continue;
       }
       if (st.stage !== 'burst' || !ready || st.head <= st.tail) continue;
-      this.renderJet(ctx, g, st, by);
+      const f = Math.floor(this.animTime / 0.09) % 2 ? 5 : 4;
+      const colH = (A.colBottom - A.colTop) * s, splashH = (A.frameH - A.colBottom) * s;
+      const tile = this.cachedArt('jetcol:' + f, w, colH, true,
+        (gg) => gg.drawImage(im, f * A.frameW, A.colTop, A.frameW, A.colBottom - A.colTop, 0, 0, w, colH));
+      const splash = this.cachedArt('jetsplash:' + f, w, splashH, true,
+        (gg) => gg.drawImage(im, f * A.frameW, A.colBottom, A.frameW, A.frameH - A.colBottom, 0, 0, w, splashH));
+      const splashTop = deck - (A.base - A.colBottom) * s;
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(g.x - w, st.tail, w * 2, st.head - st.tail);
+      ctx.clip();
+      for (let pass2 = 0; pass2 < 2; pass2++) {
+        // a normal pass, then an additive one so it glows
+        ctx.globalCompositeOperation = pass2 ? 'lighter' : 'source-over';
+        ctx.globalAlpha = pass2 ? 0.35 : 1;
+        // the column, tiled upward from where the splash begins (scrolling down, so the water reads as falling)
+        const scroll = (this.animTime * 260) % colH;
+        for (let y = splashTop - colH + scroll; y > GEYSER.top - colH; y -= colH) ctx.drawImage(tile, g.x - w / 2, y, w, colH);
+        if (st.landed) ctx.drawImage(splash, g.x - w / 2, splashTop, w, splashH);
+      }
+      ctx.restore();
+      // the leading edge while it drives down
+      if (!st.landed) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        const gl = ctx.createRadialGradient(g.x, st.head, 1, g.x, st.head, 22);
+        gl.addColorStop(0, 'rgba(235, 255, 255, 0.95)');
+        gl.addColorStop(0.4, 'rgba(120, 220, 255, 0.5)');
+        gl.addColorStop(1, 'rgba(0, 80, 160, 0)');
+        ctx.fillStyle = gl;
+        ctx.fillRect(g.x - 24, st.head - 24, 48, 48);
+        ctx.restore();
+      }
     }
     ctx.restore();
   }
@@ -1077,10 +1095,10 @@ export class Level {
     ctx.restore();
     if (!rl.complete || rl.naturalWidth === 0) return;
     const relicH = this.relicW * (181 / 176);
-    // like the Trishul's shrine in Level 2: light falls on it, and a marker shows it once the lever has freed it
+    // like the Trishul's shrine in Level 2: light falls on it, and a marker shows it is there to claim
     if (!this.relic.collected && this.inView(this.relic.x - 60, this.relic.x + 60)) {
       drawShrineBeacon(ctx, { x: this.relic.x, baseY: this.shrineSillY - shrineH + 4, relicY: this.relicFloatY, relicH,
-        t: this.animTime, rgb: '160, 255, 240', marker: this.lever.activated, shaftH: 70 });
+        t: this.animTime, rgb: '160, 255, 240', marker: true, shaftH: 70 });
     }
     let rx = this.relic.x;
     let ry = this.relicFloatY + Math.sin(this.animTime * 2.4) * 2;
@@ -1141,8 +1159,8 @@ export class Level {
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     if (this.doorOpen <= 0) {
-      // sealed: the sun-seals breathe faintly, brighter once the relic is free to claim
-      const p = (this.lever.activated ? 0.16 : 0.08) + Math.sin(this.animTime * 2) * 0.04;
+      // sealed: the sun-seals breathe faintly, brighter once the Pearl is hers
+      const p = (this.relic.collected ? 0.16 : 0.08) + Math.sin(this.animTime * 2) * 0.04;
       const g = ctx.createRadialGradient(cx, cy, 4, cx, cy, 50);
       g.addColorStop(0, `rgba(255, 210, 120, ${p})`);
       g.addColorStop(1, 'rgba(0, 0, 0, 0)');
@@ -1225,7 +1243,7 @@ export class Level {
       ctx.restore();
     }
     ctx.drawImage(leverArt, dx, dy, w, h);
-    if (!this.lever.activated) {
+    if (!this.lever.activated && this.relic.collected) {   // (marked once the Pearl is hers: it is the next step)
       // bobbing golden marker above the lever
       const my = ly - h - 16 + Math.sin(this.animTime * 4) * 3;
       ctx.fillStyle = `rgba(255, 214, 110, ${0.75 + 0.25 * pulse})`;
@@ -1314,7 +1332,7 @@ export class Level {
   renderBridges(ctx, isDivine) {
     if (this.bridgeGrow <= 0) return;
     const g = this.bridgeGrow, summoning = g < 1;
-    const ghost = !summoning && !isDivine;
+    const ghost = !isDivine;   // solid only in Kali form, even while they bloom
     for (const b of this.bridges) {
       if (!this.inView(b.x1 - 40, b.x2 + 40)) continue;
       const span = b.x2 - b.x1, cx = (b.x1 + b.x2) / 2, y = b.y;

@@ -38,9 +38,9 @@ import { EndlessLevel } from '../levels/endless.js';
 // Shown under the sigil on the loading screen
 const LEVEL_NAMES = {
   1: 'Level I  ·  Drowned Dwaraka',
-  2: 'Level II  ·  The Sun Wastes',
-  3: 'Level III  ·  The Forest Heart',
-  4: 'Level IV  ·  The Archer Fort',
+  2: 'Level II  ·  Surya Mandir',
+  3: 'Level III  ·  Vrindavan',
+  4: 'Level IV  ·  Indraprastha',
   5: 'Chaos Mode  ·  The Siege Wall'
 };
 
@@ -131,9 +131,13 @@ export class Engine {
     this.dialogueBox = document.getElementById('dialogueBox');
     this.dialogueText = document.getElementById('dialogueText');
     this.dialogueTitle = document.getElementById('dialogueTitle');
-    this.dialoguePortraitContainer = document.getElementById('dialoguePortraitContainer');
-    this.dialoguePortraitImg = document.getElementById('dialoguePortraitImg');
-    this.dialoguePortraitBack = document.getElementById('dialoguePortraitBack');   // the previous pose, under a crossfade
+    // the two standing speakers (left: Rakti; right: Kali, Pitaji, the Asura). The one speaking drives
+    // dialoguePortraitImg / dialoguePortraitBack (its pose, and the previous pose under a crossfade).
+    const actor = (id) => { const el = document.getElementById(id); return el && { el, img: el.querySelector('img.front'), back: el.querySelector('img.back'), name: el.querySelector('.dlg-name'), who: null }; };
+    this.dlgActors = { left: actor('dlgActorLeft'), right: actor('dlgActorRight') };
+    this.dialoguePortraitImg = null;
+    this.dialoguePortraitBack = null;
+    this.portraitLast = {};   // the last pose each portrait set showed (what a listener keeps on screen)
     this.dialogueDismiss = document.getElementById('dialogueDismiss');
     this.bossHud = document.getElementById('bossHud');
     this.bossFill = document.getElementById('bossFill');
@@ -142,10 +146,8 @@ export class Engine {
     this.fatherHud = document.getElementById('fatherHud');
     this.fatherFill = document.getElementById('fatherFill');
     this.fatherFillLag = document.getElementById('fatherFillLag');
-    this.dialoguePortraitName = document.getElementById('dialoguePortraitName');
 
     // Dialogue portraits (v3, assets/portraits/*3_N.png): still busts, one expression per line, no talking animation.
-    // The old animated sets (kali2_, rakti_, rakti_sari_, father2_, demon_portrait_) stay on disk as backups.
     // Frames (see PORTRAIT_FRAMES below for what each one shows):
     const still = (prefix, n) => Array.from({ length: n }, (_, i) => { const im = new Image(); im.src = `assets/portraits/${prefix}_${i}.png`; return im; });
     this.portraitSets = { kali: still('kali3', 12), rakti: still('rakti3', 12), rakti_sari: still('rakti_sari3', 6),
@@ -406,6 +408,7 @@ export class Engine {
     this.prologueComplete = false;   // a new game always starts with the wake-up
     this.level1.checkpointIndex = -1;
     this.level1.abilityGranted = false;
+    this.level1.bridgeTold = false;
     this.runStats = { time: 0, deaths: 0 };   // a new campaign: a new run
     this.playIntroCutscene(() => this.beginLoadingTransition(1));
   }
@@ -695,6 +698,7 @@ export class Engine {
       this.prologueComplete = false;
       this.level1.checkpointIndex = -1;
       this.level1.abilityGranted = false;
+      this.level1.bridgeTold = false;
     }
     this.beginLoadingTransition(i);   // freshStart(): checkpoints and story flags cleared
   }
@@ -939,7 +943,7 @@ export class Engine {
           let text = nearby.text;
           if (this.currentLevelIndex === 3 && this.level.relic.collected) {
             this.grantForestHeart();
-            text += ' Feel it flow into you, Rakti: your talwar and my Trishul now strike twice as hard, and your life burns stronger than before. You will need all of it for what waits ahead.';
+            text += ' It strengthens you too: your talwar and my Trishul strike twice as hard, and your life burns stronger.';
           }
           this.openDialogue(text, 'kali', nearby.title || '⚜ PEARL OF THE TIDE ⚜');
         }
@@ -957,7 +961,7 @@ export class Engine {
         else if (nearby.type === 'lever' && !this.level.lever.activated) {
           this.level.pullLever();
           if (this.level.leverMessage) {
-            this.openDialogue(this.level.leverMessage, 'kali', '⚜ KALI\'S FLOWER BRIDGES ⚜');
+            this.openDialogue(this.level.leverMessage, 'kali', '⚜ THE PORTAL OPENS ⚜');
           } else {
             this.openDialogue("You pull the ancient mechanism. Deep tremors reverberate through the temple as the sacred stone pillar rises from the depths!");
           }
@@ -1101,13 +1105,13 @@ export class Engine {
       if (this.completePrompt) this.completePrompt.textContent = `[E] CONTINUE TO LEVEL 2  •  AUTO IN ${AUTO_CONTINUE}s`;
     } else if (this.currentLevelIndex === 2) {
       if (this.completeTitle) this.completeTitle.textContent = 'LEVEL 2 COMPLETE';
-      if (this.completeSubtitle) this.completeSubtitle.textContent = 'THE HALL OF THE SUN IS OPEN';
-      if (this.completeFlavor) this.completeFlavor.textContent = 'The Trishul, second of the four relics, hums at your side as the portal opens onto the jungle.';
+      if (this.completeSubtitle) this.completeSubtitle.textContent = 'SURYA MANDIR CLEARED';
+      if (this.completeFlavor) this.completeFlavor.textContent = 'The Trishul, second of the four relics, hums at your side as the portal opens onto Vrindavan.';
       if (this.completePrompt) this.completePrompt.textContent = `[E] CONTINUE TO LEVEL 3  •  AUTO IN ${AUTO_CONTINUE}s`;
     } else if (this.currentLevelIndex === 3) {
       if (this.completeTitle) this.completeTitle.textContent = 'LEVEL 3 COMPLETE';
-      if (this.completeSubtitle) this.completeSubtitle.textContent = 'THE FOREST HEART IS RESTORED';
-      if (this.completeFlavor) this.completeFlavor.textContent = 'The jungle exhales as the portal opens onto the next trial.';
+      if (this.completeSubtitle) this.completeSubtitle.textContent = 'VRINDAVAN CLEARED';
+      if (this.completeFlavor) this.completeFlavor.textContent = 'The Forest Heart beats in your hands as the portal opens onto Indraprastha.';
       if (this.completePrompt) this.completePrompt.textContent = `[E] CONTINUE TO LEVEL 4  •  AUTO IN ${AUTO_CONTINUE}s`;
     } else {
       // the end of the game: the framed ending card
@@ -1535,26 +1539,9 @@ export class Engine {
     this.dlgRestNode.className = 'dlg-rest';
     this.dlgRestNode.textContent = text;
     this.dialogueText.append(this.dlgShownNode, this.dlgRestNode);
-    if (this.dialogueTitle) {
-      this.dialogueTitle.textContent = title || SPEAKER_NAMES[speaker] || '⚜ WHISPER OF SURYA ⚜';
-    }
-    const set = this.portraitSetFor(speaker);
-    if (this.dialoguePortraitContainer) {
-      this.dialogueBox.classList.toggle('has-portrait', Boolean(set));
-      this.dialogueBox.classList.toggle('portrait-left', speaker === 'rakti');
-      for (const sp of ['rakti', 'father', 'demon']) this.dialogueBox.classList.toggle('speaker-' + sp, speaker === sp);
-      this.dialoguePortraitContainer.style.display = set ? 'flex' : 'none';
-      if (set && this.dialoguePortraitName) this.dialoguePortraitName.textContent = SPEAKER_NAMES[speaker];
-      if (set && this.dialoguePortraitImg) this.dialoguePortraitImg.alt = SPEAKER_NAMES[speaker].replace(/⚜/g, '').trim();
-      if (set && speaker !== prevSpeaker) {
-        // a new speaker slides up into view (no crossfade from the last speaker's face)
-        if (this.dialoguePortraitBack) this.dialoguePortraitBack.style.opacity = '0';
-        this.dialoguePortraitContainer.classList.remove('enter');
-        void this.dialoguePortraitContainer.offsetWidth;
-        this.dialoguePortraitContainer.classList.add('enter');
-        this.portraitNewSpeaker = true;
-      }
-    }
+    // no scene titles: the speaker's name is on their portrait (lines without one, signs and the voice in the dark,
+    // stand alone in their bubble)
+    this.placeSpeakers(speaker, prevSpeaker);
     this.updateDialogue(0);
     this.dialogueBox.style.display = 'block';
   }
@@ -1566,6 +1553,74 @@ export class Engine {
 
   portraitSetFor(speaker) {
     return this.portraitSets[this.portraitSetName(speaker)] || null;
+  }
+
+  /** Which side of the screen a speaker stands on. */
+  speakerSide(speaker) { return speaker === 'rakti' ? 'left' : 'right'; }
+
+  /** In a conversation, who is listening: the last other speaker (else the next one) who has a portrait and stands
+   *  on the other side. None outside a conversation. */
+  dialogueListener(speaker) {
+    const c = this.convo;
+    if (!c) return null;
+    const side = this.speakerSide(speaker);
+    const ok = (s) => s && s !== speaker && this.portraitSetFor(s) && this.speakerSide(s) !== side;
+    for (let j = c.i - 1; j >= 0; j--) if (ok(c.lines[j].s)) return c.lines[j].s;
+    for (let j = c.i + 1; j < c.lines.length; j++) if (ok(c.lines[j].s)) return c.lines[j].s;
+    return null;
+  }
+
+  /** Puts the speaker on their side, lit, and the listener (if any) on the other side, dimmed. */
+  placeSpeakers(speaker, prevSpeaker) {
+    const box = this.dialogueBox, A = this.dlgActors;
+    if (!A?.left || !A?.right) return;
+    for (const sp of ['kali', 'rakti', 'father', 'demon']) box.classList.toggle('speaker-' + sp, speaker === sp);
+    const set = this.portraitSetFor(speaker);
+    const side = this.speakerSide(speaker), other = side === 'left' ? 'right' : 'left';
+    const show = (a, who, role) => {
+      const fresh = a.who !== who || !a.el.classList.contains('on');
+      a.who = who;
+      a.el.classList.add('on');
+      a.el.classList.toggle('speaking', role === 'speaking');
+      a.el.classList.toggle('listening', role === 'listening');
+      const name = (SPEAKER_NAMES[who] || '').replace(/⚜/g, '').trim();
+      a.img.alt = name;
+      a.el.dataset.who = who;
+      if (a.name && a.name.textContent !== name) a.name.textContent = name;
+      return fresh;
+    };
+    const hide = (a) => { a.who = null; a.el.classList.remove('on', 'speaking', 'listening'); };
+    if (set) {
+      const a = A[side];
+      if (show(a, speaker, 'speaking')) { a.back.style.opacity = '0'; this.portraitNewSpeaker = true; }
+      this.dialoguePortraitImg = a.img;
+      this.dialoguePortraitBack = a.back;
+    } else {
+      hide(A[side]);
+      this.dialoguePortraitImg = this.dialoguePortraitBack = null;
+    }
+    const lis = set ? this.dialogueListener(speaker) : null;
+    if (lis) {
+      const a = A[other];
+      if (show(a, lis, 'listening') || !a.img.getAttribute('src')) {
+        const key = this.portraitSetName(lis);
+        a.img.src = this.portraitLast[key] || this.portraitSetFor(lis)[0].src;
+        a.img.style.opacity = '1';
+        a.back.style.opacity = '0';
+      }
+    } else hide(A[other]);
+    // a new speaker's bubble pops in afresh
+    const panel = box.querySelector('.dlg-panel');
+    if (panel && speaker !== prevSpeaker) { panel.style.animation = 'none'; void panel.offsetWidth; panel.style.animation = ''; }
+    // the bubble sits beside whoever is speaking (centred at the bottom when no one is shown)
+    box.classList.toggle('side-left', Boolean(set) && side === 'left');
+    box.classList.toggle('side-right', Boolean(set) && side === 'right');
+    box.classList.toggle('side-none', !set);
+    box.classList.toggle('voice', speaker === 'voice');
+    box.classList.toggle('has-left', A.left.el.classList.contains('on'));
+    box.classList.toggle('has-right', A.right.el.classList.contains('on'));
+    box.classList.toggle('listen-left', A.left.el.classList.contains('listening'));
+    box.classList.toggle('listen-right', A.right.el.classList.contains('listening'));
   }
 
   /** A sequence of lines between Kali and Rakti: [{ s: 'kali' | 'rakti', t: text, g: gesture }]. [E] steps through it. */
@@ -1627,6 +1682,7 @@ export class Engine {
     this.portraitNewSpeaker = false;
     this.portraitPose = pose;
     this.portraitFrame = f;
+    this.portraitLast[this.portraitSetName(d.speaker)] = set[f].src;
   }
 
   /** True while the open line teaches a key and is still typing or younger than KEY_LINE_HOLD s. */
@@ -1681,9 +1737,11 @@ export class Engine {
     this.dlg = null;
     this.convo = null;
     if (this.dialogueBox) {
-      this.dialogueBox.classList.remove('has-portrait', 'portrait-left', 'speaker-rakti', 'speaker-father', 'speaker-demon');
+      this.dialogueBox.classList.remove('has-left', 'has-right', 'listen-left', 'listen-right', 'side-left', 'side-right', 'side-none', 'voice', 'speaker-kali', 'speaker-rakti', 'speaker-father', 'speaker-demon');
       this.dialogueBox.style.display = 'none';
     }
+    for (const a of Object.values(this.dlgActors || {})) if (a) { a.who = null; a.el.classList.remove('on', 'speaking', 'listening'); }
+    this.dialoguePortraitImg = this.dialoguePortraitBack = null;
   }
 
   render() {

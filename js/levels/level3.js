@@ -1,6 +1,6 @@
 /**
  * ==========================================================================
- * LEVEL 3: THE JUNGLE (js/levels/level3.js)
+ * LEVEL 3: VRINDAVAN (js/levels/level3.js)
  * Built like Level 2: the map is cut into short floor chunks (about 450-550 px each) with a pit between
  * every two, about as long as Level 2 overall. Background screens, a shared floor strip (PlatformArt
  * 'jungle'), data-driven floors / pits / pillars, Betal swordsmen, a relic and a door at the end.
@@ -22,7 +22,7 @@ import { drawShrineBeacon } from '../render/shrineBeacon.js';
 import { Sfx } from '../core/audio.js';
 
 // Backgrounds (v2) are 2171 x 724; the sunlit floor line sits at image y = 588, the roots band below it
-// reaches past the bottom of the view. (The old 2000 x 585 jungle_a/b.jpg are kept as backups.)
+// reaches past the bottom of the view.
 const BG_W = 2171, BG_H = 724;
 const BG_SCALE = 368 / 588;
 const SCREEN_W = BG_W * BG_SCALE;      // ~1359 world px per screen
@@ -33,7 +33,7 @@ const FEATHER = 240 * BG_SCALE;        // image px faded in at each screen's lef
 const X = (screen, imageX = 0) => screen * (SCREEN_W - FEATHER) + imageX * BG_SCALE;
 
 // Jungle piers (v2): the jungle slab's own end caps on a solid mossy brick column that darkens and fades into
-// the pit (150 x 560, made by tools/make_pier2.py). The old banded jungle_pier.png is kept as a backup.
+// the pit (150 x 560, made by tools/make_pier2.py).
 const PILLAR_ART = { tall: { src: 'assets/level3/jungle_pier_v2.png', w: 150, h: 560, surface: 30 } };
 const PIT_PILLAR_SCALE = 0.5;
 const PIER_CRUMBLE = 0.6;      // a crumbling pier gives way this long after Rakti lands on it
@@ -62,7 +62,7 @@ const PIT_DAMAGE = 3;
 // Jungle pathway stones (v3: the user's 6-frame morph sheets, rock -> cracking -> split -> floating slab, cut by
 // tools/qstone_cut.py; cells 228 x 276 drawn at 0.5; deckY = walking surface of the slab, half = half its walkable
 // width). The green sheet is the way out; the earthen copy marks the stones the jungle has changed on the way
-// back. The older jungle_path_sheet(_v2).png are kept as backups.
+// back.
 const PATH_ART = { src: 'assets/level3/jungle_qstone_sheet.png', earth: 'assets/level3/earthen_qstone_sheet.png',
   frameW: 228, frameH: 276, anchorX: 114, deckY: 135, scale: 0.5, half: 46 };
 // The race back to the Forest Heart: once the door's ambush falls she has HEART_TIME seconds to reach it
@@ -354,7 +354,7 @@ export class Level3 {
     if (player) { player.inputLocked = true; player.vx = 0; }
     this.shiftToReturn();
     this.cameraShake = 0.8;
-    this.killToastText = '⚠ THE JUNGLE SHIFTS';
+    this.killToastText = '⚠ VRINDAVAN SHIFTS';
     this.killToastTimer = 1.6;
     Sfx.play('ground_rise');
   }
@@ -382,7 +382,7 @@ export class Level3 {
       this.clock.left = HEART_TIME;
       this.pendingDialogue = {
         speaker: 'kali', title: '⚜ THE FOREST HEART ⚜',
-        text: `The heart has woken where your journey began, Rakti, but torn from its roots it withers fast: you have ${HEART_TIME} breaths to reach it. And the jungle has changed the path behind you. The piers keep a new rhythm, and the earthen stones crumble under your feet. Only the middle stone still answers my Pearl [Q].`
+        text: `The Forest Heart has woken, back where you came in. Torn from its roots, it is dying: you have ${HEART_TIME} breaths. The path has changed. The piers move to a new rhythm, the earth stones crumble, and only the middle one still answers the Pearl [Q].`
       };
     }
   }
@@ -636,29 +636,29 @@ export class Level3 {
     if (this.relic.spawned && !this.relic.collected && this.relic.spawnT > 0.8 && Math.abs(px - this.relic.x) < 60 && onFloor) {
       return {
         type: 'relic', x: this.relic.x, y: FLOOR_Y, prompt: '[E] TAKE THE FOREST HEART', title: '⚜ THE FOREST HEART ⚜',
-        text: "The Forest Heart, Rakti: the third relic beats with the jungle's own pulse. Carry it to the sealed door at the far end of the forest. Only it will open the way."
+        text: "The Forest Heart of Vrindavan, the third relic. Take it to the sealed door at the forest's end."
       };
     }
     if (!this.door.opening && Math.abs(px - this.door.x) < 70 && onFloor) {
       if (this.relic.collected) {
         return {
           type: 'door_offer', x: this.door.x, y: FLOOR_Y, prompt: '[E] OFFER THE FOREST HEART', speaker: 'kali', title: '⚜ THE FOREST DOOR ⚜',
-          text: 'The heart answers the door, Rakti. Walk through when the way is open.',
+          text: 'The door knows the heart. Walk through when it opens.',
           onInteract: () => this.openDoor()
         };
       }
       if (this.phase === 'first') {
         return {
           type: 'inspection', x: this.door.x, y: FLOOR_Y, prompt: '[E] EXAMINE THE DOOR', speaker: 'kali', title: '⚜ THE SEALED DOOR ⚜',
-          text: 'Living roots seal this door, Rakti, and only the Forest Heart will part them. But your touch has woken the jungle. Behind you, to the east: they are coming!',
+          text: 'Living roots seal this door, and only the Forest Heart can part them. You have woken Vrindavan. Behind you!',
           onInteract: () => this.triggerAmbush()
         };
       }
       return {
         type: 'inspection', x: this.door.x, y: FLOOR_Y, prompt: '[E] EXAMINE THE DOOR', speaker: 'stele', title: '⚜ THE SEALED DOOR ⚜',
         text: this.phase === 'ambush'
-          ? 'The roots hold fast. The guardians the door has called must fall first.'
-          : 'The door waits for the Forest Heart. It has awakened far to the west, where your journey began.'
+          ? 'The roots hold. The guardians it called must fall first.'
+          : 'The door waits for the Forest Heart. It woke far to the west, where you came in.'
       };
     }
     return null;
@@ -890,7 +890,7 @@ export class Level3 {
       this.kaliHintShown = true;
       this.pendingDialogue = {
         speaker: 'kali', title: '⚜ MAA KALI: BEYOND THE CHASM ⚜',
-        text: 'No mortal leap crosses this chasm, Rakti. Take my form [X] to leap to the high ledge. Then call on the Pearl with [Q], stone by stone: each one opens into a path for a few breaths before it closes again.'
+        text: 'No mortal leap crosses this chasm. Take my form [X] and reach the high ledge. Then press [Q], stone by stone. Each one holds for a few breaths, then closes.'
       };
     }
 
