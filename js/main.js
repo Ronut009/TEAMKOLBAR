@@ -5,10 +5,12 @@
  * ==========================================================================
  */
 
+import { Preload } from './core/preload.js';   // first: it must see every image the game requests
 import { Level } from './levels/level1.js';
 import { Player } from './entities/player.js';
 import { Engine } from './core/engine.js';
 import { Input } from './core/input.js';
+import './dev.js';
 
 window.addEventListener('DOMContentLoaded', () => {
   const canvas = document.getElementById('gameCanvas');
@@ -27,6 +29,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   // Initialize engine with responsive fullscreen camera
   const engine = new Engine(canvas, level, player);
+  Preload.markEngineReady();   // every level has now asked for its art; the title menu unlocks as it arrives
 
   // Debug global reference
   window.__GAME__ = {

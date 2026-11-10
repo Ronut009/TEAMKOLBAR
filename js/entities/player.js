@@ -8,6 +8,7 @@
 
 import { Input } from '../core/input.js';
 import { Sfx } from '../core/audio.js';
+import { Mode } from '../core/mode.js';
 
 // ---------------------------------------------------------------------------
 // Rakti sprite skin. Every frame of a set shares one canvas; (anchorX, anchorY) is the
@@ -93,6 +94,14 @@ export const TRISHUL = {
   length: 52           // drawn length in world px
 };
 
+// Kali's Decree lets Rakti choose one rule of the world before she invokes Kali's form.
+// The engine reads the active decree to slow the world; gravity and matter are resolved here.
+export const KALI_DECREES = [
+  { id: 'time', name: 'LAW OF TIME', hint: 'SLOWS THE WORLD' },
+  { id: 'gravity', name: 'LAW OF GRAVITY', hint: 'MAKES RAKTI WEIGHTLESS' },
+  { id: 'matter', name: 'LAW OF MATTER', hint: 'PHASES THROUGH DAMAGE' }
+];
+
 // Seconds each frame is held
 const WAKE_FRAME_TIMES = [1.7, 0.45, 0.45, 0.8, 0.4, 0.45];
 const OUTFIT_FRAME_TIMES = [0.35, 0.32, 0.32, 0.32, 0.32, 0.45];
@@ -127,10 +136,17 @@ export class Player {
     this.acceleration = 1800;
     this.friction = 1400;
 
-    // Fluid Jump Physics & Feel
+    // Fluid Jump Physics & Feel. The jump is the one mechanic tuned per mode:
+    // Mobile Mode keeps the touch-tuned leap (quick taps on a screen button still clear platforms),
+    // PC Mode keeps the original keyboard feel (mortal ~120 px, Kali ~170 px — level layouts count on it).
     this.gravity = 920;
-    this.jumpImpulse = -470;
-    this.divineJumpImpulse = -560;
+    if (Mode.isMobile) {
+      this.jumpImpulse = -612;         // normal Rakti: about 200 px high
+      this.divineJumpImpulse = -840;   // Kali form: about 375 px high and about 1.8 s in the air
+    } else {
+      this.jumpImpulse = -470;         // normal Rakti: about 120 px high
+      this.divineJumpImpulse = -560;   // Kali form: about 170 px high
+    }
     this.isGrounded = true;
     this.currentPlatform = null;
     this.dropThroughTimer = 0;
@@ -225,7 +241,7 @@ export class Player {
     this.goldOrbs = [];
     this.orbCooldown = 0;
     this.orbCast = null;
-    this.orbImgs = Array.from({ length: KALI_ORB.art.count }, (_, i) => { const im = new Image(); im.src = `${KALI_ORB.art.src}${i}.png`; return im; });
+    this.orbImgs = Array.from({ length: KALI_ORB.art.count }, (_, i) => { const im = new Image(); im.src = `${KALI_ORB.art.src}${i}.webp`; return im; });
     this.divinePulse = 0.0;
 
     // Preload Animation Sprite Frames
@@ -245,6 +261,8 @@ export class Player {
     this.maxHp = 20;
     this.hasKey = false;
     this.hasDivineUnlocked = false; // Unlocked after interacting with Sacred Lotus in Level 1
+    this.decreeIndex = 0;
+    this.decreeChanged = false;
     this.invulnerableTimer = 0.0;
     this.isDead = false;
 
@@ -266,7 +284,7 @@ export class Player {
     this.aimWorld = null;         // the engine keeps this on the cursor's world position
     this.catchTimer = 0;
     this.trishulImg = new Image();
-    this.trishulImg.src = 'assets/weapons/trishul_throw.png';   // 240 x 60, points right
+    this.trishulImg.src = 'assets/weapons/trishul_throw.webp';   // 240 x 60, points right
 
     // Kali's [Q] cast (Level 2): a short locked animation; the level reacts at the release frame
     this.isCasting = false;
@@ -276,6 +294,28 @@ export class Player {
     // Levels can freeze her briefly (portal arrival, walking through a door) and fade her in or out
     this.inputLocked = false;
     this.spawnAlpha = 1;
+  }
+
+  get decree() {
+    return KALI_DECREES[this.decreeIndex];
+  }
+
+  /** Move to the next law while Rakti is mortal. [Z] / the LAW touch button calls this. */
+  cycleDecree() {
+    if (!this.hasDivineUnlocked || this.isDivine || this.isTransforming || this.isReverting || this.isCivilian) return false;
+    this.decreeIndex = (this.decreeIndex + 1) % KALI_DECREES.length;
+    this.decreeChanged = true;
+    const color = this.decree.id === 'time' ? '#70e8ff' : this.decree.id === 'gravity' ? '#d9a6ff' : '#ff8de8';
+    for (let i = 0; i < 14; i++) {
+      const a = (i / 14) * Math.PI * 2;
+      this.particles.push({
+        x: this.x, y: this.y - 30,
+        vx: Math.cos(a) * (35 + Math.random() * 35),
+        vy: Math.sin(a) * (35 + Math.random() * 35),
+        life: 0.4, maxLife: 0.4, size: 2.2, color
+      });
+    }
+    return true;
   }
 
   /** Trishul back in hand, nothing in flight (level loads). */
@@ -312,7 +352,7 @@ export class Player {
   loadAnimations() {
     const frames = (name, count = this.skin.frameCounts?.[name] ?? 6) => Array.from({ length: count }, (_, i) => {
       const img = new Image();
-      img.src = `${this.skin.folder}/${name}_${i}.png`;
+      img.src = `${this.skin.folder}/${name}_${i}.webp`;
       return img;
     });
 
@@ -332,7 +372,7 @@ export class Player {
     };
     const prologueFrames = (name) => Array.from({ length: 6 }, (_, i) => {
       const img = new Image();
-      img.src = `${PROLOGUE_SPRITES.folder}/${name}_${i}.png`;
+      img.src = `${PROLOGUE_SPRITES.folder}/${name}_${i}.webp`;
       return img;
     });
     this.anims.wake = prologueFrames('wake');
@@ -341,7 +381,7 @@ export class Player {
     for (const [name, m] of Object.entries(ABILITY_SPRITES.metrics)) {
       this.anims[name] = Array.from({ length: m.count }, (_, i) => {
         const img = new Image();
-        img.src = `${ABILITY_SPRITES.folder}/${name}_${i}.png`;
+        img.src = `${ABILITY_SPRITES.folder}/${name}_${i}.webp`;
         return img;
       });
     }
@@ -396,7 +436,8 @@ export class Player {
 
   /** knockTime > 0: for that long the knockback is not cancelled by running or friction (a real shove). */
   takeDamage(amount, knockbackX = 0, knockbackY = 0, knockTime = 0) {
-    if (this.invulnerableTimer > 0 || this.isDead) return;
+    // The Law of Matter makes attacks, traps, and projectiles pass through Rakti.
+    if (this.invulnerableTimer > 0 || this.isDead || (this.isDivine && this.decree.id === 'matter')) return;
     this.knockTimer = knockTime;
     this.hp = Math.max(0, this.hp - amount);
     this.invulnerableTimer = 0.85;
@@ -980,8 +1021,10 @@ export class Player {
       }
     }
 
-    // 2. Divine Transformation: [X] only. (E used to transform too, so closing a dialogue with E
-    //    could accidentally trigger Kali form.)
+    // 2. Kali's Decree: choose the law with [Z], then invoke it with [X].
+    if ((Input.isPressed('law') || Input.isPressed('KeyZ')) && !dialogueActive) {
+      this.cycleDecree();
+    }
     if ((Input.isPressed('KeyX') || Input.isPressed('x')) && !dialogueActive) {
       if (!this.isDivine && !this.isTransforming && this.hasDivineUnlocked && !this.isCivilian) {
         if (this.chargeMode && this.divineCharge < 1) {
@@ -1089,7 +1132,9 @@ export class Player {
           this.currentPlatform = null;
           this.vy = 90;
         } else {
-          const impulse = this.isDivine ? this.divineJumpImpulse : this.jumpImpulse;
+          const impulse = this.isDivine
+            ? (this.decree.id === 'gravity' ? this.divineJumpImpulse * 1.15 : this.divineJumpImpulse)
+            : this.jumpImpulse;
           this.vy = impulse;
           Sfx.play('jump');
           this.isGrounded = false;
@@ -1100,13 +1145,17 @@ export class Player {
     }
 
     const jumpHeld = Input.isDown('jump') || Input.isDown('Space');
-    if (!jumpHeld && this.vy < -160) {
-      this.vy = -160;
+    // letting go early cuts the jump short; in Mobile Mode Kali form keeps more of its lift so a
+    // quick tap on a touch button still leaps (PC Mode keeps the original uniform cut)
+    const jumpCut = Mode.isMobile && this.isDivine ? -300 : -160;
+    if (!jumpHeld && this.vy < jumpCut) {
+      this.vy = jumpCut;
     }
 
-    // 5. Apply Gravity
+    // 5. Apply Gravity. Kali's decree leaves her almost weightless, so long jumps become glides.
     if (!this.isGrounded) {
-      this.vy += this.gravity * dt;
+      const gravityScale = this.isDivine && this.decree.id === 'gravity' ? 0.24 : 1;
+      this.vy += this.gravity * gravityScale * dt;
     }
 
     // 6. Movement Integration & Collisions
@@ -1314,9 +1363,12 @@ export class Player {
     let angle = dir > 0 ? 0 : Math.PI;
     // Cursor aim (the unlimited mode's style, now everywhere): no auto-aim and no magnet. The range stays the
     // level's own (story levels TRISHUL.range, the unlimited arena its longer trishulRange).
-    if (this.throwAim) {
-      const m = this.throwAim;
-      if (Math.hypot(m.x - sx, m.y - sy) > 4) angle = Math.atan2(m.y - sy, m.x - sx);
+    let aim = this.throwAim;
+    // touch auto-aim: the target may have moved during the wind-up, so aim again at the moment of release
+    const fresh = this.aimRefiner ? this.aimRefiner() : null;
+    if (fresh) aim = fresh;
+    if (aim) {
+      if (Math.hypot(aim.x - sx, aim.y - sy) > 4) angle = Math.atan2(aim.y - sy, aim.x - sx);
     }
     this.throwAim = null;
     Sfx.play('trishul_throw');

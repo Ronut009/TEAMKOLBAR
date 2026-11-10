@@ -15,7 +15,12 @@
 html, body {
   width: 100vw;
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
   background-color: #050403;
   font-family: 'Cinzel', 'Marcellus', 'Georgia', serif;
   color: #f7eed8;
@@ -28,7 +33,9 @@ html, body {
   left: 0;
   width: 100vw;
   height: 100vh;
+  height: 100dvh;
   display: block;
+  touch-action: none;
   image-rendering: -moz-crisp-edges;
   image-rendering: -webkit-crisp-edges;
   image-rendering: pixelated;
@@ -332,6 +339,11 @@ html, body {
   opacity: 0.45;
   animation: none;
 }
+/* a line that teaches a key: the prompt waits, dimmed, until the line can be moved on (KEY_LINE_HOLD in engine.js) */
+.dialogue-dismiss.locked {
+  opacity: 0.22;
+  animation: none;
+}
 
 @keyframes pulseDismiss {
   0% { color: #cda24e; border-color: rgba(205, 162, 78, 0.4); }
@@ -473,10 +485,10 @@ html, body {
 }
 
 /* --------------------------------------------------------------------------
-   Framed cards (assets/ui/card_frame.png: gold frame, deep teal panel): the death card and the final ending card
+   Framed cards (assets/ui/card_frame.webp: gold frame, deep teal panel): the death card and the final ending card
    -------------------------------------------------------------------------- */
 .framed-card, .level-complete-modal.final {
-  background: url('../assets/ui/card_frame.png') center / 100% 100% no-repeat;
+  background: url('../assets/ui/card_frame.webp') center / 100% 100% no-repeat;
   border: none;
   border-radius: 0;
   box-shadow: none;
@@ -694,7 +706,7 @@ html, body {
 .title-backdrop {
   background-image:
     linear-gradient(90deg, rgba(2, 5, 11, 0.02) 0%, rgba(2, 5, 11, 0.04) 35%, rgba(2, 5, 11, 0.24) 58%, rgba(2, 5, 11, 0.4) 100%),
-    url('../assets/title/start-screen.png');
+    url('../assets/title/start-screen.webp');
   background-position: center, center;
   background-size: cover;
   filter: saturate(0.94) brightness(0.78);
@@ -823,7 +835,7 @@ html, body {
   padding: 0 48px;
   border: 0;
   color: #f8e8bb;
-  background: url('../assets/title/menu-button.png') center / 100% 100% no-repeat;
+  background: url('../assets/title/menu-button.webp') center / 100% 100% no-repeat;
   cursor: pointer;
   font: 900 clamp(12px, 1.3vw, 17px)/1 'Cinzel', Georgia, serif;
   letter-spacing: clamp(1.5px, 0.3vw, 3px);
@@ -834,7 +846,7 @@ html, body {
 .menu-button:hover,
 .menu-button:focus-visible,
 .menu-button:active {
-  background-image: url('../assets/title/menu-button-pressed.png');
+  background-image: url('../assets/title/menu-button-pressed.webp');
   color: #eaffcf;
   filter: drop-shadow(0 0 12px rgba(43, 222, 130, 0.42));
   outline: none;
@@ -842,9 +854,9 @@ html, body {
 .menu-button:hover { transform: translateY(-2px); }
 .menu-button:active { transform: translateY(2px) scale(0.985); filter: drop-shadow(0 0 18px rgba(38, 230, 133, 0.6)); }
 .menu-button:focus-visible { outline: 2px solid #8cf0b0; outline-offset: 3px; }
-.menu-button.pad-focus { background-image: url('../assets/title/menu-button-pressed.png'); transform: translateY(-2px); outline: 2px solid #8cf0b0; outline-offset: 3px; }   /* a controller's highlight */
+.menu-button.pad-focus { background-image: url('../assets/title/menu-button-pressed.webp'); transform: translateY(-2px); outline: 2px solid #8cf0b0; outline-offset: 3px; }   /* a controller's highlight */
 .menu-button:disabled { color: rgba(230, 220, 195, 0.72); cursor: not-allowed; filter: saturate(0.55) brightness(0.72); }
-.menu-button:disabled:hover { transform: none; background-image: url('../assets/title/menu-button.png'); }
+.menu-button:disabled:hover { transform: none; background-image: url('../assets/title/menu-button.webp'); }
 /* ---- Settings (title screen and pause menu): the device choice and the controls list. Sized by the window's
    height so the whole screen fits without scrolling (checked down to 1280 x 650). ---- */
 .settings-screen {
@@ -875,7 +887,7 @@ html, body {
 .settings-devices { display: flex; flex-wrap: wrap; gap: 8px 12px; width: 100%; justify-content: center; }
 .settings-screen .settings-devices .menu-button { width: min(280px, 31%); min-height: clamp(42px, 6.6vh, 62px); padding: 0 26px; font-size: clamp(10px, 1.45vh, 13px); letter-spacing: 2px; }
 .settings-screen .menu-button.chosen {
-  background-image: url('../assets/title/menu-button-pressed.png');
+  background-image: url('../assets/title/menu-button-pressed.webp');
   color: #eaffcf;
   filter: drop-shadow(0 0 12px rgba(43, 222, 130, 0.45));
 }
@@ -1054,7 +1066,7 @@ html, body {
 
 /* Combat HUD: medallion on the left, long health bar, shorter X-ability bar below it,
    talwar under the medallion. Fills sit under the ornate frames; channel boxes are measured
-   from the frame art (assets/ui/hud/hp_bar.png 900x149, ability_bar.png 900x129). */
+   from the frame art (assets/ui/hud/hp_bar.webp 900x149, ability_bar.webp 900x129). */
 .sands-hud {
   top: 12px;
   left: 14px;
@@ -1125,6 +1137,24 @@ html, body {
   transition: opacity 0.2s ease;
 }
 .divine-track.locked { opacity: 0.45; }
+.decree-label {
+  position: absolute;
+  z-index: 3;
+  top: 49%;
+  left: 14%;
+  width: 72%;
+  color: #b7f8f3;
+  font: 700 6.5px 'Cinzel', serif;
+  letter-spacing: 0.55px;
+  line-height: 1;
+  text-align: center;
+  text-shadow: 0 1px 2px #020609, 0 0 4px rgba(0, 0, 0, 0.95);
+  pointer-events: none;
+  white-space: nowrap;
+}
+.sands-hud[data-law="time"] .decree-label { color: #b7f8f3; }
+.sands-hud[data-law="gravity"] .decree-label { color: #e8c7ff; }
+.sands-hud[data-law="matter"] .decree-label { color: #ffc2eb; }
 /* Level 4: Kali form charges from the damage Rakti deals */
 .divine-track.charging .divine-fill { filter: saturate(0.55) brightness(0.8); }
 .divine-track.charged .divine-fill { animation: chargeReady 0.9s ease-in-out infinite alternate; }
@@ -1149,6 +1179,18 @@ html, body {
   border-radius: 999px;
   background: linear-gradient(180deg, #c8fff4 0%, #3fd6c4 38%, #0f7f86 100%);
   box-shadow: 0 0 8px rgba(70, 230, 210, 0.55), inset 0 1px rgba(240, 255, 252, 0.6);
+}
+.sands-hud.divine-mode[data-law="time"] .divine-fill {
+  background: linear-gradient(180deg, #d8ffff 0%, #58d9ff 40%, #176cb7 100%);
+  box-shadow: 0 0 12px rgba(90, 225, 255, 0.85), inset 0 1px rgba(255, 255, 255, 0.7);
+}
+.sands-hud.divine-mode[data-law="gravity"] .divine-fill {
+  background: linear-gradient(180deg, #f6e4ff 0%, #c778ff 40%, #6435b4 100%);
+  box-shadow: 0 0 12px rgba(205, 130, 255, 0.85), inset 0 1px rgba(255, 255, 255, 0.7);
+}
+.sands-hud.divine-mode[data-law="matter"] .divine-fill {
+  background: linear-gradient(180deg, #ffe1f5 0%, #ff79cf 40%, #a01871 100%);
+  box-shadow: 0 0 12px rgba(255, 120, 210, 0.85), inset 0 1px rgba(255, 255, 255, 0.7);
 }
 .sands-hud.divine-mode .divine-fill {
   background: linear-gradient(180deg, #fff6c9 0%, #ffd24a 40%, #c8861a 100%);
@@ -1265,7 +1307,7 @@ html, body {
 .eh-v { font-size: 13px; font-weight: 900; color: #f4dca0; }
 .eh-mud { margin-top: 8px; display: flex; align-items: center; justify-content: center; gap: 7px; padding: 4px 6px; border-radius: 3px; border: 1px solid rgba(205, 162, 78, 0.4); background: rgba(0, 0, 0, 0.3); font-size: 10px; font-weight: 700; letter-spacing: 2px; color: #b9c9c2; }
 .eh-mud.ready { color: #c9ffe4; border-color: rgba(80, 230, 160, 0.75); box-shadow: 0 0 10px rgba(60, 230, 160, 0.3); }
-.eh-key { display: inline-grid; place-items: center; width: 17px; height: 17px; border-radius: 3px; border: 1px solid #c9a24e; background: #0b2c2a; color: #ffd36b; font-size: 10px; letter-spacing: 0; }
+.eh-key { display: inline-grid; place-items: center; min-width: 17px; padding: 0 3px; height: 17px; border-radius: 3px; border: 1px solid #c9a24e; background: #0b2c2a; color: #ffd36b; font-size: 10px; letter-spacing: 0; }
 .eh-best { margin-top: 7px; font-size: 9px; font-weight: 700; letter-spacing: 3px; color: #a9cfc4; }
 .eh-best span { color: #ffd36b; letter-spacing: 1px; font-size: 11px; }
 @media (max-width: 600px) { .endless-hud { top: 10px; right: 8px; } }
@@ -1395,12 +1437,12 @@ html, body {
   filter: drop-shadow(0 0 6px var(--hc-glow));
 }
 .hc-heart.green {
-  background-image: url('../assets/level3/forest_heart_beat.png');
+  background-image: url('../assets/level3/forest_heart_beat.webp');
   background-size: 800% 100%;
   animation: hcBeat8 var(--hc-beat) steps(8, jump-none) infinite;
 }
 .hc-heart.red {
-  background-image: url('../assets/ui/hud/heart_red_strip.png');
+  background-image: url('../assets/ui/hud/heart_red_strip.webp');
   background-size: 600% 100%;
   opacity: 0;
   animation: hcBeat6 calc(var(--hc-beat) * 0.8) steps(6, jump-none) infinite;
@@ -1476,7 +1518,7 @@ html, body {
 .sp-glass {
   position: absolute;
   inset: 0;
-  background: url('../assets/ui/hud/sands_hourglass_sheet.png') 0 0 / 600% 100% no-repeat;
+  background: url('../assets/ui/hud/sands_hourglass_sheet.webp') 0 0 / 600% 100% no-repeat;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.75));
   transition: filter 0.4s ease;
 }
@@ -1567,47 +1609,41 @@ html, body {
   object-position: 50% 85%;
   background: #000;
 }
-/* "hold Esc to skip": the main menu's button, in the top right corner over the film. While it is held, the
-   button's lit art (menu-button-pressed.png) fills it from left to right; let go and it drains. */
+/* "hold Esc to skip": the main menu's button, bottom centre just above the film's subtitles. It shows when the film
+   starts and whenever a key is pressed. While it is held, the button's lit art (menu-button-pressed.png) fills it
+   from left to right; let go and it drains. */
 .ic-skip {
   position: absolute;
-  top: clamp(14px, 2.4vh, 26px);
-  right: clamp(16px, 2vw, 30px);
+  left: 50%;
+  bottom: 13.5%;
   display: grid;
   place-items: center;
-  width: clamp(330px, 26vw, 430px);
-  height: clamp(54px, 6.6vh, 68px);
+  width: clamp(300px, 24vw, 400px);
+  height: clamp(50px, 6.2vh, 64px);
   padding: 0 56px;
-  background: url('../assets/title/menu-button.png') center / 100% 100% no-repeat;
-  opacity: 0.82;
-  transition: opacity 0.25s ease, filter 0.25s ease;
+  transform: translate(-50%, 8px);
+  background: url('../assets/title/menu-button.webp') center / 100% 100% no-repeat;
+  opacity: 0;
+  transition: opacity 0.35s ease, transform 0.35s ease, filter 0.25s ease;
   pointer-events: none;
   --fill: 0%;
 }
+.ic-skip.show { opacity: 0.9; transform: translate(-50%, 0); }
 .ic-skip::before {
   content: '';
   position: absolute;
   inset: 0;
-  background: url('../assets/title/menu-button-pressed.png') center / 100% 100% no-repeat;
+  background: url('../assets/title/menu-button-pressed.webp') center / 100% 100% no-repeat;
   clip-path: inset(0 calc(100% - var(--fill)) 0 0);
 }
 .ic-skip.holding { opacity: 1; filter: drop-shadow(0 0 12px rgba(43, 222, 130, 0.45)); }
 .ic-skip-text {
   position: relative;
   font: 900 clamp(11px, 0.9vw, 14px)/1 'Cinzel', Georgia, serif;
-  letter-spacing: 1.5px;
+  letter-spacing: 2px;
   white-space: nowrap;
   color: #f8e8bb;
   text-shadow: 0 2px 4px #06130f, 0 0 10px rgba(233, 192, 93, 0.42);
-}
-.ic-skip-text b {
-  display: inline-block;
-  margin: 0 3px;
-  padding: 2px 6px;
-  border: 1px solid #c9a24e;
-  border-radius: 3px;
-  color: #ffd76b;
-  background: rgba(6, 19, 15, 0.55);
 }
 
 /* ==========================================================================
@@ -1643,3 +1679,346 @@ html, body {
   color: #ffd76b;
   text-shadow: 0 0 10px rgba(255, 200, 90, 0.5), 0 2px 2px #000;
 }
+
+/* ==========================================================================
+   MOBILE / PWA
+   js/pwa.js sets <html class="touch"> on touch devices and adds "compact" when the
+   viewport is a landscape phone (short side about 360-430px). Desktop is untouched.
+   Gameplay HUD stays at the top: the bottom corners belong to the touch controls
+   (left joystick, right button cluster).
+   ========================================================================== */
+:root {
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-l: env(safe-area-inset-left, 0px);
+}
+
+/* ---- "Rotate your phone" (touch devices in portrait only) ---- */
+.rotate-prompt {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+  background: radial-gradient(ellipse at center, #1a1209 0%, #050403 70%);
+  color: #f7eed8;
+}
+.rotate-prompt-inner { display: flex; flex-direction: column; align-items: center; gap: 14px; max-width: 320px; }
+.rotate-prompt-icon { width: 84px; height: 84px; color: #ffd36b; filter: drop-shadow(0 0 10px rgba(255, 200, 90, 0.5)); animation: rotateHint 2.4s ease-in-out infinite; }
+.rotate-prompt-title { font: 900 22px 'Cinzel', Georgia, serif; letter-spacing: 5px; color: #ffd700; text-shadow: 0 0 14px rgba(255, 215, 0, 0.55), 0 2px 3px #000; }
+.rotate-prompt-text { font: 15px/1.5 'Marcellus', Georgia, serif; color: #e5be75; letter-spacing: 0.5px; }
+@keyframes rotateHint { 0%, 20% { transform: rotate(0deg); } 60%, 100% { transform: rotate(-90deg); } }
+/* hybrid build: js/core/mode.js decides when the prompt shows and what it says */
+.rotate-prompt.show { display: flex; }
+.op-btn {
+  min-height: 46px;
+  padding: 10px 26px;
+  border-radius: 10px;
+  border: 1px solid rgba(214, 176, 102, 0.55);
+  background: rgba(214, 176, 102, 0.12);
+  color: #f1e3bd;
+  font: 700 13px/1.2 'Cinzel', Georgia, serif;
+  letter-spacing: 2px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.op-btn.primary {
+  background: rgba(255, 200, 90, 0.22);
+  border-color: #e8c97a;
+  color: #ffe9a8;
+  box-shadow: 0 0 14px rgba(255, 200, 90, 0.25);
+}
+.op-btn:active { background: rgba(214, 176, 102, 0.32); }
+.op-btn[hidden] { display: none; }
+
+/* ---- Title screen: the Mobile / PC mode switch (hybrid build) ---- */
+.mode-switch {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+.mode-switch-label {
+  font: 700 10px/1 'Cinzel', Georgia, serif;
+  letter-spacing: 3px;
+  color: #c9b98a;
+  text-shadow: 0 1px 2px #000;
+}
+.mode-switch-btn {
+  min-height: 34px;
+  padding: 6px 16px;
+  border-radius: 17px;
+  border: 1px solid rgba(214, 176, 102, 0.45);
+  background: rgba(8, 14, 20, 0.55);
+  color: #d8c89a;
+  font: 700 11px/1 'Cinzel', Georgia, serif;
+  letter-spacing: 1.5px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+}
+.mode-switch-btn:hover { color: #ffe9a8; }
+.mode-switch-btn.chosen {
+  background: rgba(214, 176, 102, 0.28);
+  border-color: #e8c97a;
+  color: #ffe9a8;
+  box-shadow: 0 0 10px rgba(255, 200, 90, 0.3);
+  cursor: default;
+}
+html.compact .mode-switch { margin-top: 4px; }
+html.compact .mode-switch-btn { min-height: 30px; padding: 4px 12px; font-size: 10px; }
+
+/* ---- Landscape phones ---- */
+html.compact .sands-hud { top: calc(var(--safe-t) + 6px); left: calc(var(--safe-l) + 8px); --hud-scale: 0.6; }
+html.compact .endless-hud {
+  top: calc(var(--safe-t) + 6px);
+  right: calc(var(--safe-r) + 10px);
+  transform: scale(0.6);
+  transform-origin: top right;
+}
+html.compact .boss-hud { top: calc(var(--safe-t) + 4px); right: calc(var(--safe-r) + 10px); width: min(300px, 36vw); }
+html.compact .father-hud { top: calc(var(--safe-t) + 4px); right: calc(var(--safe-r) + 10px); width: min(320px, 38vw); }
+html.compact .boss-name { font-size: 8px; letter-spacing: 2px; }
+html.compact .father-name { font-size: 7px; letter-spacing: 2px; }
+
+html.compact .interact-prompt { top: calc(var(--safe-t) + 6px); padding: 3px 12px; font-size: 9px; }
+html.compact .kill-toast { top: calc(var(--safe-t) + 6px); padding: 4px 14px; gap: 7px; }
+html.compact .kill-toast-text { font-size: 9px; }
+
+/* dialogue: a low, wide strip with a small portrait window */
+html.compact .dialogue-box {
+  bottom: calc(var(--safe-b) + 8px);
+  width: min(940px, calc(100vw - var(--safe-l) - var(--safe-r) - 24px));
+  padding: 8px 16px 6px;
+}
+html.compact .dialogue-content { gap: 14px; }
+html.compact .dialogue-header { margin-bottom: 4px; }
+html.compact .dialogue-title { font-size: 10px; letter-spacing: 2px; }
+html.compact .dialogue-text { font-size: 13px; line-height: 1.45; min-height: calc(1.45em * 3); }
+html.compact .dialogue-footer { margin-top: 3px; }
+html.compact .sands-dialogue .dialogue-portrait-container { flex-basis: 88px; height: 88px; }
+html.compact .sands-dialogue .portrait-divine-aura { width: 84px; height: 84px; }
+html.compact .sands-dialogue .dialogue-portrait-name { font-size: 7px; letter-spacing: 1px; padding: 1px 6px; bottom: 3px; }
+
+/* death card and level-complete: fit the short viewport */
+html.compact .framed-card { width: min(560px, calc(100vw - 32px), calc((100dvh - 24px) * 1.8)); }
+html.compact .level-complete-modal.final { width: min(640px, calc(100vw - 32px), calc((100dvh - 24px) * 1.8)); }
+html.compact .framed-crest { font-size: 15px; margin-bottom: 2px; }
+html.compact .framed-title.death-big { font-size: clamp(16px, 3.4vw, 24px); letter-spacing: 3px; margin-bottom: 6px; }
+html.compact .framed-divider { margin-bottom: 8px; }
+html.compact .framed-small { font-size: 10px; letter-spacing: 2px; }
+html.compact .framed-progress { margin-top: 8px; }
+html.compact .level-complete-modal { width: min(560px, calc(100vw - 32px)); max-height: calc(100dvh - 16px); overflow: auto; padding: 14px 20px; }
+html.compact .level-complete-modal.final { padding: 0 10%; max-height: none; overflow: visible; }
+html.compact .complete-star { font-size: 13px; margin-bottom: 4px; }
+html.compact .complete-title { font-size: 18px; letter-spacing: 2px; }
+html.compact .complete-subtitle { font-size: 10px; margin-bottom: 8px; }
+html.compact .complete-divider { margin-bottom: 8px; }
+html.compact .complete-flavor { font-size: 12px; line-height: 1.5; }
+html.compact .complete-prompt { margin-top: 10px; padding: 6px 16px; }
+html.compact .level-complete-modal.final .complete-title { font-size: clamp(16px, 3.4vw, 26px); }
+html.compact .level-complete-modal.final .complete-flavor { font-size: 11px; line-height: 1.4; }
+html.compact .level-complete-modal.final .complete-prompt { margin-top: 6px; }
+html.compact .complete-thanks { font-size: 12px; margin-top: 6px; letter-spacing: 3px; }
+
+/* pause menu */
+html.compact .pause-panel { gap: 6px; padding: 0 var(--safe-r) 0 var(--safe-l); }
+html.compact .pause-title { font-size: 24px; letter-spacing: 6px; }
+html.compact .pause-question { font-size: 20px; letter-spacing: 4px; }
+html.compact .pause-divider { margin: 0 0 4px; }
+html.compact .pause-hint { display: none; }
+html.compact .pause-warning { font-size: 12px; line-height: 1.4; margin-bottom: 4px; max-width: 380px; }
+html.compact .menu-button { min-height: 46px; padding: 0 30px; font-size: 12px; letter-spacing: 2px; }
+html.compact .pause-screen .menu-button { width: min(300px, 70%); }
+html.compact .pause-screen .menu-button.small { width: min(170px, 38%); min-height: 44px; padding: 0 18px; }
+
+/* title menu */
+html.compact .title-menu {
+  top: calc(var(--safe-t) + 8px);
+  right: calc(var(--safe-r) + 5vw);
+  width: min(44vw, 420px);
+  gap: 6px;
+}
+html.compact .title-logo-image { max-height: 36vh; }
+html.compact .title-actions { gap: 2px; }
+html.compact .music-hint { bottom: calc(var(--safe-b) + 8px); font-size: 9px; letter-spacing: 2px; }
+
+/* loading */
+html.compact .loading-sigil { width: min(34vh, 160px); }
+html.compact .loading-screen { gap: 12px; }
+
+/* ===== Developer options: three dots on the main menu, level-skip button and menu ===== */
+.dev-dots {
+  position: absolute; z-index: 5;
+  top: calc(10px + env(safe-area-inset-top, 0px)); right: calc(12px + env(safe-area-inset-right, 0px));
+  width: 44px; height: 44px; border-radius: 50%;
+  display: grid; place-items: center; padding: 0;
+  font: 700 26px/1 'Cinzel', serif; color: #e8c97a;
+  background: rgba(8, 14, 20, 0.55); border: 1px solid rgba(214, 176, 102, 0.45);
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.dev-dots:active { background: rgba(214, 176, 102, 0.25); }
+.dev-modal {
+  position: fixed; inset: 0; z-index: 400; display: grid; place-items: center;
+  background: rgba(0, 0, 0, 0.62); padding: 12px;
+}
+.dev-modal[hidden], .dev-skip-btn[hidden] { display: none; }
+.dev-card {
+  width: min(420px, 100%); max-height: calc(100dvh - 24px); overflow-y: auto;
+  padding: 18px 20px; border-radius: 10px; color: #f1e3bd;
+  background: rgba(10, 16, 22, 0.96); border: 1px solid rgba(214, 176, 102, 0.55);
+  box-shadow: 0 0 0 3px rgba(214, 176, 102, 0.08), 0 14px 40px rgba(0, 0, 0, 0.6);
+  font-family: 'Marcellus', serif;
+}
+.dev-card h2 { margin: 0 0 14px; font: 700 17px/1.2 'Cinzel', serif; letter-spacing: 0.14em; color: #e8c97a; text-align: center; }
+.dev-row { display: flex; align-items: center; gap: 14px; cursor: pointer; padding: 8px 0; }
+.dev-row input { position: absolute; opacity: 0; pointer-events: none; }
+.dev-switch { flex: none; width: 46px; height: 26px; border-radius: 13px; background: #2a3138; border: 1px solid rgba(214, 176, 102, 0.4); position: relative; transition: background 0.15s; }
+.dev-switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: #c9b98a; transition: transform 0.15s; }
+.dev-row input:checked + .dev-switch { background: #8a6a1f; }
+.dev-row input:checked + .dev-switch::after { transform: translateX(20px); background: #ffe9a8; }
+.dev-row input:focus-visible + .dev-switch { outline: 2px solid #e8c97a; outline-offset: 2px; }
+.dev-label { font-size: 16px; line-height: 1.25; }
+.dev-label small { display: block; margin-top: 2px; font-size: 12px; opacity: 0.7; }
+.dev-close, .dev-levels button {
+  display: block; width: 100%; min-height: 44px; margin-top: 8px; padding: 8px 12px; border-radius: 8px;
+  font: 600 14px/1.2 'Marcellus', serif; letter-spacing: 0.06em; color: #f1e3bd;
+  background: rgba(214, 176, 102, 0.12); border: 1px solid rgba(214, 176, 102, 0.45);
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.dev-close:active, .dev-levels button:active { background: rgba(214, 176, 102, 0.3); }
+.dev-levels { display: grid; gap: 0; }
+.dev-skip-btn {
+  position: fixed; z-index: 150; left: 50%; transform: translateX(-50%);
+  bottom: calc(6px + env(safe-area-inset-bottom, 0px));
+  min-height: 34px; padding: 4px 14px; border-radius: 17px;
+  font: 700 12px/1 'Cinzel', serif; letter-spacing: 0.12em; color: #e8c97a;
+  background: rgba(8, 14, 20, 0.6); border: 1px solid rgba(214, 176, 102, 0.5);
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+@media (max-height: 500px) {
+  .dev-card { padding: 12px 16px; }
+  .dev-card h2 { margin-bottom: 8px; font-size: 15px; }
+  .dev-close, .dev-levels button { min-height: 38px; margin-top: 5px; }
+  .dev-levels { grid-template-columns: 1fr 1fr; column-gap: 8px; }
+}
+
+/* ===== Unlimited mode stats: one line, top centre ===== */
+.endless-hud,
+html.compact .endless-hud {
+  top: calc(var(--safe-t, 0px) + 6px);
+  left: 50%; right: auto;
+  width: auto; max-width: calc(100vw - 16px);
+  transform: translateX(-50%);
+  padding: 4px 14px;
+  border-width: 1px;
+  border-radius: 14px;
+  box-shadow: inset 0 0 0 2px rgba(4, 20, 19, 0.9), inset 0 0 0 3px rgba(214, 170, 80, 0.45), 0 4px 14px rgba(0, 0, 0, 0.6);
+  white-space: nowrap;
+}
+.endless-hud.active { display: flex; align-items: center; justify-content: center; gap: 0; }
+.endless-hud::before, .endless-hud::after { display: none; }
+.endless-hud > * { margin: 0; padding: 0 9px; border: 0; background: none; box-shadow: none; display: flex; align-items: baseline; gap: 5px; }
+.endless-hud > * + * { border-left: 1px solid rgba(205, 162, 78, 0.35); }
+.endless-hud .eh-mobs-bar, .endless-hud .eh-divider { display: none; }
+.endless-hud .eh-stats { display: flex; gap: 0; }
+.endless-hud .eh-stats > div { border: 0; padding: 0 9px; gap: 5px; }
+.endless-hud .eh-stats > div + div { border-left: 1px solid rgba(205, 162, 78, 0.35); }
+.endless-hud .eh-score { gap: 5px; }
+.endless-hud .eh-round { font-size: 11px; letter-spacing: 2px; gap: 5px; }
+.endless-hud .eh-round-num { font-size: 14px; }
+.endless-hud .eh-mobs-text { margin: 0; font-size: 10px; letter-spacing: 1.5px; }
+.endless-hud .eh-hp { margin: 0; font-size: 9px; }
+.endless-hud .eh-score-label, .endless-hud .eh-k { font-size: 9px; letter-spacing: 1.5px; }
+.endless-hud .eh-score-num { font-size: 14px; line-height: 1; }
+.endless-hud .eh-v { font-size: 12px; }
+.endless-hud .eh-mud { margin: 0; padding: 0 9px; font-size: 9px; letter-spacing: 1.5px; gap: 5px; }
+.endless-hud .eh-key { width: 15px; height: 15px; font-size: 9px; }
+.endless-hud .eh-best { margin: 0; font-size: 9px; letter-spacing: 1.5px; }
+.endless-hud .eh-best span { font-size: 12px; }
+/* the kill banner drops below the stats line */
+.endless-hud.active + .kill-toast { top: calc(var(--safe-t, 0px) + 38px); }
+html.compact .endless-hud.active + .kill-toast { top: calc(var(--safe-t, 0px) + 38px); }
+@media (max-width: 760px) {
+  .endless-hud > *, .endless-hud .eh-stats > div, .endless-hud .eh-mud { padding-left: 6px; padding-right: 6px; }
+  .endless-hud .eh-round, .endless-hud .eh-mobs-text, .endless-hud .eh-k, .endless-hud .eh-score-label,
+  .endless-hud .eh-mud, .endless-hud .eh-best { letter-spacing: 0.5px; }
+}
+.endless-hud .eh-orn { display: none; }
+.endless-hud > *, .endless-hud .eh-stats > div, .endless-hud .eh-mud { padding-left: 7px; padding-right: 7px; }
+/* touch: the small buttons (weapons, Q, C, pause) sit under the stats line in Unlimited mode */
+html.endless-on .touch-small-row { top: calc(var(--safe-t, 0px) + 44px); }
+/* touch: the top-centre button row (1, 2, Q, C, pause) takes the strip where the banners used to appear */
+html.touch-on .interact-prompt, html.touch-on .kill-toast { top: calc(var(--safe-t, 0px) + 48px); }
+html.touch-on.endless-on .interact-prompt { top: calc(var(--safe-t, 0px) + 86px); }
+html.touch-on.endless-on .endless-hud.active + .kill-toast { top: calc(var(--safe-t, 0px) + 86px); }
+
+/* ===== Morph [Q] guidance: a moving arrow points at the key where the ability is needed ===== */
+@keyframes hintBounce { from { transform: translateY(0); } to { transform: translateY(7px); } }
+@keyframes hintPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(255, 224, 138, 0.8); } 50% { box-shadow: 0 0 0 9px rgba(255, 224, 138, 0); } }
+@keyframes hintNudge { from { transform: translateX(0); } to { transform: translateX(7px); } }
+html.hint-q .touch-btn-morph { border-color: #ffe08a; background: rgba(120, 80, 10, 0.65); animation: hintPulse 1s ease-out infinite; }
+/* Q sits at the bottom right, so the arrow comes in from its left, pointing at it */
+html.hint-q .touch-btn-morph::after {
+  content: '\25B6'; position: absolute; right: calc(100% + 4px); top: 50%; margin-top: -9px;
+  width: 18px; text-align: center; font-size: 17px; line-height: 18px; color: #ffe08a; text-shadow: 0 0 6px #000, 0 0 10px rgba(255, 200, 80, 0.9);
+  animation: hintNudge 0.6s ease-in-out infinite alternate; pointer-events: none;
+}
+.key-hint {
+  position: fixed; z-index: 60; left: 50%; top: calc(var(--safe-t, 0px) + 10px); transform: translateX(-50%);
+  display: none; align-items: center; gap: 8px; padding: 5px 14px 5px 10px; border-radius: 16px;
+  font: 700 11px/1 'Cinzel', serif; letter-spacing: 0.14em; color: #ffe08a;
+  background: rgba(8, 14, 20, 0.7); border: 1px solid rgba(255, 224, 138, 0.7); pointer-events: none;
+}
+.key-hint .kh-arrow { font-size: 14px; animation: hintBounce 0.6s ease-in-out infinite alternate; }
+.key-hint .kh-key { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 4px; border: 1px solid #c9a24e; background: #0b2c2a; color: #fff1b8; font-size: 12px; letter-spacing: 0; }
+html.hint-q:not(.touch-on) .key-hint { display: flex; }
+@media (prefers-reduced-motion: reduce) {
+  html.hint-q .touch-btn-morph, html.hint-q .touch-btn-morph::after, .key-hint .kh-arrow { animation: none; }
+}
+
+/* ===== Asset preloader: title buttons wait for their art, with a progress bar ===== */
+.menu-button:disabled { opacity: 0.4; filter: grayscale(0.7); cursor: progress; pointer-events: none; }
+.preload-status { margin-top: 10px; width: min(300px, 70vw); text-align: center; transition: opacity 0.4s; }
+.preload-status.done { opacity: 0; pointer-events: none; height: 0; margin: 0; overflow: hidden; }
+.preload-label { font: 700 11px/1.2 'Cinzel', serif; letter-spacing: 0.16em; color: #e8c97a; text-transform: uppercase; text-shadow: 0 1px 2px #000; }
+.preload-track { margin-top: 6px; height: 5px; border-radius: 3px; background: rgba(0, 0, 0, 0.55); box-shadow: 0 0 0 1px rgba(205, 162, 78, 0.55); overflow: hidden; }
+.preload-track span { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #8a5a14, #ffd36b, #fff1b0); transition: width 0.25s ease; }
+
+/* Opening cutscene on touch screens: the skip pill is held down, so it gets a bigger target */
+.ic-skip { touch-action: none; user-select: none; -webkit-user-select: none; }
+.ic-skip.touch { padding: 12px 20px 12px; opacity: 0.8; }
+.ic-skip.touch .ic-skip-bar { height: 4px; }
+
+/* Touch: the Forest Heart clock is shrunk so it stays clear of the Q button below it */
+html.touch-on .heart-clock { transform-origin: top right; }
+html.touch-on .heart-clock.show { transform: scale(0.6); }
+
+/* Touch: the opening film's skip pill is a plain one-tap SKIP button (no hold bar) */
+.menu-button[hidden] { display: none; }
+.ic-skip.touch { padding: 12px 22px; opacity: 0.9; border: 1px solid rgba(255, 215, 120, 0.55); border-radius: 22px; cursor: pointer; }
+.ic-skip.touch .ic-skip-bar { display: none; }
+.ic-skip.touch .ic-skip-text { letter-spacing: 3px; font-size: 14px; }
+
+/* Touch: the dialogue box is centred on the screen, above the touch buttons; tapping it is [E] (see engine.js) */
+html.touch-on .dialogue-box {
+  top: 50%;
+  bottom: auto;
+  left: 50%;
+  width: min(760px, calc(100vw - var(--safe-l, 0px) - var(--safe-r, 0px) - 24px));
+  transform: translate(-50%, -50%);
+  z-index: 60;
+  animation-name: dialogueAppearTouch;
+}
+@keyframes dialogueAppearTouch {
+  0% { opacity: 0; transform: translate(-50%, -46%); }
+  100% { opacity: 1; transform: translate(-50%, -50%); }
+}
+
+/* Touch: the Settings screen only lists keyboard and controller bindings, so its buttons are left out on phones */
+html.touch-on #titleSettingsButton, html.touch-on #pauseSettings { display: none; }

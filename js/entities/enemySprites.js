@@ -1,11 +1,11 @@
 /**
  * ==========================================================================
  * ENEMY SPRITES (js/entities/enemySprites.js)
- * Draws Betal, the grey-skinned blade demon (assets/anims/betal/*.png).
+ * Draws Betal, the grey-skinned blade demon (assets/anims/betal/*.webp).
  * Any enemy object with { x, y, facing, isMoving, isAttacking/attacking,
  * attackAnimTimer, attackAnimDuration, hurtTimer, dead, deathTimer, animTime,
  * hitFlash } can be rendered with EnemySpriteSheet.render(ctx, enemy).
- * (Betal replaced the earlier grey ghoul sheet, sentinel_enemy_sheet.jpeg.)
+ * (Betal replaced the earlier grey ghoul sheet, sentinel_enemy_sheet.webp.)
  * ==========================================================================
  */
 
@@ -24,7 +24,7 @@ export class EnemySpriteSheet {
     for (const [name, m] of Object.entries(BETAL_FRAMES)) {
       this.frames[name] = Array.from({ length: m.count }, (_, i) => {
         const img = new Image();
-        img.src = `assets/anims/betal/${name}_${i}.png`;
+        img.src = `assets/anims/betal/${name}_${i}.webp`;
         return img;
       });
     }

@@ -2,7 +2,16 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#050403">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Rakti">
+  <meta name="format-detection" content="telephone=no">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <title>Rakti: The Last Guardian</title>
   <link rel="stylesheet" href="css/style.css">
   <link rel="preload" href="assets/audio/music/title.mp3" as="audio">
@@ -11,6 +20,19 @@
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Marcellus&family=Press+Start+2P&display=swap" rel="stylesheet">
 </head>
 <body>
+  <!-- Narrow-and-tall viewport: js/core/mode.js recommends the right experience here.
+       Touch device in PC Mode: one button switches to Mobile Mode. Mobile Mode in portrait: rotate.
+       A tall desktop window: play in landscape, resize. -->
+  <div class="rotate-prompt" id="orientationPrompt" role="alert" aria-live="polite">
+    <div class="rotate-prompt-inner">
+      <svg class="rotate-prompt-icon" viewBox="0 0 64 64" aria-hidden="true"><rect x="22" y="6" width="20" height="36" rx="3" fill="none" stroke="currentColor" stroke-width="3"/><path d="M12 50c6 8 22 10 34 2m0 0l-8-1m8 1l-1-8" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <h2 class="rotate-prompt-title op-title">ROTATE YOUR PHONE</h2>
+      <p class="rotate-prompt-text op-text">Rakti is best fought in landscape.</p>
+      <button class="op-btn primary" id="opSwitchMode" type="button" hidden>SWITCH TO MOBILE MODE</button>
+      <button class="op-btn" id="opDismiss" type="button" hidden>GOT IT</button>
+    </div>
+  </div>
+
   <!-- Fullscreen Game Canvas -->
   <canvas id="gameCanvas"></canvas>
 
@@ -22,27 +44,28 @@
 
   <!-- Combat HUD: Rakti's medallion, health bar, X-ability bar and her talwar (layout from the HUD sketch) -->
   <div class="sands-hud menu-hidden" id="hud" aria-label="Combat HUD">
-    <img class="hud-portrait" id="hudPortraitArt" src="assets/ui/hud/rakti_medallion.png" alt="Rakti" draggable="false">
+    <img class="hud-portrait" id="hudPortraitArt" src="assets/ui/hud/rakti_medallion.webp" alt="Rakti" draggable="false">
     <div class="hud-bar health-bar" aria-label="Health">
       <div class="meter-track health-track" id="healthTrack" role="progressbar" aria-label="Rakti's health" aria-valuemin="0" aria-valuemax="20" aria-valuenow="20">
         <span class="health-fill" id="healthBarFill"></span>
         <span class="health-value" id="hpNum">20 / 20</span>
       </div>
-      <img class="hud-bar-art" src="assets/ui/hud/hp_bar.png" alt="" draggable="false">
+      <img class="hud-bar-art" src="assets/ui/hud/hp_bar.webp" alt="" draggable="false">
     </div>
     <div class="hud-bar ability-bar" id="abilityBar" aria-label="X ability">
       <div class="meter-track divine-track" id="divineTrack" role="progressbar" aria-label="X ability duration" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
         <span class="divine-fill" id="divineBarFill"></span>
       </div>
-      <img class="hud-bar-art" src="assets/ui/hud/ability_bar.png" alt="" draggable="false">
+      <img class="hud-bar-art" src="assets/ui/hud/ability_bar.webp" alt="" draggable="false">
+      <span class="decree-label" id="decreeLabel">LAW OF TIME · [Z]</span>
     </div>
-    <img class="hud-weapon" id="hudWeapon" src="assets/ui/hud/talwar.png" alt="Equipped weapon: Guardian Talwar" draggable="false">
+    <img class="hud-weapon" id="hudWeapon" src="assets/ui/hud/talwar.webp" alt="Equipped weapon: Guardian Talwar" draggable="false">
     <div class="hud-weapon-keys" id="hudWeaponKeys" data-weapon="sword" aria-hidden="true"><span class="k-sword">[1] TALWAR</span><span class="k-trishul">[2] TRISHUL</span></div>
-    <!-- Sands of Time [F]: the hourglass (6 frames, assets/ui/hud/sands_hourglass_sheet.png) drains while time is slowed -->
+    <!-- Sands of Time [F]: the hourglass (6 frames, assets/ui/hud/sands_hourglass_sheet.webp) drains while time is slowed -->
     <div class="sands-power locked" id="sandsPower" data-state="ready" aria-label="Sands of Time, key F">
       <div class="sp-halo"></div>
       <div class="sp-glass" id="sandsGlass"></div>
-      <span class="sp-key">F</span>
+      <span class="sp-key" data-key="F">F</span>
       <span class="sp-time" id="sandsTime"></span>
       <!-- Level 2's way back: the rewind charges with every enemy slain -->
       <span class="sp-charge" id="sandsCharge"></span>
@@ -60,7 +83,7 @@
 
   <!-- Player 0 HP Death Screen Modal -->
   <div class="death-screen-modal sands-death" id="deathScreen">
-    <!-- the framed card (assets/ui/card_frame.png); the old 'FATE FRACTURED' box is in js/levels/backup/index_before_framed_cards.html -->
+    <!-- the framed card (assets/ui/card_frame.webp); the old 'FATE FRACTURED' box is in js/levels/backup/index_before_framed_cards.html -->
     <div class="framed-card death-card">
       <div class="framed-crest">⚜</div>
       <h1 class="framed-title death-big">IT'S NOT OVER YET</h1>
@@ -74,7 +97,7 @@
   <!-- Level 4 stage 1 (Pitaji, possessed): his own portrait bar; the fill sits in the pill-shaped channel -->
   <div class="father-hud" id="fatherHud" aria-label="Pitaji health">
     <div class="father-fill-track"><div class="father-fill-lag" id="fatherFillLag"></div><div class="father-fill" id="fatherFill"></div></div>
-    <img class="father-frame" src="assets/ui/hud/father_boss_bar.png" alt="" draggable="false">
+    <img class="father-frame" src="assets/ui/hud/father_boss_bar.webp" alt="" draggable="false">
     <span class="father-name">PITAJI  ·  POSSESSED</span>
   </div>
   <!-- Level 3: the Forest Heart's clock (v2). A medallion with the heart beating inside it, ringed by 50 ticks (one per
@@ -97,7 +120,7 @@
   </div>
   <div class="boss-hud" id="bossHud" aria-label="Boss health">
     <div class="boss-fill-track"><div class="boss-fill-lag" id="bossFillLag"></div><div class="boss-fill" id="bossFill"></div></div>
-    <img class="boss-frame" src="assets/level4/sprites/boss_bar.png" alt="" draggable="false">
+    <img class="boss-frame" src="assets/level4/sprites/boss_bar.webp" alt="" draggable="false">
     <span class="boss-name" id="bossName"></span>
   </div>
 
@@ -107,8 +130,8 @@
     <div class="dialogue-content">
       <div class="dialogue-portrait-container" id="dialoguePortraitContainer" style="display: none;">
         <div class="portrait-divine-aura"></div>
-        <img id="dialoguePortraitBack" class="dialogue-portrait-img back" src="assets/portraits/kali2_0.png" alt="">
-        <img id="dialoguePortraitImg" class="dialogue-portrait-img" src="assets/portraits/kali2_0.png" alt="Maa Kali">
+        <img id="dialoguePortraitBack" class="dialogue-portrait-img back" src="assets/portraits/kali2_0.webp" alt="">
+        <img id="dialoguePortraitImg" class="dialogue-portrait-img" src="assets/portraits/kali2_0.webp" alt="Maa Kali">
         <div class="dialogue-portrait-name" id="dialoguePortraitName">⚜ MAA KALI ⚜</div>
       </div>
       <div class="dialogue-inner">
@@ -155,6 +178,7 @@
       <h1 class="pause-title">PAUSED</h1>
       <div class="pause-divider"></div>
       <button class="menu-button" id="pauseContinue" type="button"><span>CONTINUE</span></button>
+      <button class="menu-button" id="pauseSkip" type="button" hidden><span>SKIP CONVERSATION</span></button>
       <button class="menu-button" id="pauseSettings" type="button"><span>SETTINGS</span></button>
       <button class="menu-button" id="pauseRestart" type="button"><span>RESTART</span></button>
       <button class="menu-button" id="pauseExit" type="button"><span>EXIT TO MAIN MENU</span></button>
@@ -173,9 +197,10 @@
   <section class="title-screen active" id="titleScreen" aria-label="Rakti title screen">
     <div class="title-backdrop"></div>
     <div class="title-shade"></div>
+    <button class="dev-dots" id="devDots" type="button" aria-label="Developer options" aria-haspopup="dialog">&#8942;</button>
     <div class="music-hint" id="musicHint">&#9834; PRESS ANY KEY OR CLICK FOR MUSIC</div>
     <div class="title-menu" id="titleMainMenu">
-      <img class="title-logo-image" src="assets/title/rakti-logo.png" alt="Rakti: The Last Guardian">
+      <img class="title-logo-image" src="assets/title/rakti-logo.webp" alt="Rakti: The Last Guardian">
       <div class="title-actions">
         <button class="menu-button" id="startGameButton" type="button">
           <span>CAMPAIGN MODE</span>
@@ -186,6 +211,12 @@
         <button class="menu-button" id="titleSettingsButton" type="button">
           <span>SETTINGS</span>
         </button>
+      </div>
+      <!-- Hybrid build: one clear choice between the two experiences (js/core/mode.js; switching reloads) -->
+      <div class="mode-switch" id="modeSwitch" role="group" aria-label="Choose your experience">
+        <span class="mode-switch-label">MODE</span>
+        <button class="mode-switch-btn" type="button" data-mode="pc">&#128421;&#65039; PC</button>
+        <button class="mode-switch-btn" type="button" data-mode="mobile">&#128241; MOBILE</button>
       </div>
     </div>
   </section>
@@ -209,22 +240,54 @@
 
   <section class="loading-screen" id="loadingScreen" aria-label="Loading next level" aria-hidden="true">
     <div class="loading-aura" aria-hidden="true"></div>
-    <img class="loading-sigil" src="assets/title/kali-loading-sigil.png" alt="">
+    <img class="loading-sigil" src="assets/title/kali-loading-sigil.webp" alt="">
     <div class="loading-text">
       <p class="loading-label"><span class="loading-rule" aria-hidden="true"></span>Loading<span class="loading-rule" aria-hidden="true"></span></p>
       <p class="loading-level" id="loadingLevel"></p>
     </div>
   </section>
 
-  <!-- The opening cutscene (New Game): full screen; hold [Esc] (a controller's Menu / Options) to skip it -->
+  <!-- Morph [Q] guidance for keyboard play (touch players get the arrow on the Q button instead) -->
+  <div class="key-hint" id="keyHint" aria-hidden="true"><span class="kh-arrow">&#9650;</span><span class="kh-key">Q</span><span>MORPH</span></div>
+
+  <!-- Developer options (opened from the three dots on the main menu) -->
+  <div class="dev-modal" id="devPanel" role="dialog" aria-modal="true" aria-labelledby="devPanelTitle" hidden>
+    <div class="dev-card">
+      <h2 id="devPanelTitle">DEVELOPER OPTIONS</h2>
+      <label class="dev-row">
+        <input type="checkbox" id="devSkipToggle">
+        <span class="dev-switch"></span>
+        <span class="dev-label">Level skip<small>Adds a LEVELS button in the game to jump to any level</small></span>
+      </label>
+      <button class="dev-close" id="devPanelClose" type="button">CLOSE</button>
+    </div>
+  </div>
+  <button class="dev-skip-btn" id="devSkipBtn" type="button" aria-label="Level skip" hidden>LEVELS</button>
+  <div class="dev-modal" id="devSkipMenu" role="dialog" aria-modal="true" aria-labelledby="devSkipTitle" hidden>
+    <div class="dev-card">
+      <h2 id="devSkipTitle">GO TO LEVEL</h2>
+      <div class="dev-levels">
+        <button type="button" data-level="1">Level I &middot; Drowned Dwaraka</button>
+        <button type="button" data-level="2">Level II &middot; The Sun Wastes</button>
+        <button type="button" data-level="3">Level III &middot; The Forest Heart</button>
+        <button type="button" data-level="4">Level IV &middot; The Archer Fort</button>
+        <button type="button" data-level="5">Chaos Mode</button>
+      </div>
+      <button class="dev-close" id="devSkipClose" type="button">CANCEL</button>
+    </div>
+  </div>
+
+    <!-- The opening cutscene (New Game): full screen; hold [Esc] (a controller's Menu / Options) to skip it -->
   <section class="intro-cutscene" id="introCutscene" aria-label="Opening cutscene" aria-hidden="true">
-    <video id="introVideo" src="assets/video/start_cutscene.mp4" preload="auto" playsinline></video>
+    <video id="introVideo" src="assets/video/start_cutscene.mp4" preload="metadata" playsinline></video>
     <div class="ic-skip" id="introSkip">
-      <span class="ic-skip-text">HOLD <b data-key="ESC">ESC</b> TO SKIP</span>
+      <span class="ic-skip-text">HOLD <span data-key="ESC">ESC</span> TO SKIP</span>
     </div>
   </section>
 
+  <script type="module" src="js/core/mode.js"></script>
   <script type="module" src="js/core/titleMusic.js"></script>
   <script type="module" src="js/main.js"></script>
+  <script type="module" src="js/pwa.js"></script>
 </body>
 </html>

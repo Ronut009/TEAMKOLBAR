@@ -95,4 +95,5 @@ export function startKeyLabels() {
   });
   obs.observe(document.body, { subtree: true, childList: true, characterData: true });
   Input.onDeviceChange(() => refreshAll());
+  if (Input.labelPad) refreshAll();   // a controller chosen in Settings last time
 }

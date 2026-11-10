@@ -2,7 +2,7 @@
  * ==========================================================================
  * THE FATHER / THE ASURA (js/entities/fatherBoss.js)
  * Level 4's two-stage boss. Frames are cut from the sheets in assets/level4/boss into
- * assets/level4/sprites/<anim>_<n>.png at twice their world size (drawn at 0.5).
+ * assets/level4/sprites/<anim>_<n>.webp at twice their world size (drawn at 0.5).
  *
  *   Stage 1  Rakti's father, possessed (BOSS.HP .. BOSS.STAGE2_HP): walks her down, sword combo,
  *            and a green crescent he sends skimming along the floor (jump it).
@@ -47,7 +47,7 @@ const ART = {
   spikes: { n: 6, w: 175, h: 94, ax: 76.2, ay: 90.3 },
   orb_purple: { n: 6, w: 79, h: 56, ax: 51.2, ay: 28.6 }
 };
-const loadSet = (name) => Array.from({ length: ART[name].n }, (_, i) => { const im = new Image(); im.src = `${DIR}${name}_${i}.png`; return im; });
+const loadSet = (name) => Array.from({ length: ART[name].n }, (_, i) => { const im = new Image(); im.src = `${DIR}${name}_${i}.webp`; return im; });
 const ready = (i) => i && i.complete && i.naturalWidth > 0;
 const rand = (a, b) => a + Math.random() * (b - a);
 

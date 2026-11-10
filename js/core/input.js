@@ -85,6 +85,7 @@ export class InputManager {
       interact: ['KeyE'],
       cancel: ['KeyC'],
       divine: ['KeyX'],
+      law: ['KeyZ'],
       morph: ['KeyQ'],
       reset: ['KeyR'],
 

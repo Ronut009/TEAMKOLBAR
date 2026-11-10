@@ -22,7 +22,7 @@ import { drawShrineBeacon } from '../render/shrineBeacon.js';
 import { Sfx } from '../core/audio.js';
 
 // Backgrounds (v2) are 2171 x 724; the sunlit floor line sits at image y = 588, the roots band below it
-// reaches past the bottom of the view. (The old 2000 x 585 jungle_a/b.jpg are kept as backups.)
+// reaches past the bottom of the view. (The old 2000 x 585 jungle_a/b.webp are kept as backups.)
 const BG_W = 2171, BG_H = 724;
 const BG_SCALE = 368 / 588;
 const SCREEN_W = BG_W * BG_SCALE;      // ~1359 world px per screen
@@ -33,15 +33,15 @@ const FEATHER = 240 * BG_SCALE;        // image px faded in at each screen's lef
 const X = (screen, imageX = 0) => screen * (SCREEN_W - FEATHER) + imageX * BG_SCALE;
 
 // Jungle piers (v2): the jungle slab's own end caps on a solid mossy brick column that darkens and fades into
-// the pit (150 x 560, made by tools/make_pier2.py). The old banded jungle_pier.png is kept as a backup.
-const PILLAR_ART = { tall: { src: 'assets/level3/jungle_pier_v2.png', w: 150, h: 560, surface: 30 } };
+// the pit (150 x 560, made by tools/make_pier2.py). The old banded jungle_pier.webp is kept as a backup.
+const PILLAR_ART = { tall: { src: 'assets/level3/jungle_pier_v2.webp', w: 150, h: 560, surface: 30 } };
 const PIT_PILLAR_SCALE = 0.5;
 const PIER_CRUMBLE = 0.6;      // a crumbling pier gives way this long after Rakti lands on it
 const PIER_RETURN = 2.6;       // and rises back out of the pit this long after it fell
 
-// Jungle spikes (assets/level3/jungle_spike.png): 24 frames, 8 per row, each frame two near-identical variants
+// Jungle spikes (assets/level3/jungle_spike.webp): 24 frames, 8 per row, each frame two near-identical variants
 // (0/1, 2/3 ...). A pack is two spikes side by side, the second drawn with the partner variant.
-const JSPIKE_ART = { src: 'assets/level3/jungle_spike.png', cw: 230, ch: 390, cols: 8, ground: 387, scale: 0.26 };
+const JSPIKE_ART = { src: 'assets/level3/jungle_spike.webp', cw: 230, ch: 390, cols: 8, ground: 387, scale: 0.26 };
 const JSPIKE_HEIGHT = [70, 69, 127, 129, 71, 74, 172, 168, 234, 237, 302, 301, 353, 353, 385, 386, 217, 218, 172, 173, 141, 140, 72, 73];
 const JSPIKE_DORMANT = [0, 1], JSPIKE_WARN = [2, 6], JSPIKE_RISE = [8, 10, 12, 14], JSPIKE_HOLD = [14, 15], JSPIKE_FALL = [16, 18, 20, 22];
 const SPIKE_SPACING = 46;
@@ -50,8 +50,8 @@ const SPIKE_CYCLE = 6;
 const SPIKE_DAMAGE = 4;
 // Jungle vines: sheet A (27 frames, 9 per row) rises, sways and sinks; sheet B (19 frames, 10 per row) is the
 // attack: grows (0-5), spins (6-13), settles and sinks (14-18).
-const VINE_A = { src: 'assets/level3/vine_a.png', cw: 206, ch: 281, cols: 9, ground: 278, scale: 0.34 };
-const VINE_B = { src: 'assets/level3/vine_b.png', cw: 372, ch: 331, cols: 10, ground: 328, scale: 0.34 };
+const VINE_A = { src: 'assets/level3/vine_a.webp', cw: 206, ch: 281, cols: 9, ground: 278, scale: 0.34 };
+const VINE_B = { src: 'assets/level3/vine_b.webp', cw: 372, ch: 331, cols: 10, ground: 328, scale: 0.34 };
 const VINE_NOTICE = 150;       // she is noticed this close (and roughly level with the vine)
 const VINE_HIT = 62;           // the spin reaches this far to either side
 const VINE_SWORD_REACH = 72;
@@ -63,7 +63,7 @@ const PIT_DAMAGE = 3;
 // tools/qstone_cut.py; cells 228 x 276 drawn at 0.5; deckY = walking surface of the slab, half = half its walkable
 // width). The green sheet is the way out; the earthen copy marks the stones the jungle has changed on the way
 // back. The older jungle_path_sheet(_v2).png are kept as backups.
-const PATH_ART = { src: 'assets/level3/jungle_qstone_sheet.png', earth: 'assets/level3/earthen_qstone_sheet.png',
+const PATH_ART = { src: 'assets/level3/jungle_qstone_sheet.webp', earth: 'assets/level3/earthen_qstone_sheet.webp',
   frameW: 228, frameH: 276, anchorX: 114, deckY: 135, scale: 0.5, half: 46 };
 // The race back to the Forest Heart: once the door's ambush falls she has HEART_TIME seconds to reach it
 const HEART_TIME = 50;
@@ -77,14 +77,14 @@ const STONE_HEARING = 460;   // world px: how near Rakti must be to hear a movin
 // Sprite sheets (assets/level3/, keyed from AI art): heart 5 cols x 2 rows of 225x228 (frames 0-5 idle loop),
 // door 7 cols x 2 rows of 326x342 (frame 0 closed .. 6 open, 6-13 swirling portal loop)
 // The Forest Heart beating (8 frames, 149 x 143, roots' tips at row 141) on its carved stump shrine (300 x 267)
-const HEART_ART = { src: 'assets/level3/forest_heart_beat.png', cw: 149, ch: 143, cols: 8, idle: 8, scale: 0.34, footY: 141 };
-// The old red heart (forest_heart.png, cleaned into forest_heart_red.png: 5 x 2 cells of 225 x 228, the heart in its
+const HEART_ART = { src: 'assets/level3/forest_heart_beat.webp', cw: 149, ch: 143, cols: 8, idle: 8, scale: 0.34, footY: 141 };
+// The old red heart (forest_heart.png, cleaned into forest_heart_red.webp: 5 x 2 cells of 225 x 228, the heart in its
 // roots on a stone base; frames 0-5 beat, 6-9 burn). It is what the Forest Heart becomes when it dies.
-const RED_HEART = { src: 'assets/level3/forest_heart_red.png', cw: 225, ch: 228, cols: 5, scale: 0.5, footY: 224 };
+const RED_HEART = { src: 'assets/level3/forest_heart_red.webp', cw: 225, ch: 228, cols: 5, scale: 0.5, footY: 224 };
 // The heart dies (the clock ran out): the camera flies to it, it turns red, flares, and burns out to ash
 const WITHER = { pan: 1.2, red: 2.3, flare: 3.7, ash: 5.0, end: 5.6 };
-const SHRINE_ART = { src: 'assets/level3/heart_shrine.png', w: 300, h: 267, scale: 0.36, seatY: 82 };
-const DOOR_ART = { src: 'assets/level3/forest_door.png', cw: 326, ch: 342, cols: 7, frames: 14, openFrame: 6, scale: 0.4 };
+const SHRINE_ART = { src: 'assets/level3/heart_shrine.webp', w: 300, h: 267, scale: 0.36, seatY: 82 };
+const DOOR_ART = { src: 'assets/level3/forest_door.webp', cw: 326, ch: 342, cols: 7, frames: 14, openFrame: 6, scale: 0.4 };
 const DOOR_FPS = 9;
 const LEDGE_Y = FLOOR_Y - 150;          // 150 px above the floor: Kali's leap (~170) reaches it, a mortal's (~120) does not
 
@@ -98,8 +98,8 @@ export class Level3 {
     this.usesScriptedDefeat = false;     // the old horde level ended in a scripted death; this one has normal checkpoints
 
     const img = (src) => { const i = new Image(); i.src = src; return i; };
-    this.bgA = img('assets/level3/jungle_a2.jpg');
-    this.bgB = img('assets/level3/jungle_b2.jpg');
+    this.bgA = img('assets/level3/jungle_a2.webp');
+    this.bgB = img('assets/level3/jungle_b2.webp');
     this.screens = [
       { img: this.bgA, mirror: false }, { img: this.bgB, mirror: false },
       { img: this.bgA, mirror: true }, { img: this.bgB, mirror: true }
@@ -675,6 +675,13 @@ export class Level3 {
   }
 
   // ======================================================================== [Q] the jungle stones
+  /** True while [Q] would open a stone (none is open yet and one is in reach): the HUD points an arrow at the key. */
+  qHint(player) {
+    if (!player || player.isDead || !player.hasPearl || player.isCasting || player.isClimbing || !player.isGrounded) return false;
+    if (this.pathStones.some((s) => s.open > 0)) return false;
+    return this.pathStones.some((s) => s.m < 0.5 && Math.abs(s.cx - player.x) < 300);
+  }
+
   /** [Q]: the nearest closed stone ahead of Rakti opens into a platform for PATH_HOLD seconds. One at a time. */
   castQ(player) {
     if (!player || player.isDead || !player.hasPearl || player.isCasting || player.isClimbing) return;

@@ -70,6 +70,7 @@ const TRACKS = {
   level4_start: { vol: 0.23, loop: false, label: 'The Red Fort' },
   pitaji_fight: { vol: 0.22, loop: true,  label: 'Pitaji' },
   demon_fight:  { vol: 0.22, loop: true,  label: 'The Asura' },
+  reunited:     { vol: 0.19, loop: false, label: 'Reunited' },
   sands:        { vol: 0.27, loop: false, label: 'The Sands of Time' }
 };
 const MUSIC_FADE = 0.8;   // s for a track to fade in or out

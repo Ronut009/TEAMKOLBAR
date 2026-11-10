@@ -7,7 +7,9 @@
  */
 
 import { Input } from './input.js';
+import { Touch } from './touch.js';
 import { Music, Sfx } from './audio.js';
+import { Preload } from './preload.js';
 import { keyLabel, startKeyLabels } from './keyLabels.js';
 import { SettingsMenu } from './settings.js';
 
@@ -20,6 +22,13 @@ const SANDS_DURATION = 8, SANDS_COOLDOWN = 15, SANDS_SLOW = 0.35;
 const AUTO_CONTINUE = 5;
 // The opening cutscene: hold [Esc] this long to skip it
 const INTRO_SKIP_HOLD = 1.5;
+// A dialogue line that teaches a key cannot be skipped before it is fully shown and this many seconds have passed
+const KEY_LINE_HOLD = 3;
+const KEY_TOKEN = /\[(E|F|Q|X|1|2|R|C|ESC|SPACE|ENTER|CLICK)\]/i;
+const teachesKey = (text) => KEY_TOKEN.test(String(text || ''));
+// The skip button shows for INTRO_SKIP_CUE s when the film starts and again after any key or button press (it sits
+// just above the film's subtitles, so it does not stay over the picture the whole time)
+const INTRO_SKIP_CUE = 4;
 // Demo shortcuts (hackathon): straight to the story's big moments, from the title screen or in game (demoJump)
 //  [J] Level 2: the Sands of Time on tower 2   [H] Level 2: the Trishul's shrine in the Hall of the Sun
 //  [K] Level 3: the Forest Heart wakes, the 50 s race   [G] Level 4: Pitaji falls and the Asura rises
@@ -120,6 +129,7 @@ export class Engine {
     this.divineTrack = document.getElementById('divineTrack');
     this.divineMeter = this.divineTrack;
     this.divineBarFill = document.getElementById('divineBarFill');
+    this.decreeLabel = document.getElementById('decreeLabel');
     this.isHurtPortrait = false;
     this.hudEl?.classList.add('menu-hidden');
     this.player.hasDivineUnlocked = false;
@@ -131,6 +141,13 @@ export class Engine {
     this.dialoguePortraitImg = document.getElementById('dialoguePortraitImg');
     this.dialoguePortraitBack = document.getElementById('dialoguePortraitBack');   // the previous pose, under a crossfade
     this.dialogueDismiss = document.getElementById('dialogueDismiss');
+    // Touch: the dialogue box sits in the middle of the screen over the buttons, so tapping it is [E] (skip / next / continue)
+    this.dialogueBox?.addEventListener('pointerdown', (e) => {
+      if (!Touch.active) return;
+      e.preventDefault();
+      Touch._press('KeyE');
+      setTimeout(() => Touch._release('KeyE'), 90);
+    });
     this.bossHud = document.getElementById('bossHud');
     this.bossFill = document.getElementById('bossFill');
     this.bossFillLag = document.getElementById('bossFillLag');
@@ -140,10 +157,10 @@ export class Engine {
     this.fatherFillLag = document.getElementById('fatherFillLag');
     this.dialoguePortraitName = document.getElementById('dialoguePortraitName');
 
-    // Dialogue portraits (v3, assets/portraits/*3_N.png): still busts, one expression per line, no talking animation.
+    // Dialogue portraits (v3, assets/portraits/*3_N.webp): still busts, one expression per line, no talking animation.
     // The old animated sets (kali2_, rakti_, rakti_sari_, father2_, demon_portrait_) stay on disk as backups.
     // Frames (see PORTRAIT_FRAMES below for what each one shows):
-    const still = (prefix, n) => Array.from({ length: n }, (_, i) => { const im = new Image(); im.src = `assets/portraits/${prefix}_${i}.png`; return im; });
+    const still = (prefix, n) => Array.from({ length: n }, (_, i) => { const im = new Image(); im.src = `assets/portraits/${prefix}_${i}.webp`; return im; });
     this.portraitSets = { kali: still('kali3', 12), rakti: still('rakti3', 12), rakti_sari: still('rakti_sari3', 6),
       father: still('father3', 12), demon: still('demon3', 12) };
     this.portraitAnim = 0;
@@ -177,9 +194,14 @@ export class Engine {
     this.pauseConfirm = document.getElementById('pauseConfirm');
     const on = (id, fn) => document.getElementById(id)?.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); fn(); });
     on('pauseContinue', () => this.resume());
+    on('pauseSkip', () => {
+      // same as [C]: the rest of the conversation is skipped (a line that teaches a key still stops it)
+      this.resume();
+      this.skipConversation();
+    });
     // Settings: from the pause menu and the title screen (js/core/settings.js)
     this.settings = new SettingsMenu();
-    on('pauseSettings', () => this.settings.show(document.getElementById('pauseSettings')));
+    on('pauseSettings', () => this.settings.show(document.getElementById('pauseSettings'), this.controlsHave()));
     on('titleSettingsButton', () => this.settings.show(document.getElementById('titleSettingsButton')));
     on('pauseRestart', () => this.showRestartConfirm(true));
     on('pauseExit', () => { this.resume(); this.returnToTitle(); });
@@ -332,7 +354,7 @@ export class Engine {
     this.player.inputLocked = introHidden;
     this.player.spawnAlpha = introHidden ? 0 : 1;
     // The Trishul is found in Level 2's sun shrine and kept from then on
-    this.player.hasTrishul = index >= 3 || Boolean(this.level.playerHasTrishul?.());
+    this.player.hasTrishul = index >= 3 || Boolean(this.level.playerHasTrishul?.()) || (this.devSkipUsed && index >= 2);
     // Kali's gold orbs and the damage charge belong to Level 4 (it switches them on once the mala is taken)
     this.player.kaliOrbs = false;
     this.player.chargeMode = false;
@@ -398,7 +420,7 @@ export class Engine {
   }
 
   startJourney() {
-    if (this.isGameStarted || this.isLoading) return;
+    if (this.isGameStarted || this.isLoading || !Preload.ready(Preload.groupsFor(1))) return;
     this.prologueComplete = false;   // a new game always starts with the wake-up
     this.level1.checkpointIndex = -1;
     this.level1.abilityGranted = false;
@@ -412,13 +434,21 @@ export class Engine {
   playIntroCutscene(onDone) {
     const box = document.getElementById('introCutscene'), video = document.getElementById('introVideo');
     if (!box || !video) { onDone(); return; }
-    this.intro = { onDone, hold: 0, done: false };
+    this.intro = { onDone, hold: 0, done: false, cue: INTRO_SKIP_CUE };
     this.titleScreen?.classList.remove('active');
     box.classList.add('active');
     box.setAttribute('aria-hidden', 'false');
     try { video.currentTime = 0; } catch (e) { /* not loaded yet */ }
     video.onended = () => this.finishIntroCutscene();
     video.onerror = () => this.finishIntroCutscene();   // missing or unplayable: straight into the game
+    // Touch screens have no [Esc]: the skip pill becomes a SKIP button, one tap and the film is over
+    const skip = document.getElementById('introSkip');
+    if (skip) {
+      const label = skip.querySelector('.ic-skip-text');
+      if (label) label.innerHTML = Touch.active ? 'SKIP &#9654;&#9654;' : 'HOLD <b>ESC</b> TO SKIP';
+      skip.classList.toggle('touch', Touch.active);
+      skip.onpointerdown = Touch.active ? (e) => { e.preventDefault(); this.finishIntroCutscene(); } : null;
+    }
     const p = video.play();
     if (p && p.catch) p.catch(() => {
       // sound refused (should not happen after the click): play it muted rather than not at all
@@ -433,9 +463,12 @@ export class Engine {
     it.hold = Input.isDown('Escape') ? it.hold + dt : Math.max(0, it.hold - dt * 2);
     // the skip button (the menu's button art) lights up from left to right while it is held
     const skip = document.getElementById('introSkip');
+    if (Input.keysPressed.size || Input.padPressed.size) it.cue = 3;
+    it.cue = Math.max(0, it.cue - dt);
     if (skip) {
       skip.style.setProperty('--fill', `${Math.min(100, (it.hold / INTRO_SKIP_HOLD) * 100).toFixed(1)}%`);
       skip.classList.toggle('holding', it.hold > 0);
+      skip.classList.toggle('show', it.cue > 0 || it.hold > 0);
     }
     if (it.hold >= INTRO_SKIP_HOLD) { this.finishIntroCutscene(); return; }
   }
@@ -477,6 +510,7 @@ export class Engine {
     if (i === 3) return 'level3';
     if (i === 5) return 'pitaji_fight';
     if (i === 4) {
+      if (L.ending) return 'reunited';   // the ending: Rakti and Pitaji together, the talk, the embrace, the card
       if (!L.fightStage) return L.malaTaken ? null : 'level4_start';
       if (L.fightStage === 1) return L.cutscene?.kind === 'turn' ? null : 'pitaji_fight';
       if (L.fightStage === 2) return 'demon_fight';
@@ -487,7 +521,7 @@ export class Engine {
 
   /** Title screen: Unlimited mode (endless rounds in one arena). */
   startEndless() {
-    if (this.isGameStarted || this.isLoading) return;
+    if (this.isGameStarted || this.isLoading || !Preload.ready(Preload.groupsFor(5))) return;
     this.beginLoadingTransition(5);
   }
 
@@ -587,6 +621,8 @@ export class Engine {
     if (this.paused) return;
     this.paused = true;
     this.showRestartConfirm(false);
+    const skipBtn = document.getElementById('pauseSkip');
+    if (skipBtn) skipBtn.hidden = !this.dialogueActive;   // only while a conversation is on screen
     this.pauseScreen?.classList.add('active');
     this.pauseScreen?.setAttribute('aria-hidden', 'false');
     document.getElementById('pauseContinue')?.focus({ focusVisible: false });   // [Enter] works, no outline box
@@ -648,6 +684,24 @@ export class Engine {
     return false;
   }
 
+  /** Which controls Settings lists from the pause menu: only what the player has so far in the campaign (the powers
+   *  appear as the story gives them), and only what the arena uses in Chaos mode. */
+  controlsHave() {
+    const i = this.currentLevelIndex, p = this.player;
+    if (i === 5) return { attack: true, trishul: true, kali: true, earth: true, sands: true, arena: true };
+    return {
+      climb: i >= 2,                                   // ladders begin in Level 2
+      ledge: true,
+      attack: !p.isCivilian,                           // not before the blade (Level 1's prologue)
+      trishul: Boolean(p.hasTrishul),
+      kali: Boolean(p.hasDivineUnlocked),
+      earth: i === 2 ? Boolean(this.level2?.progress?.qUnlocked) : i >= 3 && Boolean(p.hasPearl),
+      sands: Boolean(p.hasSands),
+      story: true,
+      checkpoint: true
+    };
+  }
+
   /** Restart asks first: true shows "Are you sure?", false goes back to the three buttons. */
   showRestartConfirm(show) {
     if (this.pauseMain) this.pauseMain.hidden = show;
@@ -657,6 +711,27 @@ export class Engine {
       ? 'Chaos mode starts over from round one. Your current run will be lost.'
       : 'You will go back to the very start of this level. All progress in it, and its checkpoints, will be lost.';
     document.getElementById(show ? 'pauseNo' : 'pauseContinue')?.focus({ focusVisible: false });
+  }
+
+  /** Developer menu: jump straight to a level (1-4) or the unlimited arena (5), from the title screen or mid-game. */
+  devJumpToLevel(index) {
+    if (this.isLoading || !LEVEL_NAMES[index]) return;
+    this.devSkipUsed = true;           // skipping past Level 2's shrine still hands Rakti the Trishul
+    this.resume();
+    this.closeDialogue();
+    this.playerDying = false;
+    this.levelCompleted = false;
+    this.deathScreen?.classList.remove('active');
+    this.levelCompleteModal?.classList.remove('active');
+    this.endlessHud?.classList.remove('active');
+    if (index === 1) {
+      this.prologueComplete = false;
+      this.level1.checkpointIndex = -1;
+      this.level1.abilityGranted = false;
+    } else {
+      this.prologueComplete = true;    // later levels never replay the wake-up
+    }
+    this.beginLoadingTransition(index);
   }
 
   /** Restart (confirmed): back to the very start of the level (or round one of the arena), whatever was done. */
@@ -713,7 +788,13 @@ export class Engine {
         && this.currentLevelIndex >= 1 && this.currentLevelIndex <= 4) this.runStats.time += dt;
     if (this.isLoading) {
       this.loadingTimer -= dt;
-      if (this.loadingTimer <= 0) {
+      // the level's art must have arrived (first visit on a slow connection): wait here instead of showing it half drawn
+      const needed = Preload.groupsFor(this.loadingTargetIndex);
+      const artReady = Preload.ready(needed);
+      if (this.loadingTimer <= 0 && !artReady && this.loadingLevel) {
+        this.loadingLevel.textContent = `${LEVEL_NAMES[this.loadingTargetIndex] || ''}  ·  ${Preload.percent(needed)}%`;
+      }
+      if (this.loadingTimer <= 0 && artReady) {
         const destinationIndex = this.loadingTargetIndex;
         this.isLoading = false;
         this.loadingTargetIndex = null;
@@ -994,16 +1075,16 @@ export class Engine {
     } else if (Input.isPressed('cancel')) {
       if (this.dialogueActive) {
         // [C] skips the whole conversation ([Esc] pauses), but its outcome (e.g. the blessing) still happens
-        const c = this.convo;
         Input.consume('PadBack');   // (on a controller the same button restarts at the checkpoint: not this time)
-        this.closeDialogue();
-        c?.onDone?.();
+        this.skipConversation();
       }
     }
 
     // 3. Update player and level (passes player for enemy & hazard collision)
     // Rakti's on-screen x (CSS pixels) so mouse-aimed attacks face the cursor correctly.
     this.player.screenX = (this.player.x - this.camX) * this.zoom;
+    Touch.autoAim(this);   // touch devices: aim at the best enemy (any direction for the Trishul) instead of a cursor
+    this.player.aimRefiner = Touch.active ? Touch.refineThrow : null;
     // where the cursor is in the world (the Trishul can be thrown at it)
     this.player.aimWorld = { x: Input.mouseX / this.zoom + Math.floor(this.camX), y: Input.mouseY / this.zoom + Math.floor(this.camY) };
     if (Input.device === 'pad') {
@@ -1012,7 +1093,14 @@ export class Engine {
       this.player.aimWorld = a.active ? { x: this.player.x + (a.x / m) * 300, y: this.player.y - 30 + (a.y / m) * 300 } : null;
     }
     this.player.update(dt, this.level, this.dialogueActive);
-    this.level.update(this.player.x, this.player.y, this.worldDt(dt), this.player.isDivine, this.player);
+    if (this.player.decreeChanged) {
+      this.level.killToastText = `⚜ KALI'S DECREE: ${this.player.decree.name} · ${this.player.decree.hint} ⚜`;
+      this.level.killToastTimer = 2.1;
+      this.player.decreeChanged = false;
+    }
+    // Time decree: Kali's form slows the world further, on top of the Sands of Time. Rakti still moves at full speed.
+    const decreeScale = this.player.isDivine && this.player.decree.id === 'time' ? 0.36 : 1;
+    this.level.update(this.player.x, this.player.y, this.worldDt(dt) * decreeScale, this.player.isDivine, this.player);
     Sfx.listenerX = this.player.x;
     this.updateItemAura();
 
@@ -1285,9 +1373,9 @@ export class Engine {
     const portrait = kaliPortrait ? 'kali' : (this.player.hp < this.player.maxHp / 2 ? 'hurt' : 'rakti');
     if (this.hudPortraitArt && portrait !== this.hudPortraitKind) {
       this.hudPortraitArt.src = {
-        kali: 'assets/ui/hud/kali_medallion.png',
-        hurt: 'assets/ui/hud/rakti_medallion_hurt.png',
-        rakti: 'assets/ui/hud/rakti_medallion.png'
+        kali: 'assets/ui/hud/kali_medallion.webp',
+        hurt: 'assets/ui/hud/rakti_medallion_hurt.webp',
+        rakti: 'assets/ui/hud/rakti_medallion.webp'
       }[portrait];
       this.hudPortraitArt.alt = { kali: 'Rakti in Kali form', hurt: 'Rakti, hurt', rakti: 'Rakti at full health' }[portrait];
       // switching to or from Kali: the medallion flares
@@ -1306,6 +1394,10 @@ export class Engine {
       memo[key] = value;
       apply(value);
     };
+    // Morph [Q] guidance: a moving arrow points at the key while the level says [Q] would answer
+    const qHint = this.isGameStarted && !this.paused && !this.dialogueActive && !this.player.isDead &&
+      Boolean(this.level?.qHint?.(this.player));
+    put(document.documentElement, 'qHint', String(qHint), v => document.documentElement.classList.toggle('hint-q', v === 'true'));
     put(this.healthBarFill, 'w', `${(hpRatio * 100).toFixed(1)}%`, v => { this.healthBarFill.style.width = v; });
     put(this.healthTrack, 'max', String(this.player.maxHp), v => this.healthTrack.setAttribute('aria-valuemax', v));
     put(this.healthTrack, 'now', String(Math.max(0, Math.ceil(this.player.hp))), v => this.healthTrack.setAttribute('aria-valuenow', v));
@@ -1313,6 +1405,7 @@ export class Engine {
 
     const divineUnlocked = this.player.hasDivineUnlocked;
     const divineActive = this.player.isDivine || this.player.isTransforming;
+    const decree = this.player.decree;
     const charging = this.player.chargeMode && !divineActiveNow(this.player);
     const divineRatio = this.player.isTransforming
       ? 1
@@ -1324,10 +1417,12 @@ export class Engine {
     put(this.divineBarFill, 'w', `${divinePercent.toFixed(1)}%`, v => { this.divineBarFill.style.width = v; });
     put(this.divineTrack, 'now', String(Math.round(divinePercent)), v => this.divineTrack.setAttribute('aria-valuenow', v));
     put(this.divineTrack, 'text', !divineUnlocked
-      ? 'X ability locked'
+      ? "Kali's Decree locked"
       : divineActive
-        ? `${Math.ceil(this.player.divineTimer)} seconds remain`
-        : charging && this.player.divineCharge < 1 ? 'X ability charging' : 'X ability ready', v => this.divineTrack.setAttribute('aria-valuetext', v));
+        ? `${decree.name}: ${Math.ceil(this.player.divineTimer)} seconds remain`
+        : charging && this.player.divineCharge < 1 ? "Kali's Decree charging" : `${decree.name} selected; press Z to change`, v => this.divineTrack.setAttribute('aria-valuetext', v));
+    put(this.decreeLabel, 'text', divineActive ? decree.name : `${decree.name} · [Z]`, v => { this.decreeLabel.textContent = v; });
+    put(this.hudEl, 'law', decree.id, v => { this.hudEl.dataset.law = v; });
     if (this.divineMeter) {
       this.divineMeter.classList.toggle('charging', charging && this.player.divineCharge < 1);
       this.divineMeter.classList.toggle('charged', charging && this.player.divineCharge >= 1);
@@ -1344,7 +1439,10 @@ export class Engine {
     // the six frames; cooldown: dimmed and empty, with the seconds left; ready: full and glowing.
     if (this.sandsEl) {
       const s = this.sands, has = Boolean(this.player.hasSands) && !this.player.isCivilian;
-      put(this.sandsEl, 'has', String(has), v => this.sandsEl.classList.toggle('locked', v !== 'true'));
+      put(this.sandsEl, 'has', String(has), v => {
+        this.sandsEl.classList.toggle('locked', v !== 'true');
+        document.documentElement.classList.toggle('has-sands', v === 'true');   // shows the touch [F] button
+      });
       const state = s.active > 0 ? 'active' : s.cooldown > 0 ? 'cooldown' : 'ready';
       put(this.sandsEl, 'state', state, v => { this.sandsEl.dataset.state = v; });
       const frame = state === 'active' ? Math.min(5, Math.floor((1 - s.active / SANDS_DURATION) * 6)) : state === 'cooldown' ? 5 : 0;
@@ -1424,7 +1522,7 @@ export class Engine {
 
     // Equipped weapon: talwar [1] or Trishul [2]; the Trishul icon dims while it is in flight
     const trishulOn = this.player.hasTrishul && this.player.weapon === 'trishul';
-    put(this.hudWeapon, 'src', trishulOn ? 'assets/ui/hud/trishul.png' : 'assets/ui/hud/talwar.png', v => {
+    put(this.hudWeapon, 'src', trishulOn ? 'assets/ui/hud/trishul.webp' : 'assets/ui/hud/talwar.webp', v => {
       this.hudWeapon.src = v;
       this.hudWeapon.alt = trishulOn ? 'Equipped weapon: Trishul' : 'Equipped weapon: Guardian Talwar';
       this.hudWeapon.classList.toggle('trishul', trishulOn);
@@ -1436,7 +1534,10 @@ export class Engine {
     // Unlimited mode: round and crowd counter
     if (this.endlessHud) {
       const show = this.currentLevelIndex === 5 && this.isGameStarted;
-      put(this.endlessHud, 'show', String(show), (v) => this.endlessHud.classList.toggle('active', v === 'true'));
+      put(this.endlessHud, 'show', String(show), (v) => {
+        this.endlessHud.classList.toggle('active', v === 'true');
+        document.documentElement.classList.toggle('endless-on', v === 'true');   // lets the touch buttons clear the stats line
+      });
       if (show) {
         const h = this.level.hudData;
         put(this.endlessHud, 'data', JSON.stringify(h), () => this.renderEndlessHud(h));
@@ -1468,16 +1569,16 @@ export class Engine {
         <div class="eh-score"><div class="eh-score-label">SCORE</div><div class="eh-score-num"></div></div>
         <div class="eh-stats">
           <div><span class="eh-k">KILLS</span><span class="eh-v eh-kills"></span></div>
-          <div><span class="eh-k">DAMAGE TAKEN</span><span class="eh-v eh-dmg"></span></div>
+          <div><span class="eh-k">DAMAGE</span><span class="eh-v eh-dmg"></span></div>
         </div>
-        <div class="eh-mud"><span class="eh-key">Q</span><span class="eh-mud-text"></span></div>
+        <div class="eh-mud"><span class="eh-key" data-key="Q">Q</span><span class="eh-mud-text"></span></div>
         <div class="eh-best">BEST <span></span></div>`;
     }
     const q = (s) => el.querySelector(s);
     q('.eh-round-num').textContent = h.round;
     const done = h.size ? (h.size - h.left) / h.size : 0;
     q('.eh-mobs-bar span').style.width = `${Math.round(done * 100)}%`;
-    q('.eh-mobs-text').textContent = h.resting ? 'NEXT ROUND COMING' : `MOBS LEFT  ${h.left} / ${h.size}`;
+    q('.eh-mobs-text').textContent = h.resting ? 'NEXT ROUND' : `MOBS ${h.left}/${h.size}`;
     q('.eh-hp').textContent = h.hpBonus ? `ENEMIES +${h.hpBonus}% HP` : '';
     q('.eh-score-num').textContent = h.score;
     q('.eh-kills').textContent = h.kills;
@@ -1495,9 +1596,12 @@ export class Engine {
     this.dialogueActive = true;
     this.dialogueSpeaker = speaker;
     if (speaker !== prevSpeaker) Sfx.play('text_pop');   // the box pops up, or a new speaker takes over
+    // a line that teaches a key ([X], [Q], [F]...) cannot be skipped until it is fully shown and KEY_LINE_HOLD s
+    // have passed (typing cannot be rushed either)
+    const teaches = teachesKey(text);
     text = keyLabel(text);   // [E], [F]... name the controller's buttons while one is in use
     title = keyLabel(title);
-    this.dlg = { text, shown: 0, speaker, gesture, frame: pickPortrait(this.portraitSetName(speaker), gesture, text, portrait) };
+    this.dlg = { text, shown: 0, speaker, gesture, frame: pickPortrait(this.portraitSetName(speaker), gesture, text, portrait), age: 0, teaches };
     this.portraitAnim = 0;
     this.portraitFrame = -1;
     this.portraitPose = null;
@@ -1553,15 +1657,20 @@ export class Engine {
     const d = this.dlg;
     const typing = d.shown < d.text.length;
     if (typing) d.shown = Math.min(d.text.length, d.shown + dt * 70);
+    d.age += dt;
+    const locked = this.dialogueLocked();
     const n = Math.floor(d.shown);
     if (this.dlgShownNode && this.dlgShownNode.nodeValue.length !== n) {
       this.dlgShownNode.nodeValue = d.text.slice(0, n);
       this.dlgRestNode.textContent = d.text.slice(n);
     }
     this.dialogueDismiss?.classList.toggle('typing', d.shown < d.text.length);
+    this.dialogueDismiss?.classList.toggle('locked', locked);
     if (this.dialogueDismiss) {
       const more = this.convo && this.convo.i < this.convo.lines.length - 1;
-      const label = (d.shown < d.text.length ? '[E] SKIP' : more ? '[E] NEXT ▸' : '[E] CONTINUE') + (more ? '   [C] SKIP ALL' : '');
+      const k = Touch.active ? 'TAP' : '[E]';   // touch: the dialogue box itself is tapped
+      const label = locked ? (more ? `${k} NEXT ▸` : `${k} CONTINUE`)
+        : (d.shown < d.text.length ? `${k} SKIP` : more ? `${k} NEXT ▸` : `${k} CONTINUE`) + (more && !Touch.active ? '   [C] SKIP ALL' : '');
       if (this.dialogueDismiss.dataset.label !== label + Input.labelPad + Input.labelStyle) {
         this.dialogueDismiss.dataset.label = label + Input.labelPad + Input.labelStyle;
         this.dialogueDismiss.textContent = label;
@@ -1599,8 +1708,33 @@ export class Engine {
     this.portraitFrame = f;
   }
 
+  /** True while the open line teaches a key and is still typing or younger than KEY_LINE_HOLD s. */
+  dialogueLocked() {
+    const d = this.dlg;
+    return Boolean(d && d.teaches && (d.shown < d.text.length || d.age < KEY_LINE_HOLD));
+  }
+
+  /** [C]: skip the rest of the conversation, but stop at a later line that teaches a key (and never skip one that
+   *  is still locked). */
+  skipConversation() {
+    if (this.dialogueLocked()) return;
+    const c = this.convo;
+    if (c) {
+      for (let j = c.i + 1; j < c.lines.length; j++) {
+        if (!teachesKey(c.lines[j].t)) continue;
+        c.i = j;
+        const l = c.lines[j];
+        this.openDialogue(l.t, l.s, l.title || c.title, l.g ?? null, l.p ?? null);
+        return;
+      }
+    }
+    this.closeDialogue();
+    c?.onDone?.();
+  }
+
   /** [E] in a dialogue: finish the typing, then the next line, then close (running the conversation's onDone). */
   advanceDialogue() {
+    if (this.dialogueLocked()) return;
     const d = this.dlg;
     if (d && d.shown < d.text.length) {
       d.shown = d.text.length;

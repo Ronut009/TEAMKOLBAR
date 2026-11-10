@@ -57,7 +57,7 @@ const BG_EXT = 110;
 const PORTAL_DY = 54;    // screens continue below the art (a mirrored strip) so chasms fade out instead of ending in a hard edge
 
 // ---------------------------------------------------------------- sprites (assets/level2/sprites, measured)
-// Tower: 474 x 744 (tower.png and tower_ladder.png share the canvas). roofY = where feet stand on the roof.
+// Tower: 474 x 744 (tower.webp and tower_ladder.webp share the canvas). roofY = where feet stand on the roof.
 const TOWER = { w: 474, h: 744, cx: 235.2, roofY: 108, baseY: 729.6, roofL: 43, roofR: 427, ladderX: 339.3 };
 // The first tower (the Sun Key's) has its own art with the sun painted in its window: tower_sun.png and
 // tower_sun_ladder.png, fitted onto the same 474 x 744 canvas (same roof, base and centre); its ladder is a little
@@ -75,10 +75,10 @@ const TOWER_ROOF_Y = Math.round(FLOOR_Y + 4 - (TOWER.baseY - TOWER.roofY) * TOWE
 // Pillars: floor pillars stand on the floor, long pillars rise out of a chasm. surface = feet row from the top.
 // Pillars stand on their stepped bases, half buried in the quicksand.
 const PILLAR_ART = {
-  small: { src: 'pillar2_small.png', w: 168, h: 192, surface: 12, cap: 0.86 },
-  medium: { src: 'pillar2_medium.png', w: 184, h: 306, surface: 12, cap: 0.86 },
-  tall: { src: 'pillar2_tall.png', w: 212, h: 414, surface: 12, cap: 0.86 },
-  long: { src: 'pillar_long.png', w: 217, h: 929, surface: 14, cap: 0.84 }   // scenery only (seam columns)
+  small: { src: 'pillar2_small.webp', w: 168, h: 192, surface: 12, cap: 0.86 },
+  medium: { src: 'pillar2_medium.webp', w: 184, h: 306, surface: 12, cap: 0.86 },
+  tall: { src: 'pillar2_tall.webp', w: 212, h: 414, surface: 12, cap: 0.86 },
+  long: { src: 'pillar_long.webp', w: 217, h: 929, surface: 14, cap: 0.84 }   // scenery only (seam columns)
 };
 // Crumbling slabs (the floating-platform art): they give way FALL_DELAY s after Rakti lands on them
 const FALL_DELAY = 0.5;
@@ -96,7 +96,7 @@ const QS_SLOW = 0.3;
 const QS_SINK = 120;          // swallowed in about half a second
 const QS_SINK_MOVING = 95;
 const QS_MAX = 62;
-const QS = { src: 'quicksand.png', w: 1178, h: 187, surface: 13, scale: 0.5 };
+const QS = { src: 'quicksand.webp', w: 1178, h: 187, surface: 13, scale: 0.5 };
 // Stone sheets: 6 frames each. Ball frames are centred; slab frames are aligned on the stone's top edge.
 const BALL = { frameW: 196, frameH: 256, anchorX: 97.5, anchorY: 129, bottom: 254, scale: 0.25 };
 const SLAB = { frameW: 202, frameH: 234, anchorX: 101, anchorY: 3, slabL: 24, slabR: 178, scale: 0.42 };
@@ -174,28 +174,28 @@ export class Level2 {
     // ------------------------------------------------------------ art
     const B = 'assets/level2/bg/', S = 'assets/level2/sprites/';
     this.bg = {
-      portal: img(B + 'portal.jpg'), filler: img(B + 'filler.jpg'),
-      doorClosed: img(B + 'door_closed.jpg'), doorOpen: img(B + 'door_open.jpg'),
-      roomEntrance: img(B + 'room_entrance.jpg'),
-      roomEndClosed: img(B + 'room_end_closed.jpg'), roomEndOpen: img(B + 'room_end_open.jpg')
+      portal: img(B + 'portal.webp'), filler: img(B + 'filler.webp'),
+      doorClosed: img(B + 'door_closed.webp'), doorOpen: img(B + 'door_open.webp'),
+      roomEntrance: img(B + 'room_entrance.webp'),
+      roomEndClosed: img(B + 'room_end_closed.webp'), roomEndOpen: img(B + 'room_end_open.webp')
     };
-    this.towerImg = img(S + 'tower.png');
-    this.towerLadderImg = img(S + 'tower_ladder.png');
-    this.tower1Img = img(S + 'tower_sun.png');
-    this.tower1LadderImg = img(S + 'tower_sun_ladder.png');
+    this.towerImg = img(S + 'tower.webp');
+    this.towerLadderImg = img(S + 'tower_ladder.webp');
+    this.tower1Img = img(S + 'tower_sun.webp');
+    this.tower1LadderImg = img(S + 'tower_sun_ladder.webp');
     this.pillarImgs = Object.fromEntries(Object.entries(PILLAR_ART).map(([k, v]) => [k, img(S + v.src)]));
-    this.ballSheet = img(S + 'stone_ball_sheet.png');
-    this.slabSheet = img(S + 'stone_slab_sheet.png');
-    this.keyImg = img(S + 'key.png');
-    this.hourglassImg = img(S + 'sands_hourglass.png');
+    this.ballSheet = img(S + 'stone_ball_sheet.webp');
+    this.slabSheet = img(S + 'stone_slab_sheet.webp');
+    this.keyImg = img(S + 'key.webp');
+    this.hourglassImg = img(S + 'sands_hourglass.webp');
     this.quicksandImg = img(S + QS.src);
-    this.pierImg = img(S + 'pier.png');
-    this.shrineImg = img(S + 'shrine.png');
-    this.trishulImg = img('assets/weapons/trishul_upright.png');
+    this.pierImg = img(S + 'pier.webp');
+    this.shrineImg = img(S + 'shrine.webp');
+    this.trishulImg = img('assets/weapons/trishul_upright.webp');
     this.platformArt = new PlatformArt('desert');
     this.enemySprites = new EnemySpriteSheet();
     const A = 'assets/level2/archer/';
-    const frames = (name, n) => Array.from({ length: n }, (_, i) => img(`${A}${name}_${i}.png`));
+    const frames = (name, n) => Array.from({ length: n }, (_, i) => img(`${A}${name}_${i}.webp`));
     const aim = frames('aim', 6), aimUp = frames('aimup', 6), hurt = frames('hurt', 2), die = frames('die', 3);
     this.archerSprites = {
       idle: aim[0],
@@ -205,7 +205,7 @@ export class Level2 {
       hurtFrames: [hurt[0], hurt[1], hurt[1], hurt[0]],
       dieFrames: [die[0], die[1], die[2], die[2]],
       defeated: die[2],
-      arrow: img('assets/anims/archer_arrow.png')
+      arrow: img('assets/anims/archer_arrow.webp')
     };
     // walking archers (the way back's enemies walking in): the 6 walk frames in the idle slot
     const walk = frames('walk', 6);
@@ -1166,6 +1166,16 @@ export class Level2 {
   }
 
   // ======================================================================== [Q] Kali's earth power
+  /** True while [Q] would answer here (a stone ball or raw slabs in reach): the HUD points an arrow at the key. */
+  qHint(player) {
+    const p = this.progress;
+    if (!p.qUnlocked || this.transition || this.intro || !player || player.isDead || !player.hasPearl) return false;
+    if (this.area !== 'out' || !player.isGrounded || player.isCasting || player.isClimbing) return false;
+    const px = player.x;
+    return this.balls.some((b) => b.state === 'idle' && Math.abs(px - b.x) < 170) ||
+      this.slabs.some((s) => s.state === 'raw' && Math.abs(px - s.cx) < 340);
+  }
+
   castQ(player) {
     const p = this.progress;
     if (!p.qUnlocked || this.transition || this.intro || !player || player.isDead) return;
