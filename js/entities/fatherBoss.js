@@ -15,10 +15,14 @@
 
 import { Arrow } from './archer.js';
 import { Sfx } from '../core/audio.js';
+import { Run } from '../core/run.js';
 
 export const BOSS = {
   HP: 300,            // Pitaji fights from 300 down to 200: 100 HP, shown on his own bar
   STAGE2_HP: 200,     // the Asura then has 200, on the boss bar
+  // Hard and Hardcore: 550 in all, Pitaji 150 (550 down to 400) and the Asura 400; Pitaji's cooldowns run 1.5x as fast;
+  // the Asura's rage starts at 3/4 of its health (300) instead of half
+  HARD_HP: 550, HARD_STAGE2_HP: 400, HARD_FATHER_RATE: 1.5, HARD_RAGE_AT: 0.75,
   F_SPEED: 78,
   D_SPEED: 92,
   FLY_Y: 175,                 // hover height above the floor
@@ -186,9 +190,10 @@ export class FatherBoss {
   /** stage 1: the father on his throne; stage 2: straight back into the Asura (respawn after dying to it). */
   reset(stage = 1) {
     this.stage = stage;
-    this.hp = stage === 1 ? BOSS.HP : BOSS.STAGE2_HP;
-    this.maxHp = BOSS.HP;
-    this.stage2Hp = BOSS.STAGE2_HP;   // Pitaji: HP .. STAGE2_HP (100 on his own bar); the Asura: STAGE2_HP .. 0
+    const hard = Run.hardBoss;
+    this.maxHp = hard ? BOSS.HARD_HP : BOSS.HP;
+    this.stage2Hp = hard ? BOSS.HARD_STAGE2_HP : BOSS.STAGE2_HP;
+    this.hp = stage === 1 ? this.maxHp : this.stage2Hp;   // Pitaji: HP .. STAGE2_HP (100 on his own bar); the Asura: STAGE2_HP .. 0
     this.x = stage === 1 ? this.home.x : this.home.x - 300;
     this.y = stage === 1 ? this.home.y : this.level.floorY;
     this.vy = 0;
@@ -215,7 +220,7 @@ export class FatherBoss {
   get active() { return this.state !== 'throne' && this.state !== 'hidden'; }
   get fighting() { return ['walk', 'slash', 'energy', 'recover', 'stagger', 'blast', 'slam', 'takeoff', 'hover', 'orbcast', 'dive', 'land', 'leapdown', 'dodge', 'lunge', 'jumpslash'].includes(this.state); }
   get invulnerable() { return !this.fighting || this.state === 'leapdown' || this.state === 'dodge'; }
-  get enraged() { return this.stage === 2 && this.hp <= 100; }
+  get enraged() { return this.stage === 2 && this.hp <= this.stage2Hp * (Run.hardBoss ? BOSS.HARD_RAGE_AT : 0.5); }
   get demon() { return this.stage === 2 && this.state !== 'defeat' && this.state !== 'freed'; }
   // targeting geometry (Trishul / gold orbs / sword)
   get hitHeight() { return this.demon ? 88 : 70; }
@@ -229,7 +234,7 @@ export class FatherBoss {
   takeHit(damage, fromX, level = this.level, source = null) {
     if (this.invulnerable) return false;
     Sfx.play('hit');
-    const floor = this.stage === 1 ? BOSS.STAGE2_HP : 0;
+    const floor = this.stage === 1 ? this.stage2Hp : 0;
     const dealt = Math.min(damage, this.hp - floor);
     this.hp = Math.max(floor, this.hp - damage);
     this.hitFlash = 0.22;
@@ -279,7 +284,8 @@ export class FatherBoss {
     if (paused) return;
     this.t += dt;
     this.anim += dt;
-    for (const k of Object.keys(this.cd)) this.cd[k] -= dt;
+    const rate = this.stage === 1 && Run.hardBoss ? BOSS.HARD_FATHER_RATE : 1;   // Hard: Pitaji attacks more often
+    for (const k of Object.keys(this.cd)) this.cd[k] -= dt * rate;
     this.updateWaves(dt, player);
     this.updateSpikes(dt, player);
 
