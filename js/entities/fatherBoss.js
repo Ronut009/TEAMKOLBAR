@@ -275,6 +275,7 @@ export class FatherBoss {
         const land = this.surfaceAt(this.x, y0);
         if (this.y >= land && this.vy > 0) {
           this.y = land;
+          this.vy = 0;
           this.leapFrom = null;
           Sfx.play('boss_land');
           L.shake(0.5);
@@ -332,6 +333,7 @@ export class FatherBoss {
         const land = this.surfaceAt(this.x, y0);
         if (this.vy > 0 && this.y >= land) {
           this.y = land;
+          this.vy = 0;
           Sfx.play('boss_land');
           L.shake(0.4);
           L.burst(this.x, land - 4, 12, ['#c8955a', '#ffd36b', '#7a2d12'], 110, 0.4);

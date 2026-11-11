@@ -19,6 +19,7 @@ const MELEE_VERT = 120;      // talwar: max vertical offset of a target
 const THROW_SPEED = 640;     // matches TRISHUL.speed (used to lead moving targets)
 const THROW_REACH = 380;     // matches TRISHUL.range; levels may set their own trishulRange
 const LEAD_MAX = 110;        // never lead a moving target by more than this many world px
+const MOTION_MAX = 900;      // a measured speed above this (world px / s) is a teleport, not a movement
 const LOCK_BONUS = 70;       // sticky targeting: the current target wins unless another is this much closer
 
 // id, label, key code, css class suffix. Attack is MouseLeft (what the 'attack' alias reads).
@@ -269,14 +270,40 @@ class TouchControls {
     return [...out];
   }
 
-  /** Where the Trishul must go to hit `e`: the middle of its hit box, led by its own movement. */
+  /**
+   * How fast each target is really moving, measured from where it was last frame. An enemy's own vx / vy cannot be
+   * trusted for this: the boss walks by setting x directly (no vx) and keeps the vy of his last leap long after he
+   * has landed, which used to drag the aim point down into the floor.
+   */
+  _trackMotion(targets) {
+    const now = performance.now();
+    if (!this.motion) this.motion = new WeakMap();
+    for (const e of targets) {
+      const m = this.motion.get(e);
+      if (!m) { this.motion.set(e, { x: e.x, y: e.y, t: now, vx: 0, vy: 0 }); continue; }
+      const dt = (now - m.t) / 1000;
+      if (dt < 0.004) continue;                                 // same frame (refineThrow): keep the last reading
+      let vx = 0, vy = 0;
+      if (dt <= 0.12) {                                         // (longer: paused or out of sight, so no reading)
+        vx = (e.x - m.x) / dt;
+        vy = (e.y - m.y) / dt;
+        if (Math.hypot(vx, vy) > MOTION_MAX) { vx = 0; vy = 0; }   // a teleport, not a movement
+      }
+      m.vx += (vx - m.vx) * 0.5;
+      m.vy += (vy - m.vy) * 0.5;
+      m.x = e.x; m.y = e.y; m.t = now;
+    }
+  }
+
+  /** Where the Trishul must go to hit `e`: the middle of its hit box, led by its measured movement. */
   _aimPoint(e, sx, sy) {
     const hh = e.hitHeight ?? 64;
     let tx = e.x, ty = e.y - hh * 0.55;
     const t = Math.hypot(tx - sx, ty - sy) / THROW_SPEED;
+    const m = this.motion?.get(e);
     const lead = (v) => Math.max(-LEAD_MAX, Math.min(LEAD_MAX, (Number.isFinite(v) ? v : 0) * t));
-    tx += lead(e.vx);
-    ty += lead(e.vy);
+    tx += lead(m?.vx);
+    ty += lead(m?.vy);
     return { x: tx, y: ty };
   }
 
@@ -292,7 +319,9 @@ class TouchControls {
     const reach = (level?.trishulRange ?? THROW_REACH) + 30;
     const vw = window.innerWidth, vh = window.innerHeight;
     let best = null, bestScore = Infinity;
-    for (const e of this._targets(level)) {
+    const targets = this._targets(level);
+    this._trackMotion(targets);
+    for (const e of targets) {
       const pt = this._aimPoint(e, sx, sy);
       const scrX = (pt.x - camX) * z, scrY = (pt.y - camY) * z;
       if (scrX < -20 || scrX > vw + 20 || scrY < -20 || scrY > vh + 20) continue;   // off screen

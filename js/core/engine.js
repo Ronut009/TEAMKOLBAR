@@ -447,7 +447,9 @@ export class Engine {
       const label = skip.querySelector('.ic-skip-text');
       if (label) label.innerHTML = Touch.active ? 'SKIP &#9654;&#9654;' : 'HOLD <b>ESC</b> TO SKIP';
       skip.classList.toggle('touch', Touch.active);
-      skip.onpointerdown = Touch.active ? (e) => { e.preventDefault(); this.finishIntroCutscene(); } : null;
+      const tapSkip = Touch.active ? (e) => { e.preventDefault(); e.stopPropagation(); this.finishIntroCutscene(); } : null;
+      skip.onpointerdown = tapSkip;
+      skip.onclick = tapSkip;   // (a browser that sends no pointer events for the tap still skips)
     }
     const p = video.play();
     if (p && p.catch) p.catch(() => {

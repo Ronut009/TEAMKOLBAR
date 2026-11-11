@@ -2001,7 +2001,8 @@ html.touch-on .heart-clock.show { transform: scale(0.6); }
 
 /* Touch: the opening film's skip pill is a plain one-tap SKIP button (no hold bar) */
 .menu-button[hidden] { display: none; }
-.ic-skip.touch { padding: 12px 22px; opacity: 0.9; border: 1px solid rgba(255, 215, 120, 0.55); border-radius: 22px; cursor: pointer; }
+/* (.ic-skip itself ignores the pointer: on a PC it is only a hint for the key. Here it is the button, so it must take taps.) */
+.ic-skip.touch { padding: 12px 22px; opacity: 0.9; border: 1px solid rgba(255, 215, 120, 0.55); border-radius: 22px; cursor: pointer; pointer-events: auto; }
 .ic-skip.touch .ic-skip-bar { display: none; }
 .ic-skip.touch .ic-skip-text { letter-spacing: 3px; font-size: 14px; }
 
