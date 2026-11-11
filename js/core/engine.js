@@ -10,6 +10,13 @@ import { Input } from './input.js';
 import { Music, Sfx } from './audio.js';
 import { keyLabel, startKeyLabels } from './keyLabels.js';
 import { SettingsMenu } from './settings.js';
+import { Run, Saves } from './run.js';
+import { SlotsMenu } from './slots.js';
+import { AssetWatch } from './assetWatch.js';
+
+// The loading screen stays until the level's pictures have arrived, but never longer than this (a picture that
+// will not come must not hold the game)
+const LOADING_MAX_WAIT = 25;
 
 // An atmosphere hum swells as Rakti nears the item she needs to progress (a level's crucialItem())
 const AURA_RANGE = 380, AURA_CLOSE = 110;
@@ -28,7 +35,9 @@ const teachesKey = (text) => KEY_TOKEN.test(String(text || ''));
 //  [J] Level 2: the Sands of Time on tower 2   [H] Level 2: the Trishul's shrine in the Hall of the Sun
 //  [K] Level 3: the Forest Heart wakes, the 50 s race   [G] Level 4: Pitaji falls and the Asura rises
 //  [L] Level 4: the Asura is broken: the ending scene, then the final card
-const DEMO_JUMPS = { KeyJ: 'sands', KeyH: 'trishul', KeyK: 'heart', KeyG: 'demon', KeyL: 'ending' };
+// These and the level keys [U] [I] [O] [P] only work when the page address ends in ?dev (so players never hit them)
+const DEV_KEYS = typeof location !== 'undefined' && new URLSearchParams(location.search).has('dev');
+const DEMO_JUMPS = DEV_KEYS ? { KeyJ: 'sands', KeyH: 'trishul', KeyK: 'heart', KeyG: 'demon', KeyL: 'ending' } : {};
 import { TRISHUL } from '../entities/player.js';
 import { Level2 } from '../levels/level2.js';
 import { Level3 } from '../levels/level3.js';
@@ -212,9 +221,18 @@ export class Engine {
     startKeyLabels();      // on-screen [KEY] names follow the device in use (keyboard, Xbox or PlayStation pad)
     Music.play('title');   // the start screen's music: it begins at once, or on the first click if the browser blocks that
 
+    // Campaign: the three save slots (js/core/slots.js). An empty slot asks for the difficulty, then the game begins.
+    this.slotIndex = null;      // the slot being played (null: Chaos mode, the test keys)
+    this.saveClock = 0;
+    this.lastSaveKey = '';
+    this.slots = new SlotsMenu({
+      onNew: (slot, difficulty) => this.startJourney(slot, difficulty),
+      onContinue: (slot) => this.continueJourney(slot)
+    });
     this.startGameButton?.addEventListener('click', (event) => {
       event.preventDefault();
-      this.startJourney();
+      event.stopPropagation();
+      this.openCampaign();
     });
 
     this.endlessGameButton?.addEventListener('click', (event) => {
@@ -231,6 +249,13 @@ export class Engine {
 
     window.addEventListener('resize', this.resizeCanvas);
     this.resizeCanvas();
+
+    // Leaving the game (another tab, another window, minimising) pauses it
+    const away = () => {
+      if (this.isGameStarted && !this.isLoading && !this.paused && !this.intro && !this.playerDying && !this.levelCompleted) this.pause();
+    };
+    document.addEventListener('visibilitychange', () => { if (document.hidden) away(); });
+    window.addEventListener('blur', away);
   }
 
   resizeCanvas() {
@@ -277,6 +302,7 @@ export class Engine {
       : index === 3 ? this.level3
       : index === 2 ? this.level2
       : this.level1;
+    Run.campaign = index >= 1 && index <= 4;    // the difficulty only counts in the story (enemy health is set in reset())
     this.level.reset();
     this.levelCompleted = false;
     this.levelTransitionTimer = 0;
@@ -403,8 +429,24 @@ export class Engine {
     }
   }
 
-  startJourney() {
+  /** Title screen > CAMPAIGN MODE: the save slots. */
+  openCampaign() {
+    if (this.isGameStarted || this.isLoading || this.intro || this.slots.isOpen) return;
+    this.slots.show(this.startGameButton);
+  }
+
+  /** A new game in a save slot, at the chosen difficulty ('normal' | 'hard' | 'hardcore'). */
+  startJourney(slot = null, difficulty = 'normal') {
     if (this.isGameStarted || this.isLoading) return;
+    this.slotIndex = slot;
+    Run.difficulty = difficulty;
+    this.lastSaveKey = '';
+    if (slot !== null) {
+      // a hardcore slot counts its attempts; anything else starts at 1
+      const before = Saves.get(slot);
+      const attempts = before && before.difficulty === 'hardcore' && difficulty === 'hardcore' && !before.completed ? (before.attempts || 1) : 1;
+      Saves.write(slot, Saves.fresh(difficulty, attempts));
+    }
     this.prologueComplete = false;   // a new game always starts with the wake-up
     this.level1.checkpointIndex = -1;
     this.level1.abilityGranted = false;
@@ -415,6 +457,44 @@ export class Engine {
     this.level1.relicTalked = false;
     this.runStats = { time: 0, deaths: 0 };   // a new campaign: a new run
     this.playIntroCutscene(() => this.beginLoadingTransition(1));
+  }
+
+  /** Continue a save slot: the level it reached, as Rakti would return to it after a death (Normal: her last
+   *  checkpoint; Hard and Hardcore: the start of the level). */
+  continueJourney(slot) {
+    const s = Saves.get(slot);
+    if (!s || this.isGameStarted || this.isLoading) return;
+    this.slotIndex = slot;
+    Run.difficulty = s.difficulty;
+    this.lastSaveKey = '';
+    this.runStats = { time: s.time || 0, deaths: s.deaths || 0 };
+    this.closeDialogue();
+    this.playerDying = false;
+    this.beginLoadingTransition(s.level);                 // freshStart(): the level from scratch ...
+    this.prologueComplete = Boolean(s.prologue) || s.level > 1;
+    if (s.difficulty === 'normal' && s.snap) [null, this.level1, this.level2, this.level3, this.level4][s.level]?.restore?.(s.snap);   // ... then what the slot kept
+    else if (s.level === 1 && s.testDone) this.level1.testDone = true;
+  }
+
+  /** Writes the slot being played (called about once a second while playing; `force` at once). Only what a death
+   *  would keep is stored, so continuing is the same as coming back from a death. */
+  autosave(force = false) {
+    const i = this.currentLevelIndex;
+    if (this.slotIndex === null || i < 1 || i > 4 || this.playerDying) return;
+    const old = Saves.get(this.slotIndex);
+    const save = {
+      difficulty: Run.difficulty, level: i, prologue: this.prologueComplete,
+      snap: Run.difficulty === 'normal' ? (this.level.snapshot?.() ?? null) : null,
+      testDone: i === 1 && Boolean(this.level1.testDone),
+      attempts: old?.attempts || 1, completed: Boolean(this.levelCompleted && i === 4),
+      deaths: this.runStats.deaths
+    };
+    const key = JSON.stringify(save);
+    this.saveClock = 0;
+    if (!force && key === this.lastSaveKey && Math.floor(this.runStats.time / 10) === this.lastSaveTen) return;   // (the clock is stored every 10 s)
+    this.lastSaveKey = key;
+    this.lastSaveTen = Math.floor(this.runStats.time / 10);
+    Saves.write(this.slotIndex, { ...save, time: Math.floor(this.runStats.time) });
   }
 
   // ======================================================================== the opening cutscene
@@ -501,6 +581,7 @@ export class Engine {
   /** Title screen: Unlimited mode (endless rounds in one arena). */
   startEndless() {
     if (this.isGameStarted || this.isLoading) return;
+    this.slotIndex = null;
     this.beginLoadingTransition(5);
   }
 
@@ -509,6 +590,9 @@ export class Engine {
   demoJump(kind) {
     const index = { sands: 2, trishul: 2, heart: 3, demon: 4, ending: 4 }[kind];
     if (!index || this.isLoading || this.intro) return;
+    this.slotIndex = null;          // a test jump never touches a save slot
+    Run.difficulty = 'normal';
+    this.slots?.hide(false);
     this.closeDialogue();
     this.playerDying = false;
     this.deathScreen?.classList.remove('active');
@@ -620,6 +704,7 @@ export class Engine {
     const pad = Input.device === 'pad';
     let root = null;
     if (this.settings?.isOpen) root = this.settings.panel;
+    else if (this.slots?.isOpen) root = this.slots.panel;
     else if (this.paused) root = this.pauseConfirm && !this.pauseConfirm.hidden ? this.pauseConfirm : this.pauseMain;
     else if (!this.isGameStarted && !this.isLoading && this.titleScreen?.classList.contains('active')) root = this.titleScreen;
     if (this.padRoot !== root) { this.padFocus = 0; this.padRoot = root; this.padFresh = true; }
@@ -652,6 +737,11 @@ export class Engine {
       this.settings.hide();
       return true;
     }
+    if (this.slots?.isOpen && Input.isPressed('PadB')) {
+      Input.consume('PadB');
+      this.slots.back();
+      return true;
+    }
     if (this.paused && Input.isPressed('PadB')) {
       Input.consume('PadB');
       if (this.pauseConfirm && !this.pauseConfirm.hidden) this.showRestartConfirm(false);
@@ -674,8 +764,7 @@ export class Engine {
       kali: Boolean(p.hasDivineUnlocked),
       earth: i === 2 ? Boolean(this.level2?.progress?.qUnlocked) : i >= 3 && Boolean(p.hasPearl),
       sands: Boolean(p.hasSands),
-      story: true,
-      checkpoint: true
+      story: true
     };
   }
 
@@ -721,6 +810,8 @@ export class Engine {
   }
 
   returnToTitle() {
+    this.autosave(true);          // leaving the campaign: the slot is up to date
+    this.slotIndex = null;
     this.isGameStarted = false;
     this.paused = false;
     this.pauseScreen?.classList.remove('active');
@@ -742,14 +833,25 @@ export class Engine {
       if (Input.isPressed('Escape')) this.settings.hide();
       return;
     }
+    // The campaign's save slots (over the title screen): [Esc] or B goes back a step
+    if (this.slots?.isOpen) {
+      this.padMenu();
+      if (Input.isPressed('Escape')) this.slots.back();
+      return;
+    }
     // a controller in the title and pause menus
     if (this.padMenu()) return;
     // the run's clock: story levels only, while actually playing
     if (this.isGameStarted && !this.isLoading && !this.paused && !this.levelCompleted
-        && this.currentLevelIndex >= 1 && this.currentLevelIndex <= 4) this.runStats.time += dt;
+        && this.currentLevelIndex >= 1 && this.currentLevelIndex <= 4) {
+      this.runStats.time += dt;
+      this.saveClock += dt;
+      if (this.saveClock >= 1) this.autosave();
+    }
     if (this.isLoading) {
       this.loadingTimer -= dt;
-      if (this.loadingTimer <= 0) {
+      const artReady = AssetWatch.pending(this.loadingTargetIndex) === 0 || this.loadingTimer < -LOADING_MAX_WAIT;
+      if (this.loadingTimer <= 0 && artReady) {
         const destinationIndex = this.loadingTargetIndex;
         this.isLoading = false;
         this.loadingTargetIndex = null;
@@ -770,7 +872,7 @@ export class Engine {
         for (const [code, kind] of Object.entries(DEMO_JUMPS)) if (Input.isPressed(code)) { this.demoJump(kind); break; }
       }
       if (Input.isPressed('enter') || Input.isPressed('space')) {
-        this.startJourney();
+        this.openCampaign();
       }
       this.updateCamera(dt);
       return;
@@ -797,11 +899,6 @@ export class Engine {
     // still allowing the player to enter the next level immediately with E or Space.
     if (this.currentLevelIndex >= 1 && this.currentLevelIndex <= 3 && this.levelCompleted) {
       const nextLevel = this.currentLevelIndex + 1;
-      if (Input.isPressed('reset') || Input.isPressed('KeyR')) {
-        this.resetGame();
-        return;
-      }
-
       this.levelTransitionTimer -= dt;
       if (this.completePrompt) {
         const seconds = Math.max(0, Math.ceil(this.levelTransitionTimer));
@@ -821,11 +918,6 @@ export class Engine {
     // Level 3 intentionally advances through a scripted defeat. Let its own
     // fade and epilogue run instead of triggering the regular checkpoint reset.
     if (this.currentLevelIndex === 3 && this.level.usesScriptedDefeat !== false && this.player.hp <= 0) {
-      if (Input.isPressed('reset') || Input.isPressed('KeyR')) {
-        this.resetGame();
-        return;
-      }
-
       this.closeDialogue();
       this.player.vx = 0;
       this.player.vy = 0;
@@ -857,9 +949,11 @@ export class Engine {
     }
 
     // Testing shortcuts: [U] Level 1, [I] Level 2, [O] Level 3, [P] Level 4 (each starts the level fresh)
-    const devKeys = { KeyU: 1, KeyI: 2, KeyO: 3, KeyP: 4 };
+    const devKeys = DEV_KEYS ? { KeyU: 1, KeyI: 2, KeyO: 3, KeyP: 4 } : {};
     for (const [code, index] of Object.entries(devKeys)) {
       if (Input.isPressed(code)) {
+        this.slotIndex = null;      // a test jump never touches a save slot
+        Run.difficulty = 'normal';
         this.beginLoadingTransition(index);
         return;
       }
@@ -869,15 +963,7 @@ export class Engine {
     }
 
 
-    // Restart [R] (from the last checkpoint): only while Rakti is fully under the player's control, never during a
-    // dialogue, a cutscene (scripted walk, wake-up, outfit change, level scenes) or a level-change fade
-    const p0 = this.player, L0 = this.level;
-    const inCutsceneNow = this.dialogueActive || p0.inputLocked || p0.isWaking || p0.isChangingOutfit || p0.autoWalkX != null
-      || Boolean(L0.pendingDialogue) || Boolean(L0.introPending) || Boolean(L0.cutscene) || (L0.screenFade || 0) > 0.05;
-    if ((Input.isPressed('reset') || Input.isPressed('KeyR')) && !inCutsceneNow) {
-      this.resetGame();
-      return;
-    }
+    // (The [R] restart shortcut is removed for now: Restart is in the pause menu.)
 
     // Morph Object Ability [Q] (Level 2 only - completely disabled in round 1)
     if ((Input.isPressed('morph') || Input.isPressed('q')) && !this.dialogueActive) {
@@ -1126,9 +1212,10 @@ export class Engine {
       if (this.completeTitle) this.completeTitle.textContent = 'THE REALMS ARE SAVED';
       if (this.completeSubtitle) this.completeSubtitle.textContent = 'THE FOUR RELICS ARE WHOLE  ·  THE RIFT IS SEALED';
       if (this.completeFlavor) this.completeFlavor.textContent = 'Rakti crossed four broken realms, freed her father from the Asura and sealed the rift with Maa Kali\'s relics. The sea is calm over Dwaraka again, and the two of them are going home.';
-      if (this.completePrompt) this.completePrompt.textContent = '[E] RETURN TO TITLE  |  [R] RELIVE THE FINAL TRIAL';
+      if (this.completePrompt) this.completePrompt.textContent = '[E] RETURN TO TITLE';
     }
     const final = this.currentLevelIndex === 4;
+    if (final) this.autosave(true);     // the slot is marked completed, with the run's time and deaths
     // every level's card uses the same gold-framed design as the death card (the 'final' class is that frame)
     this.levelCompleteModal.classList.add('final');
     const thanks = document.getElementById('completeThanks');
@@ -1245,26 +1332,53 @@ export class Engine {
     this.closeDialogue();
     if (this.level) this.level.cameraShake = 1.0;
     this.player.spawnDeathBurst();
+    // What a death costs: Normal, back to the last checkpoint; Hard, the level from its very start; Hardcore, the
+    // run is over. (A level's own card, Level 3's withered heart, is not Rakti's death: it is always the Normal way.)
+    const mode = this.level?.deathCard?.() ? 'normal' : Run.mode;
 
     if (this.deathScreen) {
       const small = document.getElementById('deathSmall');
       const big = this.deathScreen.querySelector('.death-big');
       // a level can word the card itself (Level 3: the Forest Heart withered before she reached it)
       const card = this.level?.deathCard?.();
-      if (big) big.textContent = card?.big || "IT'S NOT OVER YET";
-      if (small) small.textContent = card?.small || (this.currentLevelIndex === 5 ? 'Rising again in the arena' : 'Respawning at the last checkpoint');
+      if (big) big.textContent = card?.big || (mode === 'hardcore' ? 'THE GUARDIAN HAS FALLEN' : "IT'S NOT OVER YET");
+      if (small) small.textContent = card?.small || (this.currentLevelIndex === 5 ? 'Rising again in the arena'
+        : mode === 'hardcore' ? 'Hardcore: the journey begins again from Drowned Dwaraka'
+        : mode === 'hard' ? 'Hard: back to the start of the level'
+        : 'Respawning at the last checkpoint');
       this.deathScreen.classList.toggle('withered', Boolean(card));
       this.deathScreen.classList.add('active');
     }
 
     // After a short pause (long enough to read the card), respawn at the last checkpoint with full health
     setTimeout(() => {
-      this.loadLevel(this.currentLevelIndex);
       this.playerDying = false;
-      if (this.deathScreen) {
-        this.deathScreen.classList.remove('active');
+      this.deathScreen?.classList.remove('active');
+      if (mode === 'hardcore') { this.endHardcoreRun(); return; }
+      if (mode === 'hard') {
+        // the level from scratch (Level 1 does not replay the wake-up and Kali's first test once they are done)
+        const i = this.currentLevelIndex, tested = i === 1 && this.level1.testDone;
+        this.level.freshStart?.();
+        if (tested) this.level1.testDone = true;
       }
-    }, 1900);
+      this.loadLevel(this.currentLevelIndex);
+      this.autosave(true);
+    }, mode === 'hardcore' ? 3200 : 1900);
+  }
+
+  /** Hardcore: a death ends the run. The slot goes back to Level 1 (its attempt count goes up) and the title screen
+   *  returns: the player begins again from there. */
+  endHardcoreRun() {
+    const slot = this.slotIndex;
+    if (slot !== null) {
+      const old = Saves.get(slot);
+      Saves.write(slot, Saves.fresh('hardcore', (old?.attempts || 1) + 1));
+    }
+    this.slotIndex = null;          // (nothing more to save from this run)
+    for (const L of [this.level1, this.level2, this.level3, this.level4]) L.freshStart?.();
+    this.player.hp = this.player.maxHp;
+    this.player.isDead = false;
+    this.returnToTitle();
   }
 
   updateCamera(dt) {
@@ -1484,7 +1598,8 @@ export class Engine {
         if (this.killToastText && this.level.killToastText && this.killToastText.textContent !== this.level.killToastText) {
           this.killToastText.textContent = this.level.killToastText;
         }
-        this.killToast.classList.add('active');
+        // Hard and Hardcore have no checkpoints to come back to: their notice is not shown
+        this.killToast.classList.toggle('active', !(Run.noCheckpoints && String(this.level.killToastText).includes('CHECKPOINT')));
       } else {
         this.killToast.classList.remove('active');
       }

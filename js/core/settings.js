@@ -6,7 +6,8 @@
  * The screen's markup is #settingsScreen in index.html; its buttons are the main menu's (.menu-button).
  */
 import { Input } from './input.js';
-import { Sfx } from './audio.js';
+import { Music, Sfx } from './audio.js';
+import { Options, VOL_MAX } from './options.js';
 
 // What each action is on each device, by group. A name in SYM is a PlayStation symbol (drawn larger).
 // Each row names what it needs (`need`); the screen only lists rows the player has (see `show(from, has)`), so the
@@ -27,16 +28,21 @@ const ROWS = [
   { g: 'ABILITIES', what: 'Sands of Time', need: 'sands', keyboard: ['F'], xbox: ['RB'], ps: ['R1'] },
   { g: 'MENUS & STORY', what: 'Interact / next line', need: 'story', keyboard: ['E'], xbox: ['Y'], ps: ['△'] },
   { g: 'MENUS & STORY', what: 'Skip a conversation', need: 'story', keyboard: ['C'], xbox: ['VIEW'], ps: ['CREATE'] },
-  { g: 'MENUS & STORY', what: 'Restart at checkpoint', need: 'checkpoint', keyboard: ['R'], xbox: ['VIEW'], ps: ['CREATE'] },
-  { g: 'MENUS & STORY', what: 'Restart the arena', need: 'arena', keyboard: ['R'], xbox: ['VIEW'], ps: ['CREATE'] },
   { g: 'MENUS & STORY', what: 'Pause', keyboard: ['ESC'], xbox: ['MENU'], ps: ['OPTIONS'] },
   { g: 'MENUS & STORY', what: 'Skip the opening film', need: 'film', keyboard: ['HOLD ESC'], xbox: ['HOLD MENU'], ps: ['HOLD OPTIONS'] }
 ];
 /** The title screen: the basics only (no powers, no Trishul: they would spoil the story). */
-export const MENU_CONTROLS = { climb: true, ledge: true, attack: true, story: true, checkpoint: true, film: true };
+export const MENU_CONTROLS = { climb: true, ledge: true, attack: true, story: true, film: true };
 const SYM = new Set(['✕', '○', '□', '△', '▲', '▼']);
 
 const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+function toggleFullscreen() {
+  try {
+    if (document.fullscreenElement) document.exitFullscreen?.();
+    else document.documentElement.requestFullscreen?.().catch(() => {});
+  } catch (e) { /* the browser refused: nothing changes */ }
+}
 
 export class SettingsMenu {
   constructor() {
@@ -48,6 +54,29 @@ export class SettingsMenu {
     this.from = null;          // the button that opened it (focus goes back there)
     this.has = MENU_CONTROLS;  // what the player has (which rows to list)
     this.shownKey = null;      // the device + rows on screen
+    // Two pages: GAME (volume, full screen) and CONTROLS
+    this.tab = 'game';
+    this.tabButtons = [...document.querySelectorAll('#settingsScreen [data-tab]')];
+    this.pages = { game: document.getElementById('settingsGame'), controls: document.getElementById('settingsControls') };
+    const click = (el, fn) => el?.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); fn(); });
+    for (const b of this.tabButtons) click(b, () => { this.tab = b.dataset.tab; Sfx.play('text_pop'); this.render(); });
+    for (const b of document.querySelectorAll('#settingsScreen [data-vol]')) {
+      click(b, () => {
+        const kind = b.dataset.vol;
+        Options.setVolume(kind, Options[kind] + Number(b.dataset.d));
+        Music.setUserVolume(Options.gain('music'));
+        Sfx.setUserVolume(Options.gain('sfx'));
+        Sfx.play('text_pop');     // the effects volume is heard at once
+        this.render();
+      });
+    }
+    this.fsButton = document.getElementById('optFullscreen');
+    click(this.fsButton, () => { Sfx.play('text_pop'); toggleFullscreen(); });
+    document.addEventListener('fullscreenchange', () => {
+      // in full screen [Esc] should pause the game, not drop out of full screen (browsers that allow it: hold Esc leaves)
+      try { if (document.fullscreenElement) navigator.keyboard?.lock?.(['Escape']); else navigator.keyboard?.unlock?.(); } catch (e) { /* not supported */ }
+      if (this.isOpen) this.render();
+    });
     for (const b of this.devButtons) {
       b.addEventListener('click', (e) => {
         e.preventDefault();
@@ -78,7 +107,7 @@ export class SettingsMenu {
     this.el.classList.add('active');
     this.el.setAttribute('aria-hidden', 'false');
     this.render();
-    this.devButtons.find((b) => b.dataset.device === this.current())?.focus({ focusVisible: false });
+    this.tabButtons.find((b) => b.dataset.tab === this.tab)?.focus({ focusVisible: false });
   }
 
   hide() {
@@ -90,6 +119,25 @@ export class SettingsMenu {
   }
 
   render() {
+    for (const b of this.tabButtons) {
+      const on = b.dataset.tab === this.tab;
+      b.classList.toggle('chosen', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+    for (const [name, page] of Object.entries(this.pages)) if (page) page.hidden = name !== this.tab;
+    for (const kind of ['music', 'sfx']) {
+      const pips = document.getElementById(kind === 'music' ? 'optMusic' : 'optSfx');
+      if (pips) {
+        pips.innerHTML = Array.from({ length: VOL_MAX }, (_, i) => `<i class="${i < Options[kind] ? 'on' : ''}"></i>`).join('');
+        pips.setAttribute('aria-label', `${Options[kind]} of ${VOL_MAX}`);
+      }
+    }
+    if (this.fsButton) {
+      const on = Boolean(document.fullscreenElement);
+      this.fsButton.classList.toggle('chosen', on);
+      this.fsButton.querySelector('span').textContent = on ? 'ON' : 'OFF';
+      this.fsButton.disabled = !document.fullscreenEnabled;
+    }
     const dev = this.current();
     for (const b of this.devButtons) {
       const on = b.dataset.device === dev;

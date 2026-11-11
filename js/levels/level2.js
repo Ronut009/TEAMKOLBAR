@@ -413,6 +413,17 @@ export class Level2 {
     this.saved = freshProgress();
   }
 
+  /** What a death keeps (and so what a save slot stores): the last checkpoint and the progress saved at it. */
+  snapshot() {
+    return { checkpointIndex: this.checkpointIndex, saved: JSON.parse(JSON.stringify(this.saved)) };
+  }
+
+  restore(o) {
+    if (!o || !o.saved) return;
+    this.checkpointIndex = o.checkpointIndex || 0;
+    this.saved = Object.assign(freshProgress(), JSON.parse(JSON.stringify(o.saved)));
+  }
+
   saveCheckpoint(i, toast = true) {
     this.checkpointIndex = i;
     this.saved = JSON.parse(JSON.stringify(this.progress));

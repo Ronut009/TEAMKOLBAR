@@ -13,6 +13,7 @@
  */
 
 import { Sfx } from '../core/audio.js';
+import { Run } from '../core/run.js';
 
 // A soft round glow per colour, drawn once: trails stamp it with additive blending. (They used canvas shadowBlur on
 // every trail dot, which costs a blur pass per dot on the GPU: with Level 4's arrows and the Asura's orbs in the air
@@ -290,6 +291,7 @@ export class Archer {
     // Archer Stats: 12 HP (Rakti deals 5 damage per sword swing)
     this.hp = 12;
     this.maxHp = 12;
+    this.baseHp = 12;
 
     this.alive = true;
     this.crushed = false;
@@ -636,6 +638,7 @@ export class Archer {
   reset() {
     this.x = this.startX;
     this.y = this.startY;
+    if (Run.campaign) this.maxHp = Math.round(this.baseHp * Run.enemyHp);   // the campaign's Hard and Hardcore: more health
     this.hp = this.maxHp;
     this.alive = true;
     this.crushed = false;

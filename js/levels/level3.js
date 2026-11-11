@@ -534,6 +534,29 @@ export class Level3 {
     return r.spawned && !r.collected ? { x: r.x, y: FLOOR_Y } : null;
   }
 
+  /** What a death keeps (and so what a save slot stores): the phase, the heart, the Betal already slain. */
+  snapshot() {
+    return {
+      checkpointIndex: this.checkpointIndex, phase: this.phase, kaliHintShown: this.kaliHintShown, introQueued: this.introQueued,
+      heartSpawned: this.relic.spawned, heartTaken: this.relic.collected, clockStarted: this.clock.started,
+      slain: this.betals.map((b) => Boolean(b.dead || b.removed))
+    };
+  }
+
+  /** Called after freshStart() and before reset(): reset() then rebuilds the level around these, as after a death. */
+  restore(o) {
+    if (!o || !o.phase) return;
+    this.checkpointIndex = o.checkpointIndex ?? -1;
+    this.phase = o.phase;
+    this.kaliHintShown = Boolean(o.kaliHintShown);
+    this.introQueued = Boolean(o.introQueued);
+    this.relic.spawned = Boolean(o.heartSpawned);
+    this.relic.collected = Boolean(o.heartTaken);
+    this.clock.started = Boolean(o.clockStarted);
+    this.reveal = null;
+    this.betals.forEach((b, i) => { const gone = Boolean(o.slain?.[i]); b.dead = gone; b.removed = gone; });
+  }
+
   freshStart() {
     this.checkpointIndex = -1;
     this.phase = null;          // the next reset() starts the level over completely

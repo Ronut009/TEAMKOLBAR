@@ -9,6 +9,7 @@
  */
 
 import { Sfx } from '../core/audio.js';
+import { Run } from '../core/run.js';
 
 export class Betal {
   constructor(x, minX, maxX, y = 368) {
@@ -21,7 +22,7 @@ export class Betal {
   reset() {
     Object.assign(this, {
       x: this.spawn.x, y: this.spawn.y,
-      hp: 10, maxHp: 10,
+      hp: Math.round(10 * Run.enemyHp), maxHp: Math.round(10 * Run.enemyHp),   // more in Hard and Hardcore
       facing: 'left', patrolDir: -1,
       isMoving: false, isAttacking: false,
       attackAnimTimer: 0, attackAnimDuration: 0.7, attackHitAt: 0.38, attackHitDone: false,

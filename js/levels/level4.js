@@ -19,6 +19,7 @@
 
 import { Arrow } from '../entities/archer.js';
 import { Sfx } from '../core/audio.js';
+import { Run } from '../core/run.js';
 import { FatherBoss, bossImages } from '../entities/fatherBoss.js';
 import { drawShrineBeacon } from '../render/shrineBeacon.js';
 
@@ -85,6 +86,7 @@ const ARCHER_ART = {
   muzzle: [16 * R, -38.5 * R], arrowW: 26, arrowH: 6, footDrop: 14 * R, rise: 36 * R
 };
 
+const L4_KEPT = ['arrived', 'doubtTalked', 'malaTaken', 'fatherTalked', 'meetWalk', 'fightStage', 'waveIndex', 'malaFly'];
 export const L4_CONFIG = {
   ARCHER_HP: 24,              // two Trishul hits (12 each with the Forest Heart), three gold orbs
   ARROW_DAMAGE: 2,
@@ -160,6 +162,7 @@ class FortArcher {
   }
 
   reset() {
+    this.maxHp = Math.round(L4_CONFIG.ARCHER_HP * Run.enemyHp);   // more in Hard and Hardcore
     this.hp = this.maxHp;
     this.alive = true;
     this.hidden = true;
@@ -402,6 +405,18 @@ export class Level4 {
   /** The skull mala on its shrine: what Rakti needs to reach to go on. */
   crucialItem() {
     return this.malaTaken ? null : { x: SHRINE.x, y: FLOOR_Y };
+  }
+
+  /** What a death keeps (and so what a save slot stores). The ending is not kept: the Asura's fight is replayed. */
+  snapshot() {
+    const o = {};
+    for (const k of L4_KEPT) o[k] = this[k];
+    if (o.fightStage > 2) o.fightStage = 2;
+    return o;
+  }
+
+  restore(o) {
+    for (const k of L4_KEPT) if (o && o[k] !== undefined) this[k] = o[k];
   }
 
   freshStart() {

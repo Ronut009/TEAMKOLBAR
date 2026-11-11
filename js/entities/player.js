@@ -246,6 +246,7 @@ export class Player {
     this.hasKey = false;
     this.hasDivineUnlocked = false; // Unlocked after interacting with Sacred Lotus in Level 1
     this.invulnerableTimer = 0.0;
+    this.damageScale = 1;   // damage taken multiplier (Story difficulty halves it)
     this.isDead = false;
 
     // Climbing Mechanics (Level 2 Ladders)
@@ -398,6 +399,8 @@ export class Player {
   takeDamage(amount, knockbackX = 0, knockbackY = 0, knockTime = 0) {
     if (this.invulnerableTimer > 0 || this.isDead) return;
     this.knockTimer = knockTime;
+    // Story difficulty (Settings > Game): the engine sets damageScale to 0.5 in the campaign; a hit always costs 1
+    if (amount > 0 && this.damageScale !== 1) amount = Math.max(1, Math.round(amount * this.damageScale));
     this.hp = Math.max(0, this.hp - amount);
     this.invulnerableTimer = 0.85;
     Input.rumble(this.hp <= 0 ? 0.9 : 0.45, this.hp <= 0 ? 420 : 160);   // a controller shakes when she is hit
@@ -1147,17 +1150,6 @@ export class Player {
       : 434);
     if (this.y > deathY) {
       this.respawnFromPit(level);
-    }
-
-    // 8. Reset Key (R)
-    if (Input.isPressed('KeyR') || Input.isPressed('reset')) {
-      const spawn = this.getLevelSpawn(level);
-      this.x = spawn.x;
-      this.y = spawn.y;
-      this.vx = 0;
-      this.vy = 0;
-      this.isGrounded = true;
-      this.spawnPoof(12);
     }
 
     this.updateParticles(dt);

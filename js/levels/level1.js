@@ -23,6 +23,7 @@ import { EnemySpriteSheet } from '../entities/enemySprites.js';
 import { drawShrineBeacon } from '../render/shrineBeacon.js';
 import { Sfx } from '../core/audio.js';
 
+const L1_KEPT = ['checkpointIndex', 'abilityGranted', 'bridgeTold', 'relicTalked', 'lessonHeard', 'relicKept', 'leverKept', 'testDone'];
 const BG_SCALE = 368 / 655;            // background image px -> world px (floor line at world y = 368)
 const SCREEN_W = 1926 * BG_SCALE;      // ~1082 world px per screen
 const SCREEN_H = 817 * BG_SCALE;       // ~459
@@ -382,6 +383,17 @@ export class Level {
   crucialItem() {
     if (!this.relic.collected) return { x: this.relic.x, y: this.ledgeY };
     return this.lever.activated ? null : { x: this.lever.x, y: this.ledgeY };
+  }
+
+  /** What a death keeps (and so what a save slot stores). */
+  snapshot() {
+    const o = {};
+    for (const k of L1_KEPT) o[k] = this[k];
+    return o;
+  }
+
+  restore(o) {
+    for (const k of L1_KEPT) if (o && o[k] !== undefined) this[k] = o[k];
   }
 
   freshStart() {

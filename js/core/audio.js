@@ -13,6 +13,8 @@
  * ==========================================================================
  */
 
+import { Options } from './options.js';
+
 const BASE = 'assets/audio/sfx/';
 
 // vol: loudness of the file, jitter: random pitch spread (+/-), gap: seconds before it may play again
@@ -83,6 +85,7 @@ const MUSIC_FADE = 0.8;   // s for a track to fade in or out
 class MusicPlayer {
   constructor() {
     this.muted = false;
+    this.userVol = Options.gain('music');   // Settings > Game > Music
     this.duck = 1;          // the pause menu turns everything down a little
     this.base = null;
     this.overlay = null;
@@ -154,7 +157,7 @@ class MusicPlayer {
     for (const L of [this.base, this.overlay]) {
       if (!L) continue;
       const under = L === this.base && this.overlay && !this.overlay.ended;
-      const target = this.muted ? 0 : L.def.vol * this.duck * (under ? 0 : 1);
+      const target = this.muted ? 0 : Math.min(1, L.def.vol * this.userVol) * this.duck * (under ? 0 : 1);
       L.level = L.level < target ? Math.min(target, L.level + step * L.def.vol) : Math.max(target, L.level - step * L.def.vol);
       L.audio.volume = Math.max(0, Math.min(1, L.level));
       if (under && L.level <= 0.001 && !L.audio.paused) { L.audio.pause(); L.held = true; }
@@ -199,13 +202,17 @@ class MusicPlayer {
 
   setDuck(k) { this.duck = k; }
 
+  /** Settings: the music volume as a multiplier of the game's own mix. */
+  setUserVolume(k) { this.userVol = Math.max(0, k); }
+
   setMuted(muted) { this.muted = muted; }
 }
 
 class SfxPlayer {
   constructor() {
     this.muted = false;
-    this.volume = 0.5;
+    this.baseVolume = 0.5;                              // the game's own mix
+    this.volume = this.baseVolume * Options.gain('sfx');   // Settings > Game > Effects
     this.buffers = {};
     this.lastPlayed = {};
     this.rotation = {};
@@ -237,6 +244,12 @@ class SfxPlayer {
     window.addEventListener('keydown', (e) => {
       if (e.code === 'KeyM' && !e.repeat) this.setMuted(!this.muted);
     });
+  }
+
+  /** Settings: the effects volume as a multiplier of the game's own mix. */
+  setUserVolume(k) {
+    this.volume = this.baseVolume * Math.max(0, k);
+    if (this.master && !this.muted) this.master.gain.value = this.volume;
   }
 
   setMuted(muted) {

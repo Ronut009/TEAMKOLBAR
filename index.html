@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Rakti: The Last Guardian</title>
+  <meta name="description" content="Rakti: The Last Guardian. A 2D action-platformer: follow Maa Kali's light through four lost realms, claim the relics and bring your father home.">
+  <link rel="icon" type="image/png" href="assets/ui/hud/rakti_medallion.png">
   <link rel="stylesheet" href="css/style.css">
   <link rel="preload" href="assets/audio/music/title.mp3" as="audio">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -137,7 +139,7 @@
         <div class="stat-tile"><span class="stat-label">DEATHS</span><span class="stat-value" id="statDeaths">0</span></div>
       </div>
       <p class="complete-thanks" id="completeThanks"></p>
-      <div class="complete-prompt" id="completePrompt">[E] ENTER LEVEL 2  |  [R] REPLAY</div>
+      <div class="complete-prompt" id="completePrompt">[E] CONTINUE</div>
     </div>
   </div>
 
@@ -182,20 +184,87 @@
     </div>
   </section>
 
-  <!-- Settings (title screen and pause menu): what you play with, and what every key or button does (js/core/settings.js) -->
+  <!-- Settings (title screen and pause menu): a GAME page (volume, full screen) and a CONTROLS page (what you play with, and what every key or button does). js/core/settings.js -->
   <section class="settings-screen" id="settingsScreen" aria-label="Settings" aria-hidden="true">
     <div class="settings-panel" id="settingsPanel">
       <h1 class="pause-title">SETTINGS</h1>
       <div class="pause-divider"></div>
-      <p class="settings-label">CONTROLS</p>
-      <div class="settings-devices">
-        <button class="menu-button" type="button" data-device="keyboard"><span>KEYBOARD &amp; MOUSE</span></button>
-        <button class="menu-button" type="button" data-device="xbox"><span>XBOX</span></button>
-        <button class="menu-button" type="button" data-device="ps"><span>PLAYSTATION</span></button>
+      <div class="settings-tabs">
+        <button class="menu-button" type="button" data-tab="game"><span>GAME</span></button>
+        <button class="menu-button" type="button" data-tab="controls"><span>CONTROLS</span></button>
       </div>
-      <p class="settings-note" id="settingsNote"></p>
-      <div class="settings-binds no-keylabel" id="settingsBinds"></div>
+      <!-- Game: volume, full screen (volume is remembered: js/core/options.js) -->
+      <div class="settings-page settings-game" id="settingsGame">
+        <div class="opt-row">
+          <span class="opt-name">MUSIC</span>
+          <div class="opt-ctl">
+            <button class="menu-button step" type="button" data-vol="music" data-d="-1" aria-label="Music quieter"><span>&minus;</span></button>
+            <span class="opt-pips" id="optMusic"></span>
+            <button class="menu-button step" type="button" data-vol="music" data-d="1" aria-label="Music louder"><span>+</span></button>
+          </div>
+        </div>
+        <div class="opt-row">
+          <span class="opt-name">EFFECTS</span>
+          <div class="opt-ctl">
+            <button class="menu-button step" type="button" data-vol="sfx" data-d="-1" aria-label="Effects quieter"><span>&minus;</span></button>
+            <span class="opt-pips" id="optSfx"></span>
+            <button class="menu-button step" type="button" data-vol="sfx" data-d="1" aria-label="Effects louder"><span>+</span></button>
+          </div>
+        </div>
+        <div class="opt-row">
+          <span class="opt-name">FULL SCREEN</span>
+          <div class="opt-ctl">
+            <button class="menu-button choice" type="button" id="optFullscreen"><span>OFF</span></button>
+          </div>
+        </div>
+      </div>
+      <div class="settings-page settings-controls" id="settingsControls" hidden>
+        <div class="settings-devices">
+          <button class="menu-button" type="button" data-device="keyboard"><span>KEYBOARD &amp; MOUSE</span></button>
+          <button class="menu-button" type="button" data-device="xbox"><span>XBOX</span></button>
+          <button class="menu-button" type="button" data-device="ps"><span>PLAYSTATION</span></button>
+        </div>
+        <p class="settings-note" id="settingsNote"></p>
+        <div class="settings-binds no-keylabel" id="settingsBinds"></div>
+      </div>
       <button class="menu-button small" id="settingsBack" type="button"><span>BACK</span></button>
+    </div>
+  </section>
+
+  <!-- Campaign save slots (title screen > CAMPAIGN MODE): pick a slot, then the difficulty for a new game (js/core/slots.js) -->
+  <section class="settings-screen slot-screen" id="slotScreen" aria-label="Campaign save slots" aria-hidden="true">
+    <div class="settings-panel slot-panel" id="slotList">
+      <h1 class="pause-title">CAMPAIGN</h1>
+      <div class="pause-divider"></div>
+      <div class="slot-rows" id="slotRows"></div>
+      <p class="settings-note">The game saves by itself at every checkpoint and at the end of each level.</p>
+      <button class="menu-button small" id="slotBack" type="button"><span>BACK</span></button>
+    </div>
+    <div class="settings-panel slot-panel" id="slotDifficulty" hidden>
+      <h1 class="pause-title" id="slotDiffTitle">CHOOSE DIFFICULTY</h1>
+      <div class="pause-divider"></div>
+      <div class="diff-row">
+        <button class="menu-button" type="button" data-diff="normal"><span>NORMAL</span></button>
+        <p>The journey as it was made. A death returns Rakti to her last checkpoint.</p>
+      </div>
+      <div class="diff-row">
+        <button class="menu-button" type="button" data-diff="hard"><span>HARD</span></button>
+        <p>No checkpoints: a death restarts the level from its very start. Enemies have more health.</p>
+      </div>
+      <div class="diff-row">
+        <button class="menu-button" type="button" data-diff="hardcore"><span>HARDCORE</span></button>
+        <p>As Hard, and one death ends the journey: it begins again from Level 1.</p>
+      </div>
+      <p class="settings-note" id="slotDiffNote"></p>
+      <button class="menu-button small" id="slotDiffBack" type="button"><span>BACK</span></button>
+    </div>
+    <div class="settings-panel slot-panel" id="slotConfirm" hidden>
+      <h2 class="pause-question">DELETE THIS SAVE?</h2>
+      <p class="pause-warning" id="slotConfirmText"></p>
+      <div class="pause-confirm-row">
+        <button class="menu-button small" id="slotYes" type="button"><span>YES</span></button>
+        <button class="menu-button small" id="slotNo" type="button"><span>NO</span></button>
+      </div>
     </div>
   </section>
 

@@ -5,6 +5,7 @@
  * ==========================================================================
  */
 
+import './core/assetWatch.js';   // first: it watches every picture the other scripts load
 import { Level } from './levels/level1.js';
 import { Player } from './entities/player.js';
 import { Engine } from './core/engine.js';
