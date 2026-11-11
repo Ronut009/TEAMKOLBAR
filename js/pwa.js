@@ -4,7 +4,7 @@
 // off raw pointer detection — PC Mode never gets the touch classes or the screen locks.
 // The service worker is shared: offline caching helps both modes.
 
-import { Mode } from './js/core/mode.js';
+import { Mode } from './core/mode.js';
 
 const root = document.documentElement;
 const isMobileMode = Mode.isMobile;

@@ -29,6 +29,8 @@ const teachesKey = (text) => KEY_TOKEN.test(String(text || ''));
 // The skip button shows for INTRO_SKIP_CUE s when the film starts and again after any key or button press (it sits
 // just above the film's subtitles, so it does not stay over the picture the whole time)
 const INTRO_SKIP_CUE = 4;
+// Touch: the film's SKIP button ignores taps for this long after the film appears
+const INTRO_TAP_GUARD_MS = 800;
 // Demo shortcuts (hackathon): straight to the story's big moments, from the title screen or in game (demoJump)
 //  [J] Level 2: the Sands of Time on tower 2   [H] Level 2: the Trishul's shrine in the Hall of the Sun
 //  [K] Level 3: the Forest Heart wakes, the 50 s race   [G] Level 4: Pitaji falls and the Asura rises
@@ -445,11 +447,25 @@ export class Engine {
     const skip = document.getElementById('introSkip');
     if (skip) {
       const label = skip.querySelector('.ic-skip-text');
-      if (label) label.innerHTML = Touch.active ? 'SKIP &#9654;&#9654;' : 'HOLD <b>ESC</b> TO SKIP';
-      skip.classList.toggle('touch', Touch.active);
-      const tapSkip = Touch.active ? (e) => { e.preventDefault(); e.stopPropagation(); this.finishIntroCutscene(); } : null;
-      skip.onpointerdown = tapSkip;
-      skip.onclick = tapSkip;   // (a browser that sends no pointer events for the tap still skips)
+      // (not in the film's first moments: the tap that started the game must never land on the button and end it)
+      const shownAt = performance.now();
+      const tapSkip = (e) => {
+        e.preventDefault(); e.stopPropagation();
+        if (performance.now() - shownAt > INTRO_TAP_GUARD_MS) this.finishIntroCutscene();
+      };
+      const asTouchButton = (on) => {
+        if (label) label.innerHTML = on ? 'SKIP &#9654;&#9654;' : 'HOLD <b>ESC</b> TO SKIP';
+        skip.classList.toggle('touch', on);
+        skip.onpointerdown = on ? tapSkip : null;
+        skip.onclick = on ? tapSkip : null;   // (a browser that sends no pointer events for the tap still skips)
+      };
+      asTouchButton(Touch.active);
+      // PC Mode on a touch screen (a phone that loaded in PC Mode, or a browser's device emulation switched on after
+      // the page loaded) has no [Esc] either: the first finger on the film turns the hint into the SKIP button.
+      box.onpointerdown = (e) => {
+        if (e.pointerType === 'mouse' || skip.classList.contains('touch')) return;
+        asTouchButton(true);
+      };
     }
     const p = video.play();
     if (p && p.catch) p.catch(() => {
