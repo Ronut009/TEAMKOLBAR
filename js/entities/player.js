@@ -8,6 +8,7 @@
 
 import { Input } from '../core/input.js';
 import { Sfx } from '../core/audio.js';
+import { Run } from '../core/run.js';
 
 // ---------------------------------------------------------------------------
 // Rakti sprite skin. Every frame of a set shares one canvas; (anchorX, anchorY) is the
@@ -1430,6 +1431,14 @@ export class Player {
   }
 
   respawnFromPit(level = null) {
+    // Hard and Hardcore: there are no checkpoints to come back to, so a fall (a pit, the quicksand) is a death:
+    // the engine sees 0 HP next frame and restarts the level (Hard) or ends the run (Hardcore).
+    if (Run.noCheckpoints) {
+      this.hp = 0;
+      this.vx = 0;
+      this.vy = 0;
+      return;
+    }
     // Levels with checkpoints decide where Rakti comes back. A fall costs nothing: she keeps exactly the
     // health she had (only dying, to an enemy or at 0 HP, reloads the level, and that restores full health).
     // level.pitDamage is no longer used; a moment of invulnerability covers the respawn.

@@ -4,7 +4,7 @@
  * Difficulty (chosen when a slot's game begins, kept for that slot):
  *   normal    the game as designed: a death returns Rakti to her last checkpoint
  *   hard      a death restarts the level from its very start; Betal and archers have double health,
- *             Pitaji 150 HP and quicker attacks, the whole boss 600 HP
+ *             Pitaji 150 HP and quicker attacks, the Asura 400 HP and enraged sooner
  *   hardcore  as hard, and a death ends the run: the slot goes back to Level 1
  * Chaos mode and the test keys play with no slot and always as normal.
  *

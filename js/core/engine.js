@@ -196,7 +196,7 @@ export class Engine {
     this.settings = new SettingsMenu();
     on('pauseSettings', () => this.settings.show(document.getElementById('pauseSettings'), this.controlsHave()));
     on('titleSettingsButton', () => this.settings.show(document.getElementById('titleSettingsButton')));
-    on('pauseRestart', () => this.showRestartConfirm(true));
+    on('pauseRestart', () => { if (!Run.noCheckpoints) this.showRestartConfirm(true); });
     on('pauseExit', () => { this.resume(); this.returnToTitle(); });
     on('pauseYes', () => this.restartFromStart());
     on('pauseNo', () => this.showRestartConfirm(false));
@@ -684,6 +684,9 @@ export class Engine {
     if (this.paused) return;
     this.paused = true;
     this.showRestartConfirm(false);
+    // Hard and Hardcore: no Restart (a death already sends Rakti back to the start, or ends the run)
+    const restart = document.getElementById('pauseRestart');
+    if (restart) restart.style.display = Run.noCheckpoints ? 'none' : '';
     this.pauseScreen?.classList.add('active');
     this.pauseScreen?.setAttribute('aria-hidden', 'false');
     document.getElementById('pauseContinue')?.focus({ focusVisible: false });   // [Enter] works, no outline box
@@ -1333,8 +1336,8 @@ export class Engine {
     if (this.level) this.level.cameraShake = 1.0;
     this.player.spawnDeathBurst();
     // What a death costs: Normal, back to the last checkpoint; Hard, the level from its very start; Hardcore, the
-    // run is over. (A level's own card, Level 3's withered heart, is not Rakti's death: it is always the Normal way.)
-    const mode = this.level?.deathCard?.() ? 'normal' : Run.mode;
+    // run is over. (Level 3's withered heart counts the same way: in Hard it restarts the level, in Hardcore it ends the run.)
+    const mode = Run.mode;
 
     if (this.deathScreen) {
       const small = document.getElementById('deathSmall');
@@ -1342,7 +1345,7 @@ export class Engine {
       // a level can word the card itself (Level 3: the Forest Heart withered before she reached it)
       const card = this.level?.deathCard?.();
       if (big) big.textContent = card?.big || (mode === 'hardcore' ? 'THE GUARDIAN HAS FALLEN' : "IT'S NOT OVER YET");
-      if (small) small.textContent = card?.small || (this.currentLevelIndex === 5 ? 'Rising again in the arena'
+      if (small) small.textContent = (mode === 'normal' && card?.small) || (this.currentLevelIndex === 5 ? 'Rising again in the arena'
         : mode === 'hardcore' ? 'Hardcore: the journey begins again from Drowned Dwaraka'
         : mode === 'hard' ? 'Hard: back to the start of the level'
         : 'Respawning at the last checkpoint');
