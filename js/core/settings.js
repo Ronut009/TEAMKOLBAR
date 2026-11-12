@@ -19,7 +19,7 @@ const GROUPS = ['MOVEMENT', 'COMBAT', 'ABILITIES', 'MENUS & STORY'];
 const ROWS = [
   { g: 'MOVEMENT', what: 'Move', keyboard: ['A', 'D'], xbox: ['D-PAD', 'L-STICK'], ps: ['D-PAD', 'L-STICK'], touch: ['STICK ◀', 'STICK ▶'] },
   { g: 'MOVEMENT', what: 'Climb ladders', need: 'climb', keyboard: ['W', 'S'], xbox: ['▲', '▼'], ps: ['▲', '▼'], touch: ['STICK ▲', 'STICK ▼'] },
-  { g: 'MOVEMENT', what: 'Jump', keyboard: ['SPACE'], xbox: ['A'], ps: ['✕'], touch: ['JUMP'] },
+  { g: 'MOVEMENT', what: 'Jump', need: 'jump', keyboard: ['SPACE'], xbox: ['A'], ps: ['✕'], touch: ['JUMP'] },
   { g: 'MOVEMENT', what: 'Drop through a ledge', need: 'ledge', keyboard: ['S', '+', 'SPACE'], xbox: ['▼', '+', 'A'], ps: ['▼', '+', '✕'], touch: ['STICK ▼', '+', 'JUMP'] },
   { g: 'COMBAT', what: 'Attack', need: 'attack', keyboard: ['LEFT CLICK'], xbox: ['X'], ps: ['□'], touch: ['ATTACK'] },
   { g: 'COMBAT', what: 'Aim the Trishul', need: 'trishul', keyboard: ['MOUSE'], xbox: ['R-STICK'], ps: ['R-STICK'], touch: ['AIMS BY ITSELF'] },
@@ -34,7 +34,7 @@ const ROWS = [
   { g: 'MENUS & STORY', what: 'Skip the opening film', need: 'film', keyboard: ['HOLD ESC'], xbox: ['HOLD MENU'], ps: ['HOLD OPTIONS'], touch: ['TAP SKIP'] }
 ];
 /** The title screen: the basics only (no powers, no Trishul: they would spoil the story). */
-export const MENU_CONTROLS = { climb: true, ledge: true, attack: true, story: true, film: true };
+export const MENU_CONTROLS = { jump: true, climb: true, ledge: true, attack: true, story: true, film: true };
 const SYM = new Set(['✕', '○', '□', '△', '▲', '▼']);
 
 const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));

@@ -1972,6 +1972,7 @@ html.compact .endless-hud.active + .kill-toast { top: calc(var(--safe-t, 0px) + 
 .touch-btn-pause .touch-svg { width: 40%; height: 40%; }
 
 /* what Rakti does not have yet stays hidden (html classes set by js/core/touch.js from the engine) */
+.touch-root:not(.t-jump) .touch-btn-jump,
 .touch-root:not(.t-attack) .touch-btn-attack,
 .touch-root:not(.t-trishul) .touch-btn-weapon,
 .touch-root:not(.t-kali) .touch-btn-divine,

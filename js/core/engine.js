@@ -812,10 +812,11 @@ export class Engine {
    *  appear as the story gives them), and only what the arena uses in Chaos mode. */
   controlsHave() {
     const i = this.currentLevelIndex, p = this.player;
-    if (i === 5) return { attack: true, trishul: true, kali: true, earth: true, sands: true, arena: true };
+    if (i === 5) return { jump: true, ledge: true, attack: true, trishul: true, kali: true, earth: true, sands: true, arena: true };
     return {
       climb: i >= 2,                                   // ladders begin in Level 2
-      ledge: true,
+      jump: !p.isCivilian,                             // no jumping in the sari (Level 1's prologue)
+      ledge: !p.isCivilian,                            // dropping through a ledge needs the jump button too
       attack: !p.isCivilian,                           // not before the blade (Level 1's prologue)
       trishul: Boolean(p.hasTrishul),
       kali: Boolean(p.hasDivineUnlocked),
