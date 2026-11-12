@@ -60,7 +60,8 @@ requestWakeLock();
 
 // ---- INSTALL RAKTI (title screen) ----
 // Browsers show their own install prompt only now and then (once, and not again for a while after it is closed),
-// so the title screen keeps an INSTALL RAKTI button wherever the game can be installed and is not installed yet.
+// so on phones and tablets (Mobile Mode) the title screen keeps an INSTALL RAKTI button while the game is not installed.
+// A PC never shows it.
 // Chrome / Edge / Samsung Internet: the button opens the browser's install prompt when the browser offers one. A phone
 // always gets the button (the browser may hold its offer back for a while, e.g. after an uninstall): without an offer it
 // explains the browser's own menu (Android: menu > Install app / Add to Home screen; iPhone / iPad: Share > Add to Home
@@ -77,6 +78,7 @@ function setInstallButton(show) {
 }
 
 window.addEventListener('beforeinstallprompt', (e) => {
+  if (!isMobileMode && !isIOS) return;   // phones and tablets only: on a PC the browser's own install icon stays as it is
   e.preventDefault();          // the button asks instead, every visit, rather than the browser's banner once
   installEvent = e;
   setInstallButton(true);
