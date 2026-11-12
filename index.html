@@ -281,6 +281,10 @@
         <button class="menu-button" id="titleSettingsButton" type="button">
           <span>SETTINGS</span>
         </button>
+        <!-- js/pwa.js: shown only where Rakti can be installed and is not installed yet -->
+        <button class="menu-button" id="installButton" type="button" hidden>
+          <span>INSTALL RAKTI</span>
+        </button>
       </div>
     </div>
   </section>
@@ -422,6 +426,15 @@
     </div>
   </section>
 
+  <!-- iPhone / iPad: Safari has no install prompt, so INSTALL RAKTI explains the two taps -->
+  <div class="install-help" id="installHelp" role="dialog" aria-modal="true" aria-labelledby="installHelpTitle" hidden>
+    <div class="install-help-card">
+      <h2 id="installHelpTitle">INSTALL RAKTI</h2>
+      <p>Tap <b>Share</b> <span class="ih-share" aria-hidden="true">&#x2191;</span> at the bottom of Safari, then <b>Add to Home Screen</b>.</p>
+      <p class="ih-small">Rakti then opens full screen from its own icon, like an app.</p>
+      <button class="menu-button small" id="installHelpClose" type="button"><span>GOT IT</span></button>
+    </div>
+  </div>
   <script type="module" src="js/core/mode.js?v=__BUILD__"></script>
   <script type="module" src="js/core/titleMusic.js?v=__BUILD__"></script>
   <script type="module" src="js/main.js?v=__BUILD__"></script>
