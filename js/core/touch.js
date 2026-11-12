@@ -127,6 +127,7 @@ class TouchControls {
     const has = playing ? engine.controlsHave() : {};
     const want = {
       't-hidden': !playing,
+      't-jump': Boolean(has.jump),
       't-attack': Boolean(has.attack),
       't-trishul': Boolean(has.trishul),
       't-kali': Boolean(has.kali),

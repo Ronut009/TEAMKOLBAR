@@ -1,7 +1,7 @@
 // Rakti: The Last Guardian - offline cache.
 // Bump ASSET_VERSION whenever shipped files change in a way the network-first shell cannot pick up
 // (renamed/replaced assets under assets/ are cache-first, so they need a bump to refresh).
-const ASSET_VERSION = 'v16-merged';
+const ASSET_VERSION = 'v17-unlocks';
 
 const SHELL_CACHE = `rakti-shell-${ASSET_VERSION}`;
 const ASSET_CACHE = `rakti-assets-${ASSET_VERSION}`;
