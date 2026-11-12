@@ -1938,10 +1938,12 @@ html.compact .endless-hud.active + .kill-toast { top: calc(var(--safe-t, 0px) + 
 .touch-btn-jump .touch-svg { width: 42%; height: 34%; }
 .touch-btn-interact { width: var(--t-mid); height: var(--t-mid);
   right: calc(var(--t-edge) + (var(--t-attack) - var(--t-mid)) / 2); bottom: calc(var(--safe-b, 0px) + var(--t-gap) * 2.8 + var(--t-attack)); }
-.touch-btn-divine { width: var(--t-big); height: var(--t-big); padding: 0; overflow: visible;
-  right: calc(var(--t-edge) + var(--t-attack) + var(--t-gap)); bottom: calc(var(--safe-b, 0px) + var(--t-gap) * 2.4 + var(--t-big)); }
-.touch-btn-divine .touch-icon { width: 64%; height: 64%; margin-top: -4px; border-radius: 50%; }
-.touch-btn-divine .touch-cap { margin-top: -2px; }
+.touch-btn-divine { width: calc(var(--t-big) * 1.06); height: calc(var(--t-big) * 1.28); padding: 0; overflow: visible;
+  right: calc(var(--t-edge) + var(--t-attack) + var(--t-gap) - var(--t-big) * 0.03); bottom: calc(var(--safe-b, 0px) + var(--t-gap) * 1.6 + var(--t-big));
+  border: 0; border-radius: 0; background: none; box-shadow: none; }
+.touch-btn-divine::before { display: none; }
+.touch-medallion { display: block; width: 100%; height: 100%; object-fit: contain; pointer-events: none; filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.6)); }
+.touch-btn-divine.touch-active { filter: brightness(1.3) drop-shadow(0 0 12px rgba(255, 210, 100, 0.9)); }
 /* the weapon switch sits above USE, within the right thumb's reach; it shows the weapon it switches to */
 .touch-btn-weapon { width: var(--t-mid); height: var(--t-mid);
   right: calc(var(--t-edge) + (var(--t-attack) - var(--t-mid)) / 2); bottom: calc(var(--safe-b, 0px) + var(--t-gap) * 4.2 + var(--t-attack) + var(--t-mid)); }
@@ -1976,14 +1978,13 @@ html.compact .endless-hud.active + .kill-toast { top: calc(var(--safe-t, 0px) + 
 .touch-root:not(.t-earth) .touch-btn-morph,
 .touch-root:not(.t-sands) .touch-btn-sands,
 .touch-root:not(.t-dialogue) .touch-btn-skip { display: none; }
-/* while someone is speaking only USE (next line), SKIP and pause matter: the rest step back */
-.touch-root.t-dialogue .touch-btn:not(.touch-btn-interact):not(.touch-btn-skip):not(.touch-btn-pause) { opacity: 0.25; }
-.touch-root.t-dialogue .touch-stick-base.idle { opacity: 0; }
-.touch-root.t-dialogue .touch-btn-interact { animation: touchNudge 1.2s ease-in-out infinite; }
-@keyframes touchNudge { 0%, 100% { filter: none; } 50% { filter: brightness(1.35) drop-shadow(0 0 8px rgba(255, 210, 100, 0.8)); } }
+/* while someone is speaking Rakti cannot move, and tapping the text moves the conversation on: only SKIP and pause
+   stay, nothing covers the speakers' portraits, and the stick's area lets taps through to the text */
+.touch-root.t-dialogue .touch-btn:not(.touch-btn-skip):not(.touch-btn-pause) { display: none; }
+.touch-root.t-dialogue .touch-stick-base { display: none; }
+.touch-root.t-dialogue .touch-zone { pointer-events: none; }
 /* menus and cards (pause, settings, death, level complete, loading, the film): no game buttons over them */
 .touch-root.t-hidden { display: none; }
-@media (prefers-reduced-motion: reduce) { .touch-root.t-dialogue .touch-btn-interact { animation: none; } }
 
 /* the HUD's own key hints are for the keyboard: the buttons carry them on a phone */
 html.touch-on .hud-weapon-keys { display: none; }
@@ -2021,3 +2022,6 @@ html.touch-on .settings-screen .settings-devices .menu-button { width: min(230px
 .install-help-card .menu-button { margin: 8px auto 0; }
 .touch-btn-mid .touch-cap, .touch-btn-big .touch-cap { font-size: clamp(6.5px, 2vh, 8.5px); letter-spacing: 0.05em; }
 html.touch-on .endless-hud .eh-mud { border: 0; background: none; box-shadow: none; }
+/* Mobile Mode: during a conversation the whole bottom band (the text and the portraits) takes the tap that moves it on
+   (engine.js listens on #dialogueBox); on a PC it lets the mouse through as before */
+html.touch-on .sands-dialogue { pointer-events: auto; touch-action: none; }
