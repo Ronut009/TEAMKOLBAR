@@ -14,7 +14,85 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <title>Rakti: The Last Guardian</title>
   <meta name="description" content="Rakti: The Last Guardian. A 2D action-platformer: follow Maa Kali's light through four lost realms, claim the relics and bring your father home.">
-  <link rel="stylesheet" href="css/style.css">
+  <!-- Every file of one deploy carries the same stamp (__BUILD__ is replaced by Render's build command with the commit
+       id; when playing locally it stays as it is). A host keeps files for a few minutes after a deploy, so without the
+       stamp a new page could pick up an old script and stop dead. The import map stamps every module the game imports. -->
+  <script type="importmap">
+  {
+    "imports": {
+      "./js/core/audio.js": "./js/core/audio.js?v=__BUILD__",
+      "./js/core/engine.js": "./js/core/engine.js?v=__BUILD__",
+      "./js/core/input.js": "./js/core/input.js?v=__BUILD__",
+      "./js/core/keyLabels.js": "./js/core/keyLabels.js?v=__BUILD__",
+      "./js/core/mode.js": "./js/core/mode.js?v=__BUILD__",
+      "./js/core/options.js": "./js/core/options.js?v=__BUILD__",
+      "./js/core/preload.js": "./js/core/preload.js?v=__BUILD__",
+      "./js/core/run.js": "./js/core/run.js?v=__BUILD__",
+      "./js/core/settings.js": "./js/core/settings.js?v=__BUILD__",
+      "./js/core/slots.js": "./js/core/slots.js?v=__BUILD__",
+      "./js/core/titleMusic.js": "./js/core/titleMusic.js?v=__BUILD__",
+      "./js/core/touch.js": "./js/core/touch.js?v=__BUILD__",
+      "./js/dev.js": "./js/dev.js?v=__BUILD__",
+      "./js/entities/archer.js": "./js/entities/archer.js?v=__BUILD__",
+      "./js/entities/betal.js": "./js/entities/betal.js?v=__BUILD__",
+      "./js/entities/enemySprites.js": "./js/entities/enemySprites.js?v=__BUILD__",
+      "./js/entities/fatherBoss.js": "./js/entities/fatherBoss.js?v=__BUILD__",
+      "./js/entities/player.js": "./js/entities/player.js?v=__BUILD__",
+      "./js/levels/endless.js": "./js/levels/endless.js?v=__BUILD__",
+      "./js/levels/level1.js": "./js/levels/level1.js?v=__BUILD__",
+      "./js/levels/level2.js": "./js/levels/level2.js?v=__BUILD__",
+      "./js/levels/level3.js": "./js/levels/level3.js?v=__BUILD__",
+      "./js/levels/level4.js": "./js/levels/level4.js?v=__BUILD__",
+      "./js/main.js": "./js/main.js?v=__BUILD__",
+      "./js/pwa.js": "./js/pwa.js?v=__BUILD__",
+      "./js/render/platformArt.js": "./js/render/platformArt.js?v=__BUILD__",
+      "./js/render/shrineBeacon.js": "./js/render/shrineBeacon.js?v=__BUILD__"
+    }
+  }
+  </script>
+  <!-- Safety net: if the game's scripts or styles fail to load (a half-finished deploy, a bad connection), reload once;
+       after that, say so and offer a retry instead of leaving a dead title screen. -->
+  <script>
+  (function () {
+    var KEY = 'raktiBootRetry', failed = false;
+    function retries() { try { return Number(sessionStorage.getItem(KEY) || 0); } catch (e) { return 9; } }
+    function recover() {
+      if (failed) return;
+      failed = true;
+      var n = retries();
+      if (n < 1) {
+        try { sessionStorage.setItem(KEY, String(n + 1)); } catch (e) {}
+        location.reload();
+        return;
+      }
+      var box = document.createElement('div');
+      box.setAttribute('role', 'alert');
+      box.style.cssText = 'position:fixed;inset:0;z-index:2000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:#050403;color:#f1e3bd;font:16px Georgia,serif;text-align:center;padding:24px';
+      box.innerHTML = '<div style="font-size:20px;letter-spacing:4px;color:#ffd36b">RAKTI COULD NOT LOAD</div><div>The game was probably just updated. Wait a minute, then try again.</div>';
+      var b = document.createElement('button');
+      b.textContent = 'TRY AGAIN';
+      b.style.cssText = 'padding:12px 28px;border-radius:10px;border:1px solid #d6b066;background:rgba(214,176,102,.15);color:#f1e3bd;font:700 14px Georgia,serif;letter-spacing:2px';
+      b.onclick = function () { try { sessionStorage.removeItem(KEY); } catch (e) {} location.reload(); };
+      box.appendChild(b);
+      document.body.appendChild(box);
+    }
+    // a game script that fails to arrive (one missing module stops all of them)
+    window.addEventListener('error', function (e) {
+      var t = e.target;
+      if (t && t.tagName === 'SCRIPT' && (t.src || '').indexOf(location.host) >= 0) recover();
+    }, true);
+    // the game never started (js/main.js sets window.__GAME__), or its styles never applied (css/style.css defines
+    // --safe-t; a failed Google Fonts import also reports the stylesheet as failed, so its error event is not used)
+    window.addEventListener('load', function () {
+      setTimeout(function () {
+        var styled = getComputedStyle(document.documentElement).getPropertyValue('--safe-t') !== '';
+        if (window.__GAME__ && styled) { try { sessionStorage.removeItem(KEY); } catch (e) {} return; }
+        recover();
+      }, 6000);
+    });
+  })();
+  </script>
+  <link rel="stylesheet" href="css/style.css?v=__BUILD__">
   <link rel="preload" href="assets/audio/music/title.mp3" as="audio">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -344,9 +422,9 @@
     </div>
   </section>
 
-  <script type="module" src="js/core/mode.js"></script>
-  <script type="module" src="js/core/titleMusic.js"></script>
-  <script type="module" src="js/main.js"></script>
-  <script type="module" src="js/pwa.js"></script>
+  <script type="module" src="js/core/mode.js?v=__BUILD__"></script>
+  <script type="module" src="js/core/titleMusic.js?v=__BUILD__"></script>
+  <script type="module" src="js/main.js?v=__BUILD__"></script>
+  <script type="module" src="js/pwa.js?v=__BUILD__"></script>
 </body>
 </html>
