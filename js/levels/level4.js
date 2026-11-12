@@ -24,7 +24,7 @@ import { FatherBoss, bossImages } from '../entities/fatherBoss.js';
 import { drawShrineBeacon } from '../render/shrineBeacon.js';
 
 // ---------------------------------------------------------------------------
-// World: one 3404 x 887 panorama (assets/level4/fort_panorama.jpg) made from the two fort screens, their walls
+// World: one 3404 x 887 panorama (assets/level4/fort_panorama.webp) made from the two fort screens, their walls
 // joined slit-to-slit and colour-matched (scratchpad tools/l4pano.py), drawn at BG_K
 // ---------------------------------------------------------------------------
 const BG_K = 0.62;
@@ -35,15 +35,15 @@ const FLOOR_Y = Math.round(775 * BG_K);  // the paving Rakti walks on (image row
 const PORTAL = { x: 105, y: 335 };       // the swirling gate at the left
 const ARENA_MIN = 40;                    // the whole courtyard is the arena
 const ARENA_MAX = WORLD_W - 40;
-// Raised stone ledges in the arena (fort_ledge.png, 400 x 51 at 2x: drawn 200 x 25.5, feet 6 px below its top edge)
-const LEDGE_ART = { src: 'assets/level4/sprites/fort_ledge.png', w: 200, h: 25.5, deck: 6 };
+// Raised stone ledges in the arena (fort_ledge.webp, 400 x 51 at 2x: drawn 200 x 25.5, feet 6 px below its top edge)
+const LEDGE_ART = { src: 'assets/level4/sprites/fort_ledge.webp', w: 200, h: 25.5, deck: 6 };
 // Removed on request: the courtyard is open floor again (the old positions are kept in this comment):
 //   { x1: 660, x2: 860 }, { x1: 980, x2: 1180 }, { x1: 1780, x2: 1980 }, all at y = FLOOR_Y - 96
 const LEDGES = [];
 
-// The Lion Throne (assets/level4/sprites/throne.png, 847 x 535) at the right end; its low platform and the
+// The Lion Throne (assets/level4/sprites/throne.webp, 847 x 535) at the right end; its low platform and the
 // lion's pedestal can be stood on
-const THRONE = { src: 'assets/level4/sprites/throne.png', w: 847, h: 535, drawW: 430 };
+const THRONE = { src: 'assets/level4/sprites/throne.webp', w: 847, h: 535, drawW: 430 };
 THRONE.k = THRONE.drawW / THRONE.w;
 THRONE.x = WORLD_W - THRONE.drawW - 250;   // back toward the far wall, but in far enough for the camera to frame Pitaji on it
 THRONE.y = FLOOR_Y + 4 - THRONE.h * THRONE.k;
@@ -56,15 +56,15 @@ const FATHER_HOME = { x: Math.round(tpx(600)), y: THRONE_SEAT.y };
 const FIGHT_SPOT = { rakti: 1000, boss: 1400 };
 const HUG_X = 1200;
 
-// The relic shrine near the gate (relic_shrine.png, 307 x 204)
-const SHRINE = { src: 'assets/level4/sprites/relic_shrine.png', w: 307, h: 204, drawW: 150, x: 560 };
+// The relic shrine near the gate (relic_shrine.webp, 307 x 204)
+const SHRINE = { src: 'assets/level4/sprites/relic_shrine.webp', w: 307, h: 204, drawW: 150, x: 560 };
 SHRINE.k = SHRINE.drawW / SHRINE.w;
 SHRINE.top = FLOOR_Y + 3 - SHRINE.h * SHRINE.k;
 
-// The arched parapet (fort_parapet.png 1961 x 287, with the dark chamber behind the openings): three strips laid
+// The arched parapet (fort_parapet.webp 1961 x 287, with the dark chamber behind the openings): three strips laid
 // end to end along the whole wall top (panorama x 541..3244), their base resting on the wall's coping (row 340);
 // archers rise in the 8 open embrasures of each, 24 in all, over both halves of the fort
-const PARAPET = { src: 'assets/level4/fort_parapet.png', backSrc: 'assets/level4/fort_parapet_back.png', imgW: 1961, imgH: 287,
+const PARAPET = { src: 'assets/level4/fort_parapet.webp', backSrc: 'assets/level4/fort_parapet_back.webp', imgW: 1961, imgH: 287,
   sillPx: 201, windowPx: [109, 429, 586, 743, 1053, 1212, 1525, 1684] };
 const WALL_X0 = 541 * BG_K, WALL_X1 = 3244 * BG_K, WALL_TOP = 340 * BG_K;
 // the 12 bays of a strip run from image x 25 to 1919: strips are laid at that pitch so the next strip's first bay
@@ -367,19 +367,19 @@ export class Level4 {
     this.arenaMin = ARENA_MIN;
     this.arenaMax = ARENA_MAX;
 
-    this.bgImg = img('assets/level4/fort_panorama.jpg');
+    this.bgImg = img('assets/level4/fort_panorama.webp');
     this.ledgeImg = img(LEDGE_ART.src);
-    this.malaImg = img('assets/level4/sprites/mala.png');
+    this.malaImg = img('assets/level4/sprites/mala.webp');
     this.parapetImg = img(PARAPET.src);
     this.parapetBackImg = img(PARAPET.backSrc);
     this.throneImg = img(THRONE.src);
     this.shrineImg = img(SHRINE.src);
-    this.arrowImg = img('assets/anims/archer_arrow.png');
-    this.hugImgs = Array.from({ length: 12 }, (_, i) => img(`assets/level4/sprites/hug_${i}.png`));
+    this.arrowImg = img('assets/anims/archer_arrow.webp');
+    this.hugImgs = Array.from({ length: 12 }, (_, i) => img(`assets/level4/sprites/hug_${i}.webp`));
     // decode every boss, transformation and reunion frame ahead of time, so no frame is decoded the first time it
     // is drawn (that hitch is what made the fight's cut-scenes stutter)
     for (const im of [...Object.values(bossImages()).flat(), ...this.hugImgs]) im.decode?.().catch(() => {});
-    const frames = (name, n) => Array.from({ length: n }, (_, i) => img(`${ARCHER_ART.dir}${name}_${i}.png`));
+    const frames = (name, n) => Array.from({ length: n }, (_, i) => img(`${ARCHER_ART.dir}${name}_${i}.webp`));
     const aim = frames('aim', 6);
     this.art = { aim, idle: [aim[0], aim[0], aim[5], aim[5]], hurt: frames('hurt', 2), die: frames('die', 3) };
 
@@ -944,7 +944,7 @@ export class Level4 {
     ctx.restore();
   }
 
-  /** Maa Kali's skull mala (assets/level4/sprites/mala.png, 110 x 122 at 2x): it floats over the shrine,
+  /** Maa Kali's skull mala (assets/level4/sprites/mala.webp, 110 x 122 at 2x): it floats over the shrine,
    *  glowing, until Rakti takes it; then it flies into her hands and fades. */
   renderMala(ctx) {
     if (this.malaTaken && this.malaFly >= 1) return;

@@ -2,13 +2,15 @@
  * On-screen key names that follow the device in use. The game's text is written for the keyboard ("[E] TAKE THE
  * TRISHUL", "Press [F]"). While a controller is in use, every [KEY] in the page shows that controller's button
  * instead: Xbox names (A, B, X, Y, LB, RB...) or PlayStation symbols (✕, ○, □, △, L1, R1...). Switching back to
- * the keyboard puts the original text back.
+ * the keyboard puts the original text back. In Mobile Mode (no controller in use) they name the on-screen buttons,
+ * which carry pictures and action names, not keyboard letters: [E] -> [USE], [X] -> [KALI], [Q] -> [EARTH]...
  *
  * - keyLabel(text) converts one string (the dialogue box uses it as each line opens, so typing never splits a name).
  * - startKeyLabels() keeps the rest of the page (prompts, HUD hints, menus, cards) converted as it changes.
  *   Elements with data-key="ESC" (a bare key name, no brackets) are converted too.
  */
 import { Input } from './input.js';
+import { Mode } from './mode.js';
 
 // keyboard name -> [Xbox, PlayStation]
 const PAD_NAMES = {
@@ -25,16 +27,21 @@ const PAD_NAMES = {
   ENTER: ['A', '✕'],
   CLICK: ['X', '□']
 };
+// keyboard name -> the touch button's name (js/core/touch.js)
+const TOUCH_NAMES = { E: 'USE', F: 'SANDS', Q: 'EARTH', X: 'KALI', 1: 'WEAPON', 2: 'WEAPON', R: 'RESTART', C: 'SKIP', ESC: 'PAUSE', SPACE: 'JUMP', ENTER: 'TAP', CLICK: 'ATTACK' };
+const touchNames = () => Mode.isMobile && !Input.labelPad;
+const active = () => Input.labelPad || touchNames();
 const TOKEN = /\[(E|F|Q|X|1|2|R|C|ESC|SPACE|ENTER|CLICK)\]/gi;
 
 function padName(key) {
+  if (touchNames()) return TOUCH_NAMES[key.toUpperCase()] || key;
   const n = PAD_NAMES[key.toUpperCase()];
   return n ? n[Input.labelStyle === 'ps' ? 1 : 0] : key;
 }
 
 /** The text with its [KEY] names for the device in use. */
 export function keyLabel(text) {
-  if (!text || !Input.labelPad) return text;
+  if (!text || !active()) return text;
   return String(text).replace(TOKEN, (m, k) => `[${padName(k)}]`);
 }
 
@@ -65,7 +72,7 @@ function convertTree(root) {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
   for (let n = walker.nextNode(); n; n = walker.nextNode()) if (!skip(n)) convertNode(n);
   for (const el of root.querySelectorAll ? root.querySelectorAll('[data-key]') : []) {
-    el.textContent = Input.labelPad ? padName(el.dataset.key) : el.dataset.key;
+    el.textContent = active() ? padName(el.dataset.key) : el.dataset.key;
   }
 }
 
@@ -83,7 +90,7 @@ function refreshAll() {
 export function startKeyLabels() {
   if (typeof document === 'undefined' || typeof MutationObserver === 'undefined') return;
   const obs = new MutationObserver((records) => {
-    if (applying || !Input.labelPad) return;
+    if (applying || !active()) return;
     applying = true;
     for (const r of records) {
       if (r.type === 'characterData') { if (!skip(r.target)) convertNode(r.target); continue; }
@@ -95,5 +102,5 @@ export function startKeyLabels() {
   });
   obs.observe(document.body, { subtree: true, childList: true, characterData: true });
   Input.onDeviceChange(() => refreshAll());
-  if (Input.labelPad) refreshAll();   // a controller chosen in Settings last time
+  if (active()) refreshAll();   // a controller chosen in Settings last time, or Mobile Mode
 }

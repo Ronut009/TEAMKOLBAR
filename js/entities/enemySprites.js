@@ -24,7 +24,7 @@ export class EnemySpriteSheet {
     for (const [name, m] of Object.entries(BETAL_FRAMES)) {
       this.frames[name] = Array.from({ length: m.count }, (_, i) => {
         const img = new Image();
-        img.src = `assets/anims/betal/${name}_${i}.png`;
+        img.src = `assets/anims/betal/${name}_${i}.webp`;
         return img;
       });
     }

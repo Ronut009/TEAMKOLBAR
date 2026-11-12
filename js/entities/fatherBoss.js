@@ -51,7 +51,7 @@ const ART = {
   spikes: { n: 6, w: 175, h: 94, ax: 76.2, ay: 90.3 },
   orb_purple: { n: 6, w: 79, h: 56, ax: 51.2, ay: 28.6 }
 };
-const loadSet = (name) => Array.from({ length: ART[name].n }, (_, i) => { const im = new Image(); im.src = `${DIR}${name}_${i}.png`; return im; });
+const loadSet = (name) => Array.from({ length: ART[name].n }, (_, i) => { const im = new Image(); im.src = `${DIR}${name}_${i}.webp`; return im; });
 const ready = (i) => i && i.complete && i.naturalWidth > 0;
 const rand = (a, b) => a + Math.random() * (b - a);
 

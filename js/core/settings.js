@@ -1,6 +1,7 @@
 /**
  * Settings (from the title screen and the pause menu). Controls: the player picks what they play with
- * (keyboard & mouse, an Xbox controller or a PlayStation controller) and sees what every key or button does.
+ * (keyboard & mouse, an Xbox controller or a PlayStation controller, or the on-screen buttons in Mobile Mode) and sees
+ * what every key or button does.
  * The choice also sets the key names shown everywhere in the game (prompts, dialogue, the skip button); every
  * device keeps working whatever is picked. Until a choice is made the game follows the device in use.
  * The screen's markup is #settingsScreen in index.html; its buttons are the main menu's (.menu-button).
@@ -8,6 +9,7 @@
 import { Input } from './input.js';
 import { Music, Sfx } from './audio.js';
 import { Options, VOL_MAX } from './options.js';
+import { Mode } from './mode.js';
 
 // What each action is on each device, by group. A name in SYM is a PlayStation symbol (drawn larger).
 // Each row names what it needs (`need`); the screen only lists rows the player has (see `show(from, has)`), so the
@@ -15,21 +17,21 @@ import { Options, VOL_MAX } from './options.js';
 // what its arena uses. A row without `need` is always listed.
 const GROUPS = ['MOVEMENT', 'COMBAT', 'ABILITIES', 'MENUS & STORY'];
 const ROWS = [
-  { g: 'MOVEMENT', what: 'Move', keyboard: ['A', 'D'], xbox: ['D-PAD', 'L-STICK'], ps: ['D-PAD', 'L-STICK'] },
-  { g: 'MOVEMENT', what: 'Climb ladders', need: 'climb', keyboard: ['W', 'S'], xbox: ['▲', '▼'], ps: ['▲', '▼'] },
-  { g: 'MOVEMENT', what: 'Jump', keyboard: ['SPACE'], xbox: ['A'], ps: ['✕'] },
-  { g: 'MOVEMENT', what: 'Drop through a ledge', need: 'ledge', keyboard: ['S', '+', 'SPACE'], xbox: ['▼', '+', 'A'], ps: ['▼', '+', '✕'] },
-  { g: 'COMBAT', what: 'Attack', need: 'attack', keyboard: ['LEFT CLICK'], xbox: ['X'], ps: ['□'] },
-  { g: 'COMBAT', what: 'Aim the Trishul', need: 'trishul', keyboard: ['MOUSE'], xbox: ['R-STICK'], ps: ['R-STICK'] },
-  { g: 'COMBAT', what: 'Talwar', need: 'trishul', keyboard: ['1'], xbox: ['LT'], ps: ['L2'] },
-  { g: 'COMBAT', what: 'Trishul', need: 'trishul', keyboard: ['2'], xbox: ['RT'], ps: ['R2'] },
-  { g: 'ABILITIES', what: 'Kali form', need: 'kali', keyboard: ['X'], xbox: ['B'], ps: ['○'] },
-  { g: 'ABILITIES', what: 'Shape the earth', need: 'earth', keyboard: ['Q'], xbox: ['LB'], ps: ['L1'] },
-  { g: 'ABILITIES', what: 'Sands of Time', need: 'sands', keyboard: ['F'], xbox: ['RB'], ps: ['R1'] },
-  { g: 'MENUS & STORY', what: 'Interact / next line', need: 'story', keyboard: ['E'], xbox: ['Y'], ps: ['△'] },
-  { g: 'MENUS & STORY', what: 'Skip a conversation', need: 'story', keyboard: ['C'], xbox: ['VIEW'], ps: ['CREATE'] },
-  { g: 'MENUS & STORY', what: 'Pause', keyboard: ['ESC'], xbox: ['MENU'], ps: ['OPTIONS'] },
-  { g: 'MENUS & STORY', what: 'Skip the opening film', need: 'film', keyboard: ['HOLD ESC'], xbox: ['HOLD MENU'], ps: ['HOLD OPTIONS'] }
+  { g: 'MOVEMENT', what: 'Move', keyboard: ['A', 'D'], xbox: ['D-PAD', 'L-STICK'], ps: ['D-PAD', 'L-STICK'], touch: ['STICK ◀', 'STICK ▶'] },
+  { g: 'MOVEMENT', what: 'Climb ladders', need: 'climb', keyboard: ['W', 'S'], xbox: ['▲', '▼'], ps: ['▲', '▼'], touch: ['STICK ▲', 'STICK ▼'] },
+  { g: 'MOVEMENT', what: 'Jump', keyboard: ['SPACE'], xbox: ['A'], ps: ['✕'], touch: ['JUMP'] },
+  { g: 'MOVEMENT', what: 'Drop through a ledge', need: 'ledge', keyboard: ['S', '+', 'SPACE'], xbox: ['▼', '+', 'A'], ps: ['▼', '+', '✕'], touch: ['STICK ▼', '+', 'JUMP'] },
+  { g: 'COMBAT', what: 'Attack', need: 'attack', keyboard: ['LEFT CLICK'], xbox: ['X'], ps: ['□'], touch: ['ATTACK'] },
+  { g: 'COMBAT', what: 'Aim the Trishul', need: 'trishul', keyboard: ['MOUSE'], xbox: ['R-STICK'], ps: ['R-STICK'], touch: ['AIMS BY ITSELF'] },
+  { g: 'COMBAT', what: 'Talwar', need: 'trishul', keyboard: ['1'], xbox: ['LT'], ps: ['L2'], touch: ['SWITCH'] },
+  { g: 'COMBAT', what: 'Trishul', need: 'trishul', keyboard: ['2'], xbox: ['RT'], ps: ['R2'], touch: ['SWITCH'] },
+  { g: 'ABILITIES', what: 'Kali form', need: 'kali', keyboard: ['X'], xbox: ['B'], ps: ['○'], touch: ['KALI'] },
+  { g: 'ABILITIES', what: 'Shape the earth', need: 'earth', keyboard: ['Q'], xbox: ['LB'], ps: ['L1'], touch: ['EARTH'] },
+  { g: 'ABILITIES', what: 'Sands of Time', need: 'sands', keyboard: ['F'], xbox: ['RB'], ps: ['R1'], touch: ['SANDS'] },
+  { g: 'MENUS & STORY', what: 'Interact / next line', need: 'story', keyboard: ['E'], xbox: ['Y'], ps: ['△'], touch: ['USE', 'TAP THE TEXT'] },
+  { g: 'MENUS & STORY', what: 'Skip a conversation', need: 'story', keyboard: ['C'], xbox: ['VIEW'], ps: ['CREATE'], touch: ['SKIP'] },
+  { g: 'MENUS & STORY', what: 'Pause', keyboard: ['ESC'], xbox: ['MENU'], ps: ['OPTIONS'], touch: ['PAUSE'] },
+  { g: 'MENUS & STORY', what: 'Skip the opening film', need: 'film', keyboard: ['HOLD ESC'], xbox: ['HOLD MENU'], ps: ['HOLD OPTIONS'], touch: ['TAP SKIP'] }
 ];
 /** The title screen: the basics only (no powers, no Trishul: they would spoil the story). */
 export const MENU_CONTROLS = { climb: true, ledge: true, attack: true, story: true, film: true };
@@ -51,6 +53,11 @@ export class SettingsMenu {
     this.list = document.getElementById('settingsBinds');
     this.note = document.getElementById('settingsNote');
     this.devButtons = [...document.querySelectorAll('#settingsScreen [data-device]')];
+    // Mobile Mode: a TOUCH page lists the on-screen buttons (shown first). It does not change the key names in the
+    // game: the buttons carry the keyboard's letters, as the prompts do.
+    this.touchView = Mode.isMobile;
+    const touchBtn = this.devButtons.find((b) => b.dataset.device === 'touch');
+    if (touchBtn) touchBtn.hidden = !Mode.isMobile;
     this.from = null;          // the button that opened it (focus goes back there)
     this.has = MENU_CONTROLS;  // what the player has (which rows to list)
     this.shownKey = null;      // the device + rows on screen
@@ -81,7 +88,13 @@ export class SettingsMenu {
       b.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        Input.setLabelPref(b.dataset.device);
+        if (b.dataset.device === 'touch') {
+          this.touchView = true;
+          Input.setLabelPref('keyboard');
+        } else {
+          this.touchView = false;
+          Input.setLabelPref(b.dataset.device);
+        }
         Sfx.play('text_pop');
         this.render();
       });
@@ -95,6 +108,7 @@ export class SettingsMenu {
 
   /** The device the screen highlights: the player's choice, else the one in use. */
   current() {
+    if (this.touchView) return 'touch';
     if (Input.labelPref) return Input.labelPref;
     return Input.device === 'pad' ? Input.padStyle : 'keyboard';
   }
@@ -145,7 +159,9 @@ export class SettingsMenu {
       b.setAttribute('aria-pressed', on ? 'true' : 'false');
     }
     if (this.note) {
-      this.note.textContent = Input.labelPref
+      this.note.textContent = dev === 'touch'
+        ? 'The left side of the screen is the stick. Buttons appear as Rakti gains each power; the game names them in its hints.'
+        : Input.labelPref
         ? 'Button names in the game follow your choice. Every device still works.'
         : 'Picked for you from what you last touched. Choose one to keep it.';
     }

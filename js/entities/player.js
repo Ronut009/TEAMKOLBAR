@@ -226,7 +226,7 @@ export class Player {
     this.goldOrbs = [];
     this.orbCooldown = 0;
     this.orbCast = null;
-    this.orbImgs = Array.from({ length: KALI_ORB.art.count }, (_, i) => { const im = new Image(); im.src = `${KALI_ORB.art.src}${i}.png`; return im; });
+    this.orbImgs = Array.from({ length: KALI_ORB.art.count }, (_, i) => { const im = new Image(); im.src = `${KALI_ORB.art.src}${i}.webp`; return im; });
     this.divinePulse = 0.0;
 
     // Preload Animation Sprite Frames
@@ -268,7 +268,7 @@ export class Player {
     this.aimWorld = null;         // the engine keeps this on the cursor's world position
     this.catchTimer = 0;
     this.trishulImg = new Image();
-    this.trishulImg.src = 'assets/weapons/trishul_throw.png';   // 240 x 60, points right
+    this.trishulImg.src = 'assets/weapons/trishul_throw.webp';   // 240 x 60, points right
 
     // Kali's [Q] cast (Level 2): a short locked animation; the level reacts at the release frame
     this.isCasting = false;
@@ -314,7 +314,7 @@ export class Player {
   loadAnimations() {
     const frames = (name, count = this.skin.frameCounts?.[name] ?? 6) => Array.from({ length: count }, (_, i) => {
       const img = new Image();
-      img.src = `${this.skin.folder}/${name}_${i}.png`;
+      img.src = `${this.skin.folder}/${name}_${i}.webp`;
       return img;
     });
 
@@ -334,7 +334,7 @@ export class Player {
     };
     const prologueFrames = (name) => Array.from({ length: 6 }, (_, i) => {
       const img = new Image();
-      img.src = `${PROLOGUE_SPRITES.folder}/${name}_${i}.png`;
+      img.src = `${PROLOGUE_SPRITES.folder}/${name}_${i}.webp`;
       return img;
     });
     this.anims.wake = prologueFrames('wake');
@@ -343,7 +343,7 @@ export class Player {
     for (const [name, m] of Object.entries(ABILITY_SPRITES.metrics)) {
       this.anims[name] = Array.from({ length: m.count }, (_, i) => {
         const img = new Image();
-        img.src = `${ABILITY_SPRITES.folder}/${name}_${i}.png`;
+        img.src = `${ABILITY_SPRITES.folder}/${name}_${i}.webp`;
         return img;
       });
     }
@@ -1307,8 +1307,11 @@ export class Player {
     let angle = dir > 0 ? 0 : Math.PI;
     // Cursor aim (the unlimited mode's style, now everywhere): no auto-aim and no magnet. The range stays the
     // level's own (story levels TRISHUL.range, the unlimited arena its longer trishulRange).
-    if (this.throwAim) {
-      const m = this.throwAim;
+    let m = this.throwAim;
+    // touch auto-aim: the target may have moved during the wind-up, so aim again at the moment of release
+    const fresh = this.aimRefiner ? this.aimRefiner() : null;
+    if (fresh) m = fresh;
+    if (m) {
       if (Math.hypot(m.x - sx, m.y - sy) > 4) angle = Math.atan2(m.y - sy, m.x - sx);
     }
     this.throwAim = null;
