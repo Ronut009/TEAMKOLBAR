@@ -34,11 +34,11 @@ const FEATHER = FEATHER_PX * BG_SCALE;          // screens after the first overl
 // X(screen) = world x of a screen's left edge; X(screen, imageX) = a point in that screen's art.
 const X = (screen, imageX = 0) => screen * (SCREEN_W - FEATHER) + imageX * BG_SCALE;
 
-// Pillar art (assets/level1/pillar_*.png, trimmed): image size and how far below the top edge feet stand
+// Pillar art (assets/level1/pillar_*.webp, trimmed): image size and how far below the top edge feet stand
 const PILLAR_ART = {
-  tall:   { src: 'assets/level1/pillar_tall.png',   w: 329, h: 735, surface: 10 },
-  medium: { src: 'assets/level1/pillar_medium.png', w: 267, h: 500, surface: 10 },
-  small:  { src: 'assets/level1/pillar_small.png',  w: 254, h: 325, surface: 10 }
+  tall:   { src: 'assets/level1/pillar_tall.webp',   w: 329, h: 735, surface: 10 },
+  medium: { src: 'assets/level1/pillar_medium.webp', w: 267, h: 500, surface: 10 },
+  small:  { src: 'assets/level1/pillar_small.webp',  w: 254, h: 325, surface: 10 }
 };
 const PILLAR_SCALE = 0.21;     // floor pillars
 const PIT_PILLAR_SCALE = 0.24; // pit pillars: tall enough that their base is always below the screen
@@ -48,9 +48,9 @@ const pillarScale = (p) => p.scale || PILLAR_SCALE;
 // Image coordinates: arm = the stone ledge either side (Rakti stands on its top), niche = the arched alcove.
 const TOWER_SCALE = 0.30;
 const TOWER_ART = {
-  shrine:     { src: 'assets/level1/tower_shrine.png',      cx: 512, armY: 753, armL: 73, armR: 950, nicheSill: 700, nicheTop: 410 },
-  doorClosed: { src: 'assets/level1/tower_door_closed.png', cx: 512, armY: 720, armL: 69, armR: 955, doorSill: 670, doorTop: 330, doorL: 390, doorR: 633 },
-  doorOpen:   { src: 'assets/level1/tower_door_open.png',   cx: 512, armY: 720, armL: 69, armR: 955, doorSill: 670, doorTop: 330, doorL: 390, doorR: 633 }
+  shrine:     { src: 'assets/level1/tower_shrine.webp',      cx: 512, armY: 753, armL: 73, armR: 950, nicheSill: 700, nicheTop: 410 },
+  doorClosed: { src: 'assets/level1/tower_door_closed.webp', cx: 512, armY: 720, armL: 69, armR: 955, doorSill: 670, doorTop: 330, doorL: 390, doorR: 633 },
+  doorOpen:   { src: 'assets/level1/tower_door_open.webp',   cx: 512, armY: 720, armL: 69, armR: 955, doorSill: 670, doorTop: 330, doorL: 390, doorR: 633 }
 };
 const TOWER_W = 1024, TOWER_H = 1536;
 const BRIDGE_SUMMON_TIME = 1.9;  // the flower bridges take this long to bloom across
@@ -59,11 +59,11 @@ const TOWER_GAP = 520;          // open water between arm tips: a stone pier sta
 const PIER_SCALE = 0.27;        // the piers use the tall pillar art (drawn as a column rising out of the deep)
 const PIER_REPEAT = [248, 543];  // its repeating middle section (image rows: band -> diamond -> ring band -> sun panel)
 
-// Kali's idol (assets/level1/kali_idol.png, 560x840 from the 1024x1536 original): pillared shrine whose
+// Kali's idol (assets/level1/kali_idol.webp, 560x840 from the 1024x1536 original): pillared shrine whose
 // plinth stands on the floor. footRow = the plinth's bottom row, faceRow = her eyes.
-const IDOL_ART = { src: 'assets/level1/kali_idol.png', w: 560, h: 840, footRow: 826, faceRow: 180, worldH: 338 };
+const IDOL_ART = { src: 'assets/level1/kali_idol.webp', w: 560, h: 840, footRow: 826, faceRow: 180, worldH: 338 };
 
-// Single spikes: assets/level1/spikes/single_spike_sheet.png is one spike cut from each frame of the old
+// Single spikes: assets/level1/spikes/single_spike_sheet.webp is one spike cut from each frame of the old
 // 4-spike trap sheet: 16 frames of 68x140, base on row 130. 0-1 hidden, 2-3 tips peek, 4-7 rising, 8-11 up,
 // 12-15 retracting. Each spike runs its own fast cycle; rows of them are phased into ripples or alternation.
 const SPIKE_ART = { frameW: 68, frameH: 140, surface: 130 };
@@ -83,10 +83,10 @@ const PAD_OVERLAP = 12;      // neighbouring pads overlap by this many world px
 const PAD_SURFACE = 0.42;    // the leaf's top surface sits this far down the pad image
 const PETAL_ART = { c: { w: 113, h: 57 }, d: { w: 79, h: 39 } };
 
-// Geyser art (assets/level1/geyser_sheet.png): 6 frames of 125x395; frames 4-5 are the full column (splash base
+// Geyser art (assets/level1/geyser_sheet.webp): 6 frames of 125x395; frames 4-5 are the full column (splash base
 // on row 390). The jet comes DOWN from the surface: its column (rows colTop..colBottom, tiled) is drawn from the
 // top of the screen down to the deck, where the splash (rows colBottom..frameH) lands.
-const GEYSER_ART = { src: 'assets/level1/geyser_sheet.png', frameW: 125, frameH: 395, base: 390, scale: 0.36, colTop: 60, colBottom: 290 };
+const GEYSER_ART = { src: 'assets/level1/geyser_sheet.webp', frameW: 125, frameH: 395, base: 390, scale: 0.36, colTop: 60, colBottom: 290 };
 
 // Water jets that replace the old bridge orbs: the sea above pours a jet straight down onto each hibiscus span.
 // A thin shimmer from above and a ring on the deck warn first; the jet then drives down from the top of the
@@ -138,26 +138,26 @@ export class Level {
 
     // ------------------------------------------------------------------ backgrounds
     this.bg = {
-      portal: img('assets/level1/prologue_portal.jpg'),
-      sanctum: img('assets/level1/sanctum_clean.jpg'),   // the idol is a separate sprite on it
-      ruins: img('assets/level1/filler_ruins.jpg'),
-      suns: img('assets/level1/sanctum_suns.jpg'),       // the sun wall (screen 3)
-      towers: img('assets/level1/towers_bg.jpg')      // open water behind the shrine towers (screens 5+)
+      portal: img('assets/level1/prologue_portal.webp'),
+      sanctum: img('assets/level1/sanctum_clean.webp'),   // the idol is a separate sprite on it
+      ruins: img('assets/level1/filler_ruins.webp'),
+      suns: img('assets/level1/sanctum_suns.webp'),       // the sun wall (screen 3)
+      towers: img('assets/level1/towers_bg.webp')      // open water behind the shrine towers (screens 5+)
     };
     this.idolImg = img(IDOL_ART.src);
     this.hib = Object.fromEntries(['pad_s', 'pad_m', 'pad_l', 'hib_front', 'hib_side_a', 'hib_side_b', 'leaf_b', 'leaf_c', 'petal_c', 'petal_d']
-      .map((n) => [n, img(HIB + n + '.png')]));
+      .map((n) => [n, img(HIB + n + '.webp')]));
     this.geyserImg = img(GEYSER_ART.src);
     this.towerImgs = Object.fromEntries(Object.entries(TOWER_ART).map(([k, v]) => [k, img(v.src)]));
 
     this.platformArt = new PlatformArt('temple');
     this.pillarImgs = Object.fromEntries(Object.entries(PILLAR_ART).map(([k, v]) => [k, img(v.src)]));
-    this.spikeSheet = img('assets/level1/spikes/single_spike_sheet.png');
-    this.relicImg = img('assets/level1/relic.png');
-    this.columnImg = img('assets/level1/column.png');   // 300x1324, stands over every screen seam
+    this.spikeSheet = img('assets/level1/spikes/single_spike_sheet.webp');
+    this.relicImg = img('assets/level1/relic.webp');
+    this.columnImg = img('assets/level1/column.webp');   // 300x1324, stands over every screen seam
     this.seamColumns = [1, 2, 3, 4, 5].map((n) => X(n) + FEATHER / 2);
     this.enemySprites = new EnemySpriteSheet();
-    this.shrineImg = img('assets/level1/shrine.png');
+    this.shrineImg = img('assets/level1/shrine.webp');
 
     // ------------------------------------------------------------------ prologue (screens 0-1)
     // The idol stands near the start of the sanctum screen; its face glows while Kali speaks.
@@ -248,7 +248,7 @@ export class Level {
     // the lever stands in the last tower's niche, at Rakti's chest height; it opens the portal door
     this.lever = { x: cx3, y: this.towerY(A, A.nicheSill), activated: false, pullTime: 0 };
     this.leverMessage = 'The lever is down, and the portal door is open. Go back to it, Rakti. Your father went through ahead of you.';
-    this.leverImgs = [0, 1, 2].map((i) => img(`assets/level1/lever_${i}.png`));   // idle, moving, pulled
+    this.leverImgs = [0, 1, 2].map((i) => img(`assets/level1/lever_${i}.webp`));   // idle, moving, pulled
 
     // Kali's flower bridges: four spans (tower -> pier -> tower -> pier -> tower). Her lesson [X] calls them, and red
     // hibiscus blooms (her sacred flower) strung on a gold thread fly in from both ends and meet in the middle.

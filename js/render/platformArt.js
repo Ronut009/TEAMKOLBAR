@@ -14,7 +14,7 @@
 export const PLATFORM_STYLES = {
   // Sunken-temple slab with bevelled ends: sandstone top, turquoise-inlaid sun frieze.
   temple: {
-    src: 'assets/platforms/temple_platform_v2.png', // 2172 x 233
+    src: 'assets/platforms/temple_platform_v2.webp', // 2172 x 233
     surfaceY: 23,      // image row where feet stand (on the top face)
     scale: 0.386,      // image px -> world px (bottom edge lands ~79 px below the feet)
     capLeft: 489,      // image columns [0, 489) = left end cap
@@ -23,7 +23,7 @@ export const PLATFORM_STYLES = {
   // Level 2 desert slab: sandstone top, mudbrick frieze with turquoise inlays (1085 x 184; built from the
   // source strip as left cap | one 543 px module that tiles | right cap)
   desert: {
-    src: 'assets/level2/sprites/mudbrick_platform.png',
+    src: 'assets/level2/sprites/mudbrick_platform.webp',
     surfaceY: 20,
     scale: 0.48,       // ~79 world px thick, like the temple slab
     capLeft: 345,
@@ -31,9 +31,9 @@ export const PLATFORM_STYLES = {
   },
   // Level 3 jungle slab: moss-topped carved brick with hanging roots (960 x 187, middle is made to tile)
   // Level 3 jungle slab v2: mossy carved brick with roots and glowing flowers (809 x 125: left cap | 272 px
-  // module that tiles | right cap). The previous strip is assets/level3/jungle_platform.png.
+  // module that tiles | right cap). The previous strip is assets/level3/jungle_platform.webp.
   jungle: {
-    src: 'assets/level3/jungle_platform_v2.png',
+    src: 'assets/level3/jungle_platform_v2.webp',
     surfaceY: 30,
     scale: 0.75,       // ~70 world px below the walking surface
     capLeft: 311,
@@ -41,9 +41,9 @@ export const PLATFORM_STYLES = {
   },
   // Chaos mode floor v2: the jungle-stone strip (2158 x 265, its ends are the caps; the stretch between two gem
   // pillars is the middle). Scaled so the whole strip spans the arena (-140 .. WORLD_W + 140) once.
-  // v1 (the plain grass slab) is in assets/endless/backup/floor_grass_v1.png.
+  // v1 (the plain grass slab) is in assets/endless/backup/floor_grass_v1.webp.
   grass: {
-    src: 'assets/endless/floor_grass.png',
+    src: 'assets/endless/floor_grass.webp',
     surfaceY: 80,
     scale: 0.5945,
     capLeft: 773,
