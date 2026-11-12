@@ -23,14 +23,14 @@ const ROWS = [
   { g: 'MOVEMENT', what: 'Drop through a ledge', need: 'ledge', keyboard: ['S', '+', 'SPACE'], xbox: ['▼', '+', 'A'], ps: ['▼', '+', '✕'], touch: ['STICK ▼', '+', 'JUMP'] },
   { g: 'COMBAT', what: 'Attack', need: 'attack', keyboard: ['LEFT CLICK'], xbox: ['X'], ps: ['□'], touch: ['ATTACK'] },
   { g: 'COMBAT', what: 'Aim the Trishul', need: 'trishul', keyboard: ['MOUSE'], xbox: ['R-STICK'], ps: ['R-STICK'], touch: ['AIMS BY ITSELF'] },
-  { g: 'COMBAT', what: 'Talwar', need: 'trishul', keyboard: ['1'], xbox: ['LT'], ps: ['L2'], touch: ['1'] },
-  { g: 'COMBAT', what: 'Trishul', need: 'trishul', keyboard: ['2'], xbox: ['RT'], ps: ['R2'], touch: ['2'] },
-  { g: 'ABILITIES', what: 'Kali form', need: 'kali', keyboard: ['X'], xbox: ['B'], ps: ['○'], touch: ['X'] },
-  { g: 'ABILITIES', what: 'Shape the earth', need: 'earth', keyboard: ['Q'], xbox: ['LB'], ps: ['L1'], touch: ['Q'] },
-  { g: 'ABILITIES', what: 'Sands of Time', need: 'sands', keyboard: ['F'], xbox: ['RB'], ps: ['R1'], touch: ['F'] },
-  { g: 'MENUS & STORY', what: 'Interact / next line', need: 'story', keyboard: ['E'], xbox: ['Y'], ps: ['△'], touch: ['E', 'TAP THE TEXT'] },
-  { g: 'MENUS & STORY', what: 'Skip a conversation', need: 'story', keyboard: ['C'], xbox: ['VIEW'], ps: ['CREATE'], touch: ['C'] },
-  { g: 'MENUS & STORY', what: 'Pause', keyboard: ['ESC'], xbox: ['MENU'], ps: ['OPTIONS'], touch: ['❚❚'] },
+  { g: 'COMBAT', what: 'Talwar', need: 'trishul', keyboard: ['1'], xbox: ['LT'], ps: ['L2'], touch: ['SWITCH'] },
+  { g: 'COMBAT', what: 'Trishul', need: 'trishul', keyboard: ['2'], xbox: ['RT'], ps: ['R2'], touch: ['SWITCH'] },
+  { g: 'ABILITIES', what: 'Kali form', need: 'kali', keyboard: ['X'], xbox: ['B'], ps: ['○'], touch: ['KALI'] },
+  { g: 'ABILITIES', what: 'Shape the earth', need: 'earth', keyboard: ['Q'], xbox: ['LB'], ps: ['L1'], touch: ['EARTH'] },
+  { g: 'ABILITIES', what: 'Sands of Time', need: 'sands', keyboard: ['F'], xbox: ['RB'], ps: ['R1'], touch: ['SANDS'] },
+  { g: 'MENUS & STORY', what: 'Interact / next line', need: 'story', keyboard: ['E'], xbox: ['Y'], ps: ['△'], touch: ['USE', 'TAP THE TEXT'] },
+  { g: 'MENUS & STORY', what: 'Skip a conversation', need: 'story', keyboard: ['C'], xbox: ['VIEW'], ps: ['CREATE'], touch: ['SKIP'] },
+  { g: 'MENUS & STORY', what: 'Pause', keyboard: ['ESC'], xbox: ['MENU'], ps: ['OPTIONS'], touch: ['PAUSE'] },
   { g: 'MENUS & STORY', what: 'Skip the opening film', need: 'film', keyboard: ['HOLD ESC'], xbox: ['HOLD MENU'], ps: ['HOLD OPTIONS'], touch: ['TAP SKIP'] }
 ];
 /** The title screen: the basics only (no powers, no Trishul: they would spoil the story). */
@@ -160,7 +160,7 @@ export class SettingsMenu {
     }
     if (this.note) {
       this.note.textContent = dev === 'touch'
-        ? 'The buttons on screen carry the same letters as the keys the game talks about. The left side of the screen is the stick.'
+        ? 'The left side of the screen is the stick. Buttons appear as Rakti gains each power; the game names them in its hints.'
         : Input.labelPref
         ? 'Button names in the game follow your choice. Every device still works.'
         : 'Picked for you from what you last touched. Choose one to keep it.';
