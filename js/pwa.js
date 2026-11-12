@@ -61,8 +61,10 @@ requestWakeLock();
 // ---- INSTALL RAKTI (title screen) ----
 // Browsers show their own install prompt only now and then (once, and not again for a while after it is closed),
 // so the title screen keeps an INSTALL RAKTI button wherever the game can be installed and is not installed yet.
-// Chrome / Edge / Samsung Internet: the button opens the browser's install prompt. iPhone / iPad Safari has no prompt:
-// the button explains Share > Add to Home Screen. Running as the installed app, the button never shows.
+// Chrome / Edge / Samsung Internet: the button opens the browser's install prompt when the browser offers one. A phone
+// always gets the button (the browser may hold its offer back for a while, e.g. after an uninstall): without an offer it
+// explains the browser's own menu (Android: menu > Install app / Add to Home screen; iPhone / iPad: Share > Add to Home
+// Screen). Running as the installed app, the button never shows.
 const installed = () => window.matchMedia('(display-mode: standalone)').matches ||
   window.matchMedia('(display-mode: fullscreen)').matches || window.navigator.standalone === true;
 const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) ||
@@ -85,7 +87,7 @@ window.addEventListener('DOMContentLoaded', () => {
   const btn = document.getElementById('installButton');
   const help = document.getElementById('installHelp');
   if (!btn) return;
-  if (isIOS && !installed()) setInstallButton(true);
+  if ((isIOS || isMobileMode) && !installed()) setInstallButton(true);
   btn.addEventListener('click', async (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -97,8 +99,10 @@ window.addEventListener('DOMContentLoaded', () => {
         const choice = await ev.userChoice;
         if (choice && choice.outcome === 'accepted') setInstallButton(false);
       } catch (_) { /* the browser refused: nothing changes */ }
-      if (!installEvent && !isIOS) setInstallButton(false);
+      if (!installEvent && !isIOS && !isMobileMode) setInstallButton(false);
     } else if (help) {
+      help.querySelector('.ih-ios').hidden = !isIOS;
+      help.querySelector('.ih-android').hidden = isIOS;
       help.hidden = false;
       document.getElementById('installHelpClose')?.focus({ focusVisible: false });
     }

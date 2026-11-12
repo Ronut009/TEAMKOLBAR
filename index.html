@@ -426,11 +426,13 @@
     </div>
   </section>
 
-  <!-- iPhone / iPad: Safari has no install prompt, so INSTALL RAKTI explains the two taps -->
+  <!-- When the browser offers no install prompt (iPhone / iPad Safari always, Chrome sometimes), INSTALL RAKTI explains
+       the browser's own menu -->
   <div class="install-help" id="installHelp" role="dialog" aria-modal="true" aria-labelledby="installHelpTitle" hidden>
     <div class="install-help-card">
       <h2 id="installHelpTitle">INSTALL RAKTI</h2>
-      <p>Tap <b>Share</b> <span class="ih-share" aria-hidden="true">&#x2191;</span> at the bottom of Safari, then <b>Add to Home Screen</b>.</p>
+      <p class="ih-ios">Tap <b>Share</b> <span class="ih-share" aria-hidden="true">&#x2191;</span> at the bottom of Safari, then <b>Add to Home Screen</b>.</p>
+      <p class="ih-android" hidden>Tap the browser's menu <span class="ih-share" aria-hidden="true">&#8942;</span> at the top right, then <b>Install app</b> (or <b>Add to Home screen</b>).</p>
       <p class="ih-small">Rakti then opens full screen from its own icon, like an app.</p>
       <button class="menu-button small" id="installHelpClose" type="button"><span>GOT IT</span></button>
     </div>
