@@ -50,18 +50,6 @@ export const PLATFORM_STYLES = {
     capLeft: 207,
     capRight: 608
   },
-  // Level 3's floating ledges v3: a chunky island of mossy brick, roots and ferns with a rounded underside (873 x 299:
-  // left cap | 326 px module | right cap).
-  jungleIsland: {
-    src: 'assets/level3/jungle_island.webp',
-    surfaceY: 57,      // the middle of the grassy path on top
-    scale: 0.45,
-    capLeft: 269,
-    capRight: 595
-  },
-  // Chaos mode floor v2: the jungle-stone strip (2158 x 265, its ends are the caps; the stretch between two gem
-  // pillars is the middle). Scaled so the whole strip spans the arena (-140 .. WORLD_W + 140) once.
-  // v1 (the plain grass slab) is in assets/endless/backup/floor_grass_v1.webp.
   grass: {
     src: 'assets/endless/floor_grass.webp',
     surfaceY: 80,

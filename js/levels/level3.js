@@ -35,7 +35,9 @@ const X = (screen, imageX = 0) => screen * (SCREEN_W - FEATHER) + imageX * BG_SC
 
 // Jungle piers (v2): the jungle slab's own end caps on a solid mossy brick column that darkens and fades into
 // the pit (150 x 560, made by tools/make_pier2.py).
-const PILLAR_ART = { tall: { src: 'assets/level3/jungle_pillar.webp', w: 150, h: 560, surface: 30 } };   // (v2 in backup)
+// v3 pillar: carved brick wrapped in vines and ferns (380 x 1137 px, drawn as 190 x 569 logical px); half = the walkable
+// half-width of its top as a fraction of w. (v2 and the dark variant are in assets/level3/backup.)
+const PILLAR_ART = { tall: { src: 'assets/level3/jungle_pillar_v3.webp', w: 190, h: 569, surface: 31, half: 0.33 } };
 const PIT_PILLAR_SCALE = 0.5;
 const PIER_CRUMBLE = 0.6;      // a crumbling pier gives way this long after Rakti lands on it
 const PIER_RETURN = 2.6;       // and rises back out of the pit this long after it fell
@@ -89,6 +91,8 @@ const WITHER = { pan: 1.2, red: 2.3, flare: 3.7, ash: 5.0, end: 5.6 };
 const SHRINE_ART = { src: 'assets/level3/heart_shrine.webp', w: 300, h: 267, scale: 0.36, seatY: 82 };
 const DOOR_ART = { src: 'assets/level3/forest_door.webp', cw: 326, ch: 342, cols: 7, frames: 14, openFrame: 6, scale: 0.4 };
 const DOOR_FPS = 9;
+// The Kali ledges' floating island, drawn whole: 873 x 299 px, its grassy top spans x 20-850 at row 57
+const ISLAND_ART = { src: 'assets/level3/jungle_island.webp', w: 873, h: 299, topX: 20, topW: 830, surface: 57 };
 const LEDGE_Y = FLOOR_Y - 150;          // 150 px above the floor: Kali's leap (~170) reaches it, a mortal's (~120) does not
 
 export class Level3 {
@@ -104,12 +108,14 @@ export class Level3 {
     // v3 backdrops: two painted groves, then the same two mirrored (v2's jungle_a2 / jungle_b2 are in backup)
     this.bgA = img('assets/level3/jungle_grove_C.webp');
     this.bgB = img('assets/level3/jungle_grove_D.webp');
+    // five screens for the 6450 px level: A, B, A and B mirrored, then A again
     this.screens = [
       { img: this.bgA, mirror: false }, { img: this.bgB, mirror: false },
-      { img: this.bgA, mirror: true }, { img: this.bgB, mirror: true }
+      { img: this.bgA, mirror: true }, { img: this.bgB, mirror: true },
+      { img: this.bgA, mirror: false }
     ];
     this.platformArt = new PlatformArt('jungleSlab');     // the floors
-    this.ledgeArt = new PlatformArt('jungleIsland');     // the floating ledges
+    this.islandImg = img(ISLAND_ART.src);              // the floating ledges
     this.pillarImgs = { tall: img(PILLAR_ART.tall.src) };
     this.spikeSheet = img(JSPIKE_ART.src);
     this.vineAImg = img(VINE_A.src);
@@ -123,29 +129,32 @@ export class Level3 {
     this.redHeartImg = img(RED_HEART.src);
 
     // ------------------------------------------------------------------ floors & pits
-    // Short floor chunks with a pit between each pair (the same rhythm as Level 2)
-    const END = 4300;
+    // Floor chunks with a pit between each pair (the same rhythm as Level 2). v3 layout: five background screens long,
+    // 1.5x the old 4300 px. The floors are 1.7x as long; the two pillar pits keep their size, and the crumbling
+    // platforms and the Kali chasm's stones are spaced further apart (longer jumps). Every position below moved with
+    // the floors.
+    const END = 6450;
     this.floors = [
-      { x1: 0, x2: 560 },                // home field
-      { x1: 930, x2: 1400 },
-      { x1: 1920, x2: 2370 },
-      { x1: 3010, x2: 3440 },
-      { x1: 3900, x2: END }              // final chunk, the door at its far end
+      { x1: 0, x2: 957 },                // home field
+      { x1: 1327, x2: 2130 },
+      { x1: 2926, x2: 3695 },
+      { x1: 4571, x2: 5306 },
+      { x1: 5766, x2: END }              // final chunk, the door at its far end
     ];
     this.pits = [
-      { x1: 560, x2: 930 },              // two pillars
-      { x1: 1400, x2: 1920 },            // three crumbling platforms, spread out
-      { x1: 2370, x2: 3010 },            // the wide chasm: Kali only
-      { x1: 3440, x2: 3900 }             // three piers: low, rising and sinking, high
+      { x1: 957, x2: 1327 },             // two pillars
+      { x1: 2130, x2: 2926 },            // three crumbling platforms, 130 px apart
+      { x1: 3695, x2: 4571 },            // the wide chasm: Kali only
+      { x1: 5306, x2: 5766 }             // three piers: low, rising and sinking, high
     ];
     this.forwardPillars = [
-      { art: 'tall', cx: 645, top: 335, scale: PIT_PILLAR_SCALE },
-      { art: 'tall', cx: 825, top: 305, scale: PIT_PILLAR_SCALE },
+      { art: 'tall', cx: 1042, top: 335, scale: PIT_PILLAR_SCALE },
+      { art: 'tall', cx: 1222, top: 305, scale: PIT_PILLAR_SCALE },
       // The last pit, hard: the first pier crumbles PIER_CRUMBLE s after she lands (no waiting on it), the
       // middle one rises and sinks fast, and the last, high one is only reachable near the top of that swing.
-      { art: 'tall', cx: 3498, top: 330, scale: PIT_PILLAR_SCALE, crumble: true },
-      { art: 'tall', cx: 3668, top: 298, base: 298, swing: 48, period: 2.2, phase: 0, scale: PIT_PILLAR_SCALE },
-      { art: 'tall', cx: 3842, top: 236, scale: PIT_PILLAR_SCALE }
+      { art: 'tall', cx: 5364, top: 330, scale: PIT_PILLAR_SCALE, crumble: true },
+      { art: 'tall', cx: 5534, top: 298, base: 298, swing: 48, period: 2.2, phase: 0, scale: PIT_PILLAR_SCALE },
+      { art: 'tall', cx: 5708, top: 236, scale: PIT_PILLAR_SCALE }
     ];
     // The way back (once the door's ambush falls, the jungle rearranges itself):
     //  - the first pit's two piers now rise and sink in turn;
@@ -153,62 +162,63 @@ export class Level3 {
     //    low pier that sinks under her weight, the middle one (it used to ride up and down) crumbles, and the
     //    west one (it used to crumble) rides up and down.
     this.returnPillars = [
-      { art: 'tall', cx: 645, top: 332, base: 332, swing: 30, period: 2.6, phase: 0, scale: PIT_PILLAR_SCALE },
-      { art: 'tall', cx: 825, top: 302, base: 302, swing: 30, period: 2.6, phase: Math.PI, scale: PIT_PILLAR_SCALE },
-      { art: 'tall', cx: 3505, top: 318, base: 318, swing: 40, period: 2.4, phase: 1.2, scale: PIT_PILLAR_SCALE },
-      { art: 'tall', cx: 3665, top: 300, scale: PIT_PILLAR_SCALE, crumble: true, crumbleTime: 0.45 },
-      { art: 'tall', cx: 3820, top: 322, rest: 322, scale: PIT_PILLAR_SCALE, sinker: true, sink: 0 }
+      { art: 'tall', cx: 1042, top: 332, base: 332, swing: 30, period: 2.6, phase: 0, scale: PIT_PILLAR_SCALE },
+      { art: 'tall', cx: 1222, top: 302, base: 302, swing: 30, period: 2.6, phase: Math.PI, scale: PIT_PILLAR_SCALE },
+      { art: 'tall', cx: 5371, top: 318, base: 318, swing: 40, period: 2.4, phase: 1.2, scale: PIT_PILLAR_SCALE },
+      { art: 'tall', cx: 5531, top: 300, scale: PIT_PILLAR_SCALE, crumble: true, crumbleTime: 0.45 },
+      { art: 'tall', cx: 5686, top: 322, rest: 322, scale: PIT_PILLAR_SCALE, sinker: true, sink: 0 }
     ];
     this.pillars = this.forwardPillars;
     this.oldPillars = [];          // the forward piers sinking away while the return set rises (pier shift)
     // High ledges: two over the chasm (solid for everybody, but only Kali can jump up to the first) and one
     // stepping stone in the middle of the second pit
     this.ledges = [
-      { id: 'kali_ledge_a', x1: 2260, x2: 2420, y: LEDGE_Y },
-      { id: 'kali_ledge_b', x1: 2980, x2: 3140, y: LEDGE_Y }
+      // 280 px wide: the floating island is drawn whole, its grassy top matching the ledge
+      { id: 'kali_ledge_a', x1: 3465, x2: 3745, y: LEDGE_Y },
+      { id: 'kali_ledge_b', x1: 4541, x2: 4821, y: LEDGE_Y }
     ];
     // The pathway between the two Kali ledges: three floating jungle stones that open into platforms in Kali form
-    const ax = this.ledges[0].x2, bx = this.ledges[1].x1, gap = (bx - ax - 3 * PATH_ART.half * 2) / 4;
+    // 110 px from each ledge to its stone and 150 px between stones (Kali's leap covers ~250): the two outer stones are
+    // ~390 px apart, too far even for Kali's leap with coyote time, so the middle stone [Q] cannot be skipped
+    const ax = this.ledges[0].x2, EDGE_GAP = 110, STONE_GAP = 150, H = PATH_ART.half;
     this.pathStones = [0, 1, 2].map((i) => ({
-      // the outer stones sit close to the ledges, so the two outer stones are too far apart even for Kali's leap
-      // (~275 px with coyote time): on the way back the middle stone [Q] cannot be skipped
-      i, cx: ax + gap * (i + 1) + PATH_ART.half * (2 * i + 1) + (i - 1) * 30, y: LEDGE_Y - (i === 1 ? 12 : 0), m: 0, phase: i * 1.7, open: 0, fall: null
+      i, cx: ax + EDGE_GAP + H + i * (2 * H + STONE_GAP), y: LEDGE_Y - (i === 1 ? 12 : 0), m: 0, phase: i * 1.7, open: 0, fall: null
     }));
     // On the way back (this.altered) the stones turn earthen: the outer two are already open but crumble like the
     // falling platforms (s.fall), and only the middle one still has to be opened with [Q]
     this.altered = false;
     // The second pit is crossed on crumbling jungle platforms
-    this.fallers = [1505, 1660, 1815].map((cx, i) => ({ cx, top: FLOOR_Y - [28, 52, 36][i], phase: i * 1.3, state: 'idle', t: 0, dy: 0, vy: 0, alpha: 1 }));
+    this.fallers = [2306, 2528, 2750].map((cx, i) => ({ cx, top: FLOOR_Y - [28, 52, 36][i], phase: i * 1.3, state: 'idle', t: 0, dy: 0, vy: 0, alpha: 1 }));
 
     // Jungle spikes: packs of two, x = left edge of the pack (none placed for now)
     this.spikes = [].map((x, i) => ({ x, phase: i * 1.3 }));
     // Jungle vines: always one at a time
-    this.vines = [470, 1130, 1340, 2110, 3360].map((x, i) => ({ x, phase: i * 0.9, state: 'hidden', t: 0, wait: 0.6 + (i % 3) * 0.5, hp: VINE_HP, cool: 0, flash: 0, removed: false }));
+    this.vines = [803, 1669, 2028, 3251, 5170].map((x, i) => ({ x, phase: i * 0.9, state: 'hidden', t: 0, wait: 0.6 + (i % 3) * 0.5, hp: VINE_HP, cool: 0, flash: 0, removed: false }));
     this.fx = [];
 
-    this.checkpoints = [970, 1960, 2310, 3050, 3940];
+    this.checkpoints = [1395, 2995, 3593, 4640, 5835];
     this.checkpointIndex = -1;
 
     this.betals = [
-      new Betal(330, 260, 380),
-      new Betal(1060, 1000, 1120),
-      new Betal(1220, 1160, 1280),
-      new Betal(1340, 1290, 1385),
-      new Betal(2010, 1940, 2080),
-      new Betal(2230, 2160, 2330),
-      new Betal(3160, 3100, 3230),
-      new Betal(3330, 3260, 3420),
-      new Betal(3990, 3930, 4060),
-      new Betal(4080, 4020, 4120)
+      new Betal(564, 444, 649),
+      new Betal(1549, 1447, 1652),
+      new Betal(1823, 1720, 1925),
+      new Betal(2028, 1942, 2105),
+      new Betal(3080, 2961, 3200),
+      new Betal(3456, 3337, 3627),
+      new Betal(4828, 4725, 4947),
+      new Betal(5118, 4999, 5272),
+      new Betal(5920, 5818, 6040),
+      new Betal(6074, 5971, 6142)
     ];
     for (const b of this.betals) b.wave = 'first';
     // Touching the door brings two more in from the far right (the ambush). Once they fall, the Forest Heart
     // wakes at the start, and a fresh pack has crept in along the way back (each one steps out of the jungle
     // as Rakti comes near it from the right).
-    const ambush = [new Betal(4235, 4175, 4290), new Betal(4275, 4190, 4295)];
+    const ambush = [new Betal(6339, 6236, 6433), new Betal(6407, 6262, 6441)];
     ambush.forEach((b, i) => { b.wave = 'ambush'; b.entryDelay = i * 0.55; });
-    const back = [new Betal(3250, 3120, 3420), new Betal(2160, 1960, 2340), new Betal(1240, 1010, 1380),
-      new Betal(1080, 960, 1200), new Betal(420, 280, 540)];
+    const back = [new Betal(4982, 4759, 5272), new Betal(3337, 2995, 3644), new Betal(1857, 1464, 2096),
+      new Betal(1583, 1378, 1789), new Betal(718, 479, 923)];
     for (const b of back) b.wave = 'return';
     this.betals.push(...ambush, ...back);
 
@@ -222,11 +232,11 @@ export class Level3 {
     this.restartCue = null;        // the short wait at the door before a fresh clock runs
     this.withered = false;         // the death that is coming is the heart withering, not a blow
     this.witherScene = null;       // the heart dying on screen before the death card
-    this.door = { x: 4150, opening: false, openT: 0 };
+    this.door = { x: 6194, opening: false, openT: 0 };
     this.px = 0; this.py = FLOOR_Y;
     this.width = END;
 
-    this.kaliHintX = 2190;
+    this.kaliHintX = 3388;
     this.kaliHintShown = false;
     this.pendingDialogue = null;
     this.artCache = new Map();
@@ -603,7 +613,7 @@ export class Level3 {
   get doorOpenReady() { return this.door.opening && this.door.openT * DOOR_FPS >= DOOR_ART.openFrame + 0.5; }
 
   // ======================================================================== geometry
-  pillarHalf(p) { return PILLAR_ART[p.art].w * p.scale * 0.42; }
+  pillarHalf(p) { const a = PILLAR_ART[p.art]; return a.w * p.scale * (a.half ?? 0.42); }
   /** A pier counts as solid unless it has crumbled away or is still rising into place (the pier shift). */
   pierSolid(p) { return !(p.crumble && (p.st === 'falling' || p.st === 'returning')) && !(p.rise > 0.3); }
 
@@ -707,7 +717,9 @@ export class Level3 {
   castQ(player) {
     if (!player || player.isDead || !player.hasPearl || player.isCasting || player.isClimbing) return;
     const dir = player.facing === 'left' ? -1 : 1;
-    const cands = this.pathStones.filter((s) => !s.fall && s.open <= 0 && s.m < 0.5 && Math.abs(s.cx - player.x) < 300);
+    // (420 px: on the way back the middle stone can still be opened from the far ledge, ~400 px away since the stones
+    // were spaced out, before she steps onto the crumbling outer stone)
+    const cands = this.pathStones.filter((s) => !s.fall && s.open <= 0 && s.m < 0.5 && Math.abs(s.cx - player.x) < 420);
     if (!cands.length) {
       this.killToastText = '✧ NOTHING HERE ANSWERS ✧';
       this.killToastTimer = 1.2;
@@ -1105,6 +1117,15 @@ export class Level3 {
     });
   }
 
+  /** A Kali ledge: the whole floating island (not tiled or squeezed), scaled so its grassy top spans the ledge. */
+  drawIsland(ctx, l) {
+    const A = ISLAND_ART, im = this.islandImg;
+    if (!(im.complete && im.naturalWidth > 0)) return;
+    const k = (l.x2 - l.x1) / A.topW, w = A.w * k, h = A.h * k;
+    const c = this.cachedArt(`island:${l.x2 - l.x1}`, w, h, true, (g) => g.drawImage(im, 0, 0, w, h));
+    if (c) ctx.drawImage(c, l.x1 - A.topX * k, l.y - A.surface * k, w, h);
+  }
+
   inView(x1, x2) {
     const v = this.view;
     return !v || (x2 >= v.x1 && x1 <= v.x2);
@@ -1134,7 +1155,7 @@ export class Level3 {
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
     for (const f of this.floors) if (this.inView(f.x1, f.x2)) this.platformArt.draw(ctx, f.x1, f.x2, FLOOR_Y);
-    for (const l of this.ledges) if (this.inView(l.x1, l.x2)) this.ledgeArt.draw(ctx, l.x1, l.x2, l.y);
+    for (const l of this.ledges) if (this.inView(l.x1 - 20, l.x2 + 20)) this.drawIsland(ctx, l);
     ctx.restore();
 
     // 3. Pillars, hazards, props
