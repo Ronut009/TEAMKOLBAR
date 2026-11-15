@@ -54,6 +54,11 @@ export class Betal {
       return;
     }
 
+    if (this.knockV) {   // sliding back from the super blow, slowing down (kept inside his patrol bounds)
+      this.x = this.clampX(this.x + this.knockV * dt);
+      this.knockV *= Math.exp(-9 * dt);
+      if (Math.abs(this.knockV) < 12) this.knockV = 0;
+    }
     const alive = player && !player.isDead && active;
     const dx = alive ? player.x - this.x : 0;
     const closeVertically = alive && Math.abs(player.y - this.y) < 40;
@@ -62,7 +67,13 @@ export class Betal {
     if (alive && player.isAttacking && Math.abs(dx) < 58 && closeVertically) {
       const facingHim = dx === 0 || (dx > 0 ? player.facing === 'left' : player.facing !== 'left');
       if (facingHim && player.claimSwingHit(this)) {
-        if (this.takeHit(player.swordDamage, player.x, level)) return;
+        const knock = player.swingKnockback;
+        if (this.takeHit(player.swingDamage ?? player.swordDamage, player.x, level)) return;
+        if (knock) {   // Rakti's super blow: he is thrown back and staggered
+          this.knockV = (player.x > this.x ? -1 : 1) * 520;
+          this.hurtTimer = Math.max(this.hurtTimer, 0.55);
+          if (level) level.cameraShake = Math.max(level.cameraShake || 0, 0.4);
+        }
       }
     }
 

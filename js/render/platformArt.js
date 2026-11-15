@@ -39,15 +39,16 @@ export const PLATFORM_STYLES = {
     capLeft: 311,
     capRight: 583
   },
-  // Level 3 floor v3: a long flat-ended slab of carved brick, roots and ferns under a grassy path (1768 x 340: left
-  // cap | 1424 px module that tiles, ~710 world px, so the roots do not bunch up | right cap). Deep enough to run
-  // past the bottom of the view. (v2, the 'jungle' slab above, is in assets/level3/backup.)
+  // Level 3 floor v3: a flat-ended slab of carved brick, roots and ferns under a grassy path (745 x 340: left cap |
+  // 401 px module that tiles | right cap). Like the other levels' floors, the repeating middle is ~200 world px, so
+  // Level 3's 400-560 px floors hold one or two whole repeats instead of one long one squeezed to fit. Deep enough
+  // to run past the bottom of the view. (The long 1768 px cut and v2's 'jungle' slab are in assets/level3/backup.)
   jungleSlab: {
     src: 'assets/level3/jungle_floor_slab.webp',
     surfaceY: 79,      // the middle of the grassy path
     scale: 0.5,        // ~130 world px below the walking surface
-    capLeft: 230,
-    capRight: 1654
+    capLeft: 207,
+    capRight: 608
   },
   // Level 3's floating ledges v3: a chunky island of mossy brick, roots and ferns with a rounded underside (873 x 299:
   // left cap | 326 px module | right cap).

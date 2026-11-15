@@ -457,7 +457,12 @@ export class Archer {
     if (!this.crushOnly && this.alive && player && player.isAttacking && this.hitCooldown <= 0) {
       const dist = Math.hypot(player.x - this.x, player.y - this.y);
       if (dist < 60 && player.claimSwingHit(this)) {
-        const killed = this.takeDamage(player.swordDamage, player.x);
+        const knock = player.swingKnockback;
+        const killed = this.takeDamage(player.swingDamage ?? player.swordDamage, player.x);
+        if (knock && !killed) {   // Rakti's super blow: a short shove back and a longer flinch
+          this.x += (player.x > this.x ? -1 : 1) * 20;
+          this.hurtTimer = Math.max(this.hurtTimer || 0, 0.55);
+        }
         if (level) {
           level.cameraShake = 0.35;
           if (killed && level.registerKill) {

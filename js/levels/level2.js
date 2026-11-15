@@ -91,7 +91,7 @@ const CHASM_PILLAR_SCALE = 0.33;   // full pillar art, its stepped base standing
 const SAND_Y = 404;
 // Quicksand fills every pit except those marked sand: false. Rakti wades at QS_SLOW of her speed and sinks:
 // QS_SINK px/s standing still, QS_SINK_MOVING while wading. She cannot jump out of it: at QS_MAX she is
-// swallowed (back to the checkpoint with the health she had). Kali's form floats on it.
+// swallowed (back to the checkpoint with the health she had). Kali's form sinks the same; nobody jumps out of it.
 const QS_SLOW = 0.3;
 const QS_SINK = 120;          // swallowed in about half a second
 const QS_SINK_MOVING = 95;
@@ -550,7 +550,7 @@ export class Level2 {
     for (const t of this.towers) if (t.area === this.area) list.push({ id: 'roof', x1: t.roof.x1, x2: t.roof.x2, y: t.roof.y, oneWay: true });
     // quicksand: its surface drops under Rakti as she sinks (qsDepth), so she sinks with it
     for (const pit of this.pits) {
-      if (pit.area === this.area && pit.sand !== false) list.push({ id: 'quicksand', pit, x1: pit.x1, x2: pit.x2, y: SAND_Y + this.qsDepth, oneWay: false });
+      if (pit.area === this.area && pit.sand !== false) list.push({ id: 'quicksand', pit, x1: pit.x1, x2: pit.x2, y: SAND_Y + this.qsDepth, oneWay: false, sticky: true });
     }
     if (this.area === 'out') {
       const back = this.onWayBack;
@@ -1614,7 +1614,7 @@ export class Level2 {
     ctx.restore();
   }
 
-  /** Quicksand: slows, sinks and finally swallows Rakti; Kali's form floats on it. */
+  /** Quicksand: slows, sinks and finally swallows Rakti, in Kali's form too. No jumping out (sticky ground). */
   updateQuicksand(dt, px, py, isDivine, player) {
     // drifting grains over every pit
     for (const pit of this.pits) {
@@ -1645,11 +1645,7 @@ export class Level2 {
     }
     this.qsWasIn = true;
     const moved = px - (this.qsLastX ?? px);
-    if (isDivine) {   // Kali floats up and glides over it
-      this.qsDepth = Math.max(0, this.qsDepth - dt * 40);
-      this.qsLastX = px;
-      return;
-    }
+    // (Kali's form used to float up and glide over it; now it sinks like Rakti, and nobody jumps out: sticky ground)
     // wading: only part of each step goes through
     player.x = (this.qsLastX ?? px) + moved * QS_SLOW;
     this.qsLastX = player.x;
@@ -1663,7 +1659,7 @@ export class Level2 {
     player.y = SAND_Y + this.qsDepth;
     player.vy = 0;
     player.isGrounded = true;
-    player.currentPlatform = { id: 'quicksand', pit, x1: pit.x1, x2: pit.x2, y: player.y, oneWay: false };
+    player.currentPlatform = { id: 'quicksand', pit, x1: pit.x1, x2: pit.x2, y: player.y, oneWay: false, sticky: true };
     if (this.qsDepth >= QS_MAX) {
       // swallowed
       this.burst(player.x, SAND_Y, 26, ['#dca15c', '#c3823f', '#ffe1a8'], 90, 0.8);

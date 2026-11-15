@@ -554,7 +554,8 @@ export class FatherBoss {
     if (!P || !P.isAttacking || this.invulnerable) return;
     if (Math.abs(dx) > 64 || P.y < this.y - this.hitHeight - 10 || P.y > this.y + 30) return;
     const facingHim = dx === 0 || (dx > 0 ? P.facing === 'left' : P.facing !== 'left');
-    if (facingHim && P.claimSwingHit?.(this)) this.takeHit(P.swordDamage, P.x, this.level, 'sword');
+    // (bosses take the super blow's extra damage but are never knocked back)
+    if (facingHim && P.claimSwingHit?.(this)) this.takeHit(P.swingDamage ?? P.swordDamage, P.x, this.level, 'sword');
   }
 
   updateWaves(dt, P) {
