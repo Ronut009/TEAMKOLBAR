@@ -77,8 +77,28 @@ const OLD_GESTURE_TO_FRAME = {
   father: { 0: 0, 9: 2, 10: 5, 11: 2, 12: 4, 13: 3, 14: 1, 15: 1 },
   demon: { 0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 10 }
 };
-/** The still frame for a line: its explicit `p`, else its old gesture mapped, else its tone. */
+// v4 sheets (Kali and both Rakti outfits, 24 frames: row 1 at rest, row 2 speaking, row 3 gestures). The lines keep
+// their v3 frame numbers (meanings above); V4_FRAME maps each onto the v4 drawing that shows the same thing.
+//  kali v4:  0-7 at rest (2 / 7 eyes closed, 5 head raised)  8 speaking  9 shouting  10 surprised  11-12 speaking
+//            13 frowning  14 snarl  15 calm  16 hand on chest  17 palm out  18 finger raised  19 open palm  20 hand on
+//            chin  21 hands together, eyes closed  22 both palms open  23 open palm (left)
+//  rakti v4: 0-7 at rest (4 eyes closed)  8-15 speaking (10 surprised)  16 open palm  17 finger raised  18 hand on chest
+//            19 worried  20 hand on chin  21 hands together  22 open palm  23 eyes closed, smiling
+//  rakti_sari v4: 0-7 at rest (2 / 7 eyes closed)  8-15 speaking (10 surprised)  16 open palm  17 finger raised
+//            18 hand on chest  19 worried  20 hand on chin  21 open palm  22 both palms up  23 hands together, eyes closed
+const V4_FRAME = {
+  kali: [0, 8, 9, 13, 5, 7, 19, 18, 16, 17, 14, 12],
+  rakti: [0, 9, 19, 13, 20, 23, 16, 17, 18, 22, 10, 14],
+  rakti_sari: [0, 8, 19, 11, 16, 20]
+};
+/** The still frame for a line: its explicit `p`, else its old gesture mapped, else its tone (v3 numbering), then the
+ *  v4 drawing for it. */
 function pickPortrait(setName, gesture, text, p) {
+  const f = pickPortraitV3(setName, gesture, text, p);
+  return V4_FRAME[setName]?.[f] ?? f;
+}
+/** The still frame for a line: its explicit `p`, else its old gesture mapped, else its tone. */
+function pickPortraitV3(setName, gesture, text, p) {
   const n = setName === 'rakti_sari' ? 6 : 12;
   if (Number.isInteger(p) && p >= 0 && p < n) return p;
   const map = OLD_GESTURE_TO_FRAME[setName];
@@ -169,7 +189,7 @@ export class Engine {
     // Dialogue portraits (v3, assets/portraits/*3_N.png): still busts, one expression per line, no talking animation.
     // Frames (see PORTRAIT_FRAMES below for what each one shows):
     const still = (prefix, n) => Array.from({ length: n }, (_, i) => { const im = new Image(); im.src = `assets/portraits/${prefix}_${i}.webp`; return im; });
-    this.portraitSets = { kali: still('kali3', 12), rakti: still('rakti3', 12), rakti_sari: still('rakti_sari3', 6),
+    this.portraitSets = { kali: still('kali4', 24), rakti: still('rakti4', 24), rakti_sari: still('rakti_sari4', 24),
       father: still('father3', 12), demon: still('demon3', 12) };
     this.portraitAnim = 0;
     this.portraitFrame = -1;

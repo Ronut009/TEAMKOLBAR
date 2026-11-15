@@ -114,7 +114,7 @@ export class Level3 {
       { img: this.bgA, mirror: true }, { img: this.bgB, mirror: true },
       { img: this.bgA, mirror: false }
     ];
-    this.platformArt = new PlatformArt('jungleSlab');     // the floors
+    this.platformArt = new PlatformArt('jungleLedgeFloor');   // the floors (v3: 'jungleSlab')
     this.islandImg = img(ISLAND_ART.src);              // the floating ledges
     this.pillarImgs = { tall: img(PILLAR_ART.tall.src) };
     this.spikeSheet = img(JSPIKE_ART.src);
@@ -911,6 +911,7 @@ export class Level3 {
       b.update(dt, player, this, !talking);
     }
     this.revealReturnWave(player);
+    this.updateVines(dt, player);   // the attacking vines
     for (let i = this.fx.length - 1; i >= 0; i--) {
       const q = this.fx[i];
       q.life -= dt; q.x += q.vx * dt; q.y += q.vy * dt; q.vy += 260 * dt;

@@ -203,9 +203,9 @@ html, body {
   transition: opacity 0.22s ease-out, transform 0.28s cubic-bezier(0.2, 0.8, 0.25, 1), filter 0.28s ease-out;
 }
 .dlg-actor[data-who="kali"] { --name: #ffcf4d; --aura: rgba(255, 25, 60, 0.38); }
-.dlg-actor[data-who="rakti"] { --name: #8fe6c0; --aura: rgba(40, 210, 150, 0.3); }
-.dlg-actor[data-who="father"] { --name: #ffbf73; --aura: rgba(255, 180, 80, 0.3); }
-.dlg-actor[data-who="demon"] { --name: #c9a2ff; --aura: rgba(170, 60, 255, 0.4); }
+.dlg-actor[data-who="rakti"] { --name: #ffcf4d; --aura: rgba(40, 210, 150, 0.3); }
+.dlg-actor[data-who="father"] { --name: #ffcf4d; --aura: rgba(255, 180, 80, 0.3); }
+.dlg-actor[data-who="demon"] { --name: #ffcf4d; --aura: rgba(170, 60, 255, 0.4); }
 .dlg-actor.left { left: var(--edge); }
 .dlg-actor.right { right: var(--edge); }
 .dlg-actor.on { opacity: 1; transform: none; }
@@ -488,16 +488,15 @@ html, body {
   top: 24px;
   left: 50%;
   transform: translateX(-50%) translateY(-60px);
-  /* the checkpoint notice wears the game's own ornate gold-and-teal banner (the menu buttons' art) */
-  background: url('../assets/title/menu-button.webp') center / 100% 100% no-repeat;
-  border: 0;
-  width: 250px;
-  height: 46px;
-  padding: 0 40px;
+  /* every notification wears the same pill as the [E] prompt ("✦ [E] SEALED DOOR ✦") */
+  background: linear-gradient(180deg, rgba(22, 15, 10, 0.95) 0%, rgba(12, 8, 5, 0.98) 100%);
+  border: 1px solid #cda24e;
+  border-radius: 20px;
+  padding: 5px 16px;
   display: flex;
   align-items: center;
   justify-content: center;
-  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.75));
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.8), 0 0 10px rgba(205, 162, 78, 0.3);
   z-index: 45;
   opacity: 0;
   pointer-events: none;
@@ -516,10 +515,11 @@ html, body {
 }
 
 .kill-toast-text {
-  font: 900 13px/1 'Cinzel', Georgia, serif;
-  color: #f8e8bb;
-  letter-spacing: 3px;
-  text-shadow: 0 1px 2px #000;
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  font-weight: 700;
+  color: #ffd700;
+  letter-spacing: 2px;
 }
 
 .death-screen-modal, .sands-death {
@@ -1666,8 +1666,8 @@ html.compact .boss-name { font-size: 8px; letter-spacing: 2px; }
 html.compact .father-name { font-size: 7px; letter-spacing: 2px; }
 
 html.compact .interact-prompt { top: calc(var(--safe-t) + 6px); padding: 3px 12px; font-size: 9px; }
-html.compact .kill-toast { top: calc(var(--safe-t) + 6px); width: 190px; height: 36px; padding: 0 30px; }
-html.compact .kill-toast-text { font-size: 10px; letter-spacing: 2px; }
+html.compact .kill-toast { top: calc(var(--safe-t) + 6px); padding: 3px 12px; }
+html.compact .kill-toast-text { font-size: 9px; }
 
 /* dialogue: a low, wide strip with a small portrait window */
 html.compact .dialogue-box {
