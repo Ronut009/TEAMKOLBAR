@@ -88,8 +88,8 @@ const ARCHER_ART = {
 
 const L4_KEPT = ['arrived', 'doubtTalked', 'malaTaken', 'fatherTalked', 'meetWalk', 'fightStage', 'waveIndex', 'malaFly'];
 export const L4_CONFIG = {
-  ARCHER_HP: 24,              // two Trishul hits (12 each with the Forest Heart), three gold orbs
-  ARROW_DAMAGE: 2,
+  ARCHER_HP: 12,              // (Hard / Hardcore: Run.archerHp, 20)              // two Trishul hits (12 each with the Forest Heart), three gold orbs
+  ARROW_DAMAGE: 3,
   ARROW_SPEED: 240,
   // five waves over the boss fight (window ids 0-7 left strip, 8-15 middle, 16-23 right, over both fort halves)
   WAVES: [
@@ -162,7 +162,7 @@ class FortArcher {
   }
 
   reset() {
-    this.maxHp = Math.round(L4_CONFIG.ARCHER_HP * Run.enemyHp);   // more in Hard and Hardcore
+    this.maxHp = Run.archerHp;   // 12, or 20 in Hard and Hardcore
     this.hp = this.maxHp;
     this.alive = true;
     this.hidden = true;

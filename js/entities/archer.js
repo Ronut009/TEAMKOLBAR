@@ -45,7 +45,7 @@ export class Arrow {
     this.angle = Math.PI; // In radians, initially facing left
     this.life = 3.5;      // homing arrows give up after 3.5 s
     this.maxLife = 3.5;
-    this.damage = 2; // Reduced arrow damage
+    this.damage = 3; // per arrow, every level and mode
     this.width = 44;
     this.height = 8;
     this.isAttached = true;
@@ -643,7 +643,7 @@ export class Archer {
   reset() {
     this.x = this.startX;
     this.y = this.startY;
-    if (Run.campaign) this.maxHp = Math.round(this.baseHp * Run.enemyHp);   // the campaign's Hard and Hardcore: more health
+    if (Run.campaign) this.maxHp = Run.archerHp;   // the story: 12, or 20 in Hard and Hardcore
     this.hp = this.maxHp;
     this.alive = true;
     this.crushed = false;

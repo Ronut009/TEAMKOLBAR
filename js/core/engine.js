@@ -202,11 +202,6 @@ export class Engine {
     this.pauseConfirm = document.getElementById('pauseConfirm');
     const on = (id, fn) => document.getElementById(id)?.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); fn(); });
     on('pauseContinue', () => this.resume());
-    on('pauseSkip', () => {
-      // same as [C]: the rest of the conversation is skipped (a line that teaches a key still stops it)
-      this.resume();
-      this.skipConversation();
-    });
     // Settings: from the pause menu and the title screen (js/core/settings.js)
     this.settings = new SettingsMenu();
     on('pauseSettings', () => this.settings.show(document.getElementById('pauseSettings'), this.controlsHave()));
@@ -331,6 +326,7 @@ export class Engine {
       : index === 2 ? this.level2
       : this.level1;
     Run.campaign = index >= 1 && index <= 4;    // the difficulty only counts in the story (enemy health is set in reset())
+    Run.level = index;
     this.level.reset();
     this.levelCompleted = false;
     this.levelTransitionTimer = 0;
@@ -739,8 +735,6 @@ export class Engine {
     // Hard and Hardcore: no Restart (a death already sends Rakti back to the start, or ends the run)
     const restart = document.getElementById('pauseRestart');
     if (restart) restart.style.display = Run.noCheckpoints ? 'none' : '';
-    const skipBtn = document.getElementById('pauseSkip');
-    if (skipBtn) skipBtn.hidden = !this.dialogueActive;   // only while a conversation is on screen
     this.pauseScreen?.classList.add('active');
     this.pauseScreen?.setAttribute('aria-hidden', 'false');
     document.getElementById('pauseContinue')?.focus({ focusVisible: false });   // [Enter] works, no outline box
@@ -1689,10 +1683,12 @@ export class Engine {
     if (this.killToast) {
       if (this.level && this.level.killToastTimer > 0) {
         if (this.killToastText && this.level.killToastText && this.killToastText.textContent !== this.level.killToastText) {
-          this.killToastText.textContent = this.level.killToastText;
+          this.killToastText.textContent = String(this.level.killToastText).replace(/[✦⚔]/g, '').trim();
         }
-        // Hard and Hardcore have no checkpoints to come back to: their notice is not shown
-        this.killToast.classList.toggle('active', !(Run.noCheckpoints && String(this.level.killToastText).includes('CHECKPOINT')));
+        // Only the checkpoint notice is shown (the other toasts are switched off), and not in Hard and Hardcore,
+        // which have no checkpoints to come back to
+        const isCheckpoint = String(this.level.killToastText).includes('CHECKPOINT');
+        this.killToast.classList.toggle('active', isCheckpoint && !Run.noCheckpoints);
       } else {
         this.killToast.classList.remove('active');
       }

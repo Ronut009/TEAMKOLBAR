@@ -14,15 +14,22 @@
  */
 export const SLOT_COUNT = 3;
 export const DIFFICULTIES = ['normal', 'hard', 'hardcore'];
-const HARD_ENEMY_HP = 2;        // Betal 10 -> 20, archers 12 -> 24 (Level 4's 24 -> 48)
 const KEY = 'rakti.saves';
 
 export const Run = {
   difficulty: 'normal',
   campaign: false,        // true while a story level (1-4) is loaded; the engine sets it in loadLevel
   get mode() { return this.campaign ? this.difficulty : 'normal'; },
-  /** Health multiplier for Betal and archers (the boss has its own numbers: see fatherBoss.js). */
-  get enemyHp() { return this.mode === 'normal' ? 1 : HARD_ENEMY_HP; },
+  level: 0,               // the level loaded (the engine sets it in loadLevel)
+  /** Betal's health: Levels 1-2 15 (Hard / Hardcore 20), Level 3 20 (30). Outside the story 10 (Chaos sets its own).
+   *  (The boss has its own numbers: see fatherBoss.js.) */
+  get betalHp() {
+    if (!this.campaign) return 10;
+    const hard = this.mode !== 'normal';
+    return this.level >= 3 ? (hard ? 30 : 20) : (hard ? 20 : 15);
+  },
+  /** Archers' health, Level 2 and Level 4: 12 (Hard / Hardcore 20). Outside the story 12. */
+  get archerHp() { return this.campaign && this.mode !== 'normal' ? 20 : 12; },
   /** Hard and hardcore: a death does not return to a checkpoint. */
   get noCheckpoints() { return this.mode !== 'normal'; },
   /** Hard and hardcore: the stronger boss. */

@@ -488,14 +488,16 @@ html, body {
   top: 24px;
   left: 50%;
   transform: translateX(-50%) translateY(-60px);
-  background: linear-gradient(180deg, rgba(22, 15, 10, 0.98) 0%, rgba(12, 8, 5, 0.99) 100%);
-  border: 1px solid #ffd700;
-  border-radius: 4px;
-  padding: 8px 20px;
+  /* the checkpoint notice wears the game's own ornate gold-and-teal banner (the menu buttons' art) */
+  background: url('../assets/title/menu-button.webp') center / 100% 100% no-repeat;
+  border: 0;
+  width: 250px;
+  height: 46px;
+  padding: 0 40px;
   display: flex;
   align-items: center;
-  gap: 10px;
-  box-shadow: 0 0 18px rgba(255, 215, 0, 0.45), 0 6px 20px rgba(0, 0, 0, 0.9);
+  justify-content: center;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.75));
   z-index: 45;
   opacity: 0;
   pointer-events: none;
@@ -514,11 +516,10 @@ html, body {
 }
 
 .kill-toast-text {
-  font-family: 'Cinzel', serif;
-  font-size: 10px;
-  font-weight: 700;
-  color: #ffd700;
-  letter-spacing: 1.5px;
+  font: 900 13px/1 'Cinzel', Georgia, serif;
+  color: #f8e8bb;
+  letter-spacing: 3px;
+  text-shadow: 0 1px 2px #000;
 }
 
 .death-screen-modal, .sands-death {
@@ -1665,8 +1666,8 @@ html.compact .boss-name { font-size: 8px; letter-spacing: 2px; }
 html.compact .father-name { font-size: 7px; letter-spacing: 2px; }
 
 html.compact .interact-prompt { top: calc(var(--safe-t) + 6px); padding: 3px 12px; font-size: 9px; }
-html.compact .kill-toast { top: calc(var(--safe-t) + 6px); padding: 4px 14px; gap: 7px; }
-html.compact .kill-toast-text { font-size: 9px; }
+html.compact .kill-toast { top: calc(var(--safe-t) + 6px); width: 190px; height: 36px; padding: 0 30px; }
+html.compact .kill-toast-text { font-size: 10px; letter-spacing: 2px; }
 
 /* dialogue: a low, wide strip with a small portrait window */
 html.compact .dialogue-box {
