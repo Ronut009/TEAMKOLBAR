@@ -20,11 +20,12 @@ import { Betal } from '../entities/betal.js';
 import { EnemySpriteSheet } from '../entities/enemySprites.js';
 import { drawShrineBeacon } from '../render/shrineBeacon.js';
 import { Sfx } from '../core/audio.js';
+import { Mode } from '../core/mode.js';
 
 // Backgrounds (v2) are 2171 x 724; the sunlit floor line sits at image y = 588, the roots band below it
 // reaches past the bottom of the view.
-const BG_W = 2171, BG_H = 724;
-const BG_SCALE = 368 / 588;
+const BG_W = 2172, BG_H = 724;
+const BG_SCALE = 368 / 560;           // v3 groves: image y 560 at the floor line, so their low mist stays behind the floor
 const SCREEN_W = BG_W * BG_SCALE;      // ~1359 world px per screen
 const SCREEN_H = BG_H * BG_SCALE;      // ~453
 const BG_EXT = 80;                     // the art continues below itself (a mirrored strip), so no black band shows under the floor
@@ -34,7 +35,7 @@ const X = (screen, imageX = 0) => screen * (SCREEN_W - FEATHER) + imageX * BG_SC
 
 // Jungle piers (v2): the jungle slab's own end caps on a solid mossy brick column that darkens and fades into
 // the pit (150 x 560, made by tools/make_pier2.py).
-const PILLAR_ART = { tall: { src: 'assets/level3/jungle_pier_v2.webp', w: 150, h: 560, surface: 30 } };
+const PILLAR_ART = { tall: { src: 'assets/level3/jungle_pillar.webp', w: 150, h: 560, surface: 30 } };   // (v2 in backup)
 const PIT_PILLAR_SCALE = 0.5;
 const PIER_CRUMBLE = 0.6;      // a crumbling pier gives way this long after Rakti lands on it
 const PIER_RETURN = 2.6;       // and rises back out of the pit this long after it fell
@@ -58,15 +59,30 @@ const VINE_SWORD_REACH = 72;
 const VINE_HP = 10;
 const VINE_DAMAGE = 4;
 const PIT_DAMAGE = 3;
+// A bed of tangled vines fills every pit, under the pillars, stones and ledges. It works like Level 2's quicksand:
+// Rakti wades through it at VINE_SLOW of her speed while it drags her down, VINE_SINK px/s standing still,
+// VINE_SINK_MOVING while wading. Nobody jumps out of it (the player will not jump off a sticky platform) and Kali's
+// form sinks the same. At VINE_MAX it has her: the same as a fall, back to the checkpoint (a death in Hard and
+// Hardcore).
+const VINE_Y = 404;                // the top of the vine bed, 36 px below the floor
+const VINE_SLOW = 0.3;
+const VINE_SINK = 120;
+const VINE_SINK_MOVING = 95;
+const VINE_MAX = 62;
+// 6 frames of slowly writhing vines stacked in one sheet, each a 640 x 132 strip that tiles seamlessly; surface =
+// image row of the bed's top, drawn at scale, a frame every 1 / fps s (ping-pong)
+const VINE_BED = { src: 'assets/level3/jungle_vine_bed.webp', w: 640, h: 132, frames: 6, surface: 30, scale: 0.5, fps: 5 };
 
-// Jungle pathway stones (v3: the user's 6-frame morph sheets, rock -> cracking -> split -> floating slab, cut by
-// tools/qstone_cut.py; cells 228 x 276 drawn at 0.5; deckY = walking surface of the slab, half = half its walkable
-// width). The green sheet is the way out; the earthen copy marks the stones the jungle has changed on the way
-// back.
-const PATH_ART = { src: 'assets/level3/jungle_qstone_sheet.webp', earth: 'assets/level3/earthen_qstone_sheet.webp',
-  frameW: 228, frameH: 276, anchorX: 114, deckY: 135, scale: 0.5, half: 46 };
-// The race back to the Forest Heart: once the door's ambush falls she has HEART_TIME seconds to reach it
-const HEART_TIME = 50;
+// Jungle pathway stones (v4: the user's 6-frame morph sheets, rock -> cracking -> split -> floating slab; cells
+// 456 x 552 drawn at 0.25, the same size on screen as v3's 228 x 276 at 0.5, now in assets/level3/backup; deckY =
+// walking surface of the slab, half = half its walkable width). The green sheet is the way out; the earthen copy
+// marks the stones the jungle has changed on the way back.
+const PATH_ART = { src: 'assets/level3/jungle_qstone_v3.webp', earth: 'assets/level3/earthen_qstone_v4.webp',
+  frameW: 456, frameH: 552, anchorX: 228, deckY: 270, scale: 0.25, half: 46 };
+// The race back to the Forest Heart: once the door's ambush falls she has HEART_TIME seconds to reach it (90 on
+// phones and tablets, whose touch controls are slower than a keyboard; Mobile Mode is fixed for a page load, and
+// switching it in Settings reloads the game)
+const HEART_TIME = Mode.isMobile ? 90 : 50;
 const RESTART_CUE = 1.2;          // after a death or a withered heart: this long at the door before the clock runs again
 const PATH_MORPH_TIME = 0.3;
 const PATH_HOLD = 3;              // a stone stays a platform this long after [Q], then closes back into a rock
@@ -98,13 +114,19 @@ export class Level3 {
     this.usesScriptedDefeat = false;     // the old horde level ended in a scripted death; this one has normal checkpoints
 
     const img = (src) => { const i = new Image(); i.src = src; return i; };
-    this.bgA = img('assets/level3/jungle_a2.webp');
-    this.bgB = img('assets/level3/jungle_b2.webp');
+    // v3 backdrops: two painted groves, then the same two mirrored (v2's jungle_a2 / jungle_b2 are in backup)
+    this.bgA = img('assets/level3/jungle_grove_C.webp');
+    this.bgB = img('assets/level3/jungle_grove_D.webp');
     this.screens = [
       { img: this.bgA, mirror: false }, { img: this.bgB, mirror: false },
       { img: this.bgA, mirror: true }, { img: this.bgB, mirror: true }
     ];
-    this.platformArt = new PlatformArt('jungle');
+    this.platformArt = new PlatformArt('jungleSlab');     // the floors
+    this.ledgeArt = new PlatformArt('jungleIsland');     // the floating ledges
+    this.vineImg = img(VINE_BED.src);
+    this.vineDepth = 0;
+    this.vineWasIn = false;
+    this.vineFx = [];
     this.pillarImgs = { tall: img(PILLAR_ART.tall.src) };
     this.spikeSheet = img(JSPIKE_ART.src);
     this.vineAImg = img(VINE_A.src);
@@ -622,6 +644,8 @@ export class Level3 {
     for (const f of this.fallers) {
       if (f.state === 'idle' || f.state === 'shaking') list.push({ id: 'faller', faller: f, x1: f.cx - PATH_ART.half, x2: f.cx + PATH_ART.half, y: f.top, oneWay: true });
     }
+    // the vine bed in every pit (last, so a pier or stone above it is found first); it gives way as it drags her down
+    for (const pit of this.pits) list.push({ id: 'vines', pit, x1: pit.x1, x2: pit.x2, y: VINE_Y + this.vineDepth, oneWay: false, sticky: true });
     return list;
   }
 
@@ -791,6 +815,7 @@ export class Level3 {
         this.screenFade = 0;
       }
     }
+    this.updateVines(dt, player);
     this.updateReveal(dt, player);
     this.updateClock(this.realDt ?? dt, player);
     this.updateWither(this.realDt ?? dt, player);
@@ -1089,9 +1114,6 @@ export class Level3 {
       g.scale(1, -1);
       g.drawImage(image, 0, 0, SCREEN_W, SCREEN_H);
       g.restore();
-      // the reflected part is the deep forest floor: a little darker
-      g.fillStyle = 'rgba(4, 12, 6, 0.35)';
-      g.fillRect(0, SCREEN_H, SCREEN_W, BG_EXT);
       if (feather) {
         g.globalCompositeOperation = 'destination-in';
         const grad = g.createLinearGradient(0, 0, SCREEN_W, 0);
@@ -1133,7 +1155,7 @@ export class Level3 {
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
     for (const f of this.floors) if (this.inView(f.x1, f.x2)) this.platformArt.draw(ctx, f.x1, f.x2, FLOOR_Y);
-    for (const l of this.ledges) if (this.inView(l.x1, l.x2)) this.platformArt.draw(ctx, l.x1, l.x2, l.y);
+    for (const l of this.ledges) if (this.inView(l.x1, l.x2)) this.ledgeArt.draw(ctx, l.x1, l.x2, l.y);
     ctx.restore();
 
     // 3. Pillars, hazards, props
@@ -1156,15 +1178,75 @@ export class Level3 {
     ctx.restore();
   }
 
+  /** The pits: the vine bed, running on under the floors' ends (the part over each pit is drawn again over Rakti). */
   renderPits(ctx) {
-    for (const pit of this.pits) {
-      if (!this.inView(pit.x1, pit.x2)) continue;
-      const g = ctx.createLinearGradient(0, FLOOR_Y - 6, 0, FLOOR_Y + 70);
-      g.addColorStop(0, 'rgba(2, 10, 6, 0)');
-      g.addColorStop(1, 'rgba(3, 14, 8, 0.8)');   // deep green shade, not a black slab
-      ctx.fillStyle = g;
-      ctx.fillRect(pit.x1, FLOOR_Y - 6, pit.x2 - pit.x1, this.height - FLOOR_Y + 8);
+    for (const pit of this.pits) if (this.inView(pit.x1 - 80, pit.x2 + 80)) this.drawVineBed(ctx, pit.x1 - 80, pit.x2 + 80);
+  }
+
+  /** The vine bed: slows, drags down and finally takes Rakti, in Kali's form too. There is no jumping out of it. */
+  updateVines(dt, player) {
+    this.vineFx = this.vineFx.filter((q) => (q.life -= dt) > 0);
+    for (const q of this.vineFx) { q.x += q.vx * dt; q.y += q.vy * dt; q.vy += (q.g ?? 0) * dt; q.rot += q.spin * dt; }
+    this.vinePlayer = player;
+    if (!player || player.isDead) { this.vineDepth = 0; this.vineWasIn = false; return; }
+    const px = player.x, py = player.y;
+    const pit = this.pits.find((q) => px >= q.x1 && px <= q.x2);
+    const inVines = Boolean(pit) && py >= VINE_Y - 3 && (player.vy >= 0 || this.vineWasIn) && !player.isClimbing;
+    if (!inVines) {
+      if (py < VINE_Y - 6) this.vineDepth = 0;
+      this.vineWasIn = false;
+      this.vineLastX = px;
+      return;
     }
+    if (!this.vineWasIn) {   // she lands in it: torn leaves fly up
+      this.vineLastX = px;
+      for (let i = 0; i < 14; i++) {
+        const a = -Math.PI * (0.15 + Math.random() * 0.7), sp = 50 + Math.random() * 90;
+        this.vineFx.push({ x: px + (Math.random() - 0.5) * 20, y: VINE_Y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, g: 260,
+          rot: Math.random() * 6, spin: (Math.random() - 0.5) * 10, life: 0.8, maxLife: 0.8, c: Math.random() > 0.5 ? '#4f7a2a' : '#7a5a2e' });
+      }
+      this.cameraShake = Math.max(this.cameraShake, 0.15);
+      if (!this.vineWarned) { this.vineWarned = true; this.killToastText = '⚠ THE VINES DRAG YOU DOWN ⚠'; this.killToastTimer = 2.4; }
+    }
+    this.vineWasIn = true;
+    // wading: only part of each step goes through (Kali's form too: no floating over it), and the pit's sides hold her
+    const last = this.vineLastX ?? px;
+    player.x = Math.max(pit.x1 + 10, Math.min(pit.x2 - 10, last + (px - last) * VINE_SLOW));
+    this.vineLastX = player.x;
+    this.vineDepth += dt * (Math.abs(px - last) > 0.2 ? VINE_SINK_MOVING : VINE_SINK);
+    this.vineDepth = Math.max(this.vineDepth, py - VINE_Y);
+    player.y = VINE_Y + this.vineDepth;
+    player.vy = 0;
+    player.isGrounded = true;
+    player.currentPlatform = { id: 'vines', pit, x1: pit.x1, x2: pit.x2, y: player.y, oneWay: false, sticky: true };
+    if (this.vineDepth >= VINE_MAX) {   // taken
+      this.vineDepth = 0;
+      this.vineWasIn = false;
+      player.respawnFromPit(this);
+      this.vineLastX = player.x;
+    }
+  }
+
+  /** The vine bed across [x1, x2]: the current frame of the writhing sheet, tiled from world x = 0 (so the layer
+   *  behind the floors and the one in front of Rakti line up), over a dark tangle below. */
+  drawVineBed(ctx, x1, x2) {
+    const A = VINE_BED, im = this.vineImg, k = A.scale, tw = A.w * k, th = A.h * k, top = VINE_Y - A.surface * k;
+    const n = A.frames, step = Math.floor(this.animTime * A.fps) % (2 * n - 2), f = step < n ? step : 2 * n - 2 - step;
+    const strip = this.cachedArt(`vines:${f}`, tw, th, im.complete && im.naturalWidth > 0, (g) => g.drawImage(im, 0, f * A.h, A.w, A.h, 0, 0, tw, th));
+    if (!strip) return false;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x1, top - 10, x2 - x1, this.height + 80 - top);
+    ctx.clip();
+    const below = top + 36;    // the strip's solid band ends ~54 image px under its top
+    const g = ctx.createLinearGradient(0, below - 4, 0, below + 40);
+    g.addColorStop(0, '#2a2410');
+    g.addColorStop(1, '#0d0b05');
+    ctx.fillStyle = g;
+    ctx.fillRect(x1, below - 4, x2 - x1, this.height + 80);
+    for (let x = Math.floor(x1 / tw) * tw; x < x2; x += tw) ctx.drawImage(strip, x, top, tw + 0.5, th);
+    ctx.restore();
+    return true;
   }
 
   drawPillar(ctx, p) {
@@ -1404,8 +1486,22 @@ export class Level3 {
     ctx.drawImage(f.c, d.x - f.w / 2, FLOOR_Y + 2 - f.h, f.w, f.h);
   }
 
-  /** Drawn over Rakti (engine hook). The old guide arrow to the Forest Heart is gone (playtest feedback): the
-   *  camera pan at the reveal shows where the heart is, and its shrine beacon marks it on screen. */
-  renderForeground() {}
+  /** Drawn over Rakti (engine hook): the vine bed over each pit, so whatever sinks into it (and the pillars' feet)
+   *  is covered, with the torn leaves. (The old guide arrow to the Forest Heart is gone (playtest feedback): the
+   *  camera pan at the reveal shows where the heart is, and its shrine beacon marks it on screen.) */
+  renderForeground(ctx) {
+    for (const pit of this.pits) if (this.inView(pit.x1, pit.x2) && !this.drawVineBed(ctx, pit.x1 - 2, pit.x2 + 2)) return;
+    for (const q of this.vineFx) {
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, q.life / q.maxLife);
+      ctx.translate(q.x, q.y);
+      ctx.rotate(q.rot);
+      ctx.fillStyle = q.c;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 3.2, 1.6, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
 
 }

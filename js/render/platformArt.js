@@ -33,11 +33,30 @@ export const PLATFORM_STYLES = {
   // Level 3 jungle slab v2: mossy carved brick with roots and glowing flowers (809 x 125: left cap | 272 px
   // module that tiles | right cap). The previous strip is assets/level3/jungle_platform.webp.
   jungle: {
-    src: 'assets/level3/jungle_platform_v2.webp',
+    src: 'assets/level3/backup/jungle_platform_v2.webp',
     surfaceY: 30,
     scale: 0.75,       // ~70 world px below the walking surface
     capLeft: 311,
     capRight: 583
+  },
+  // Level 3 floor v3: a long flat-ended slab of carved brick, roots and ferns under a grassy path (1768 x 340: left
+  // cap | 1424 px module that tiles, ~710 world px, so the roots do not bunch up | right cap). Deep enough to run
+  // past the bottom of the view. (v2, the 'jungle' slab above, is in assets/level3/backup.)
+  jungleSlab: {
+    src: 'assets/level3/jungle_floor_slab.webp',
+    surfaceY: 79,      // the middle of the grassy path
+    scale: 0.5,        // ~130 world px below the walking surface
+    capLeft: 230,
+    capRight: 1654
+  },
+  // Level 3's floating ledges v3: a chunky island of mossy brick, roots and ferns with a rounded underside (873 x 299:
+  // left cap | 326 px module | right cap).
+  jungleIsland: {
+    src: 'assets/level3/jungle_island.webp',
+    surfaceY: 57,      // the middle of the grassy path on top
+    scale: 0.45,
+    capLeft: 269,
+    capRight: 595
   },
   // Chaos mode floor v2: the jungle-stone strip (2158 x 265, its ends are the caps; the stretch between two gem
   // pillars is the middle). Scaled so the whole strip spans the arena (-140 .. WORLD_W + 140) once.

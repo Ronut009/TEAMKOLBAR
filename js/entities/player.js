@@ -1081,7 +1081,9 @@ export class Player {
       this.jumpBufferTimer = this.jumpBufferMax;
     }
 
-    const canGroundJump = (this.isGrounded || this.coyoteTimer > 0);
+    // sticky ground (Level 3's vine bed) holds her feet: no jump, in either form
+    const stuck = Boolean(this.currentPlatform?.sticky);
+    const canGroundJump = !stuck && (this.isGrounded || this.coyoteTimer > 0);
     if (this.jumpBufferTimer > 0) {
       if (canGroundJump) {
         this.jumpBufferTimer = 0;
@@ -1137,9 +1139,10 @@ export class Player {
         this.coyoteTimer = 0;
       } else if (this.isGrounded) {
         if (!level.isOnPlatform(this.x, this.y, this.isDivine)) {
+          const wasStuck = Boolean(this.currentPlatform?.sticky);
           this.isGrounded = false;
           this.currentPlatform = null;
-          this.coyoteTimer = this.coyoteMax;
+          this.coyoteTimer = wasStuck ? 0 : this.coyoteMax;   // no late jump out of sticky ground either
         }
       }
     }
