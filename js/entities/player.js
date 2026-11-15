@@ -64,7 +64,8 @@ const ABILITY_SPRITES = {
     qcast: { frameW: 355, frameH: 294, anchorX: 93, anchorY: 289, count: 10 },
     tthrow: { frameW: 422, frameH: 253, anchorX: 144, anchorY: 250, count: 5 },
     tcatch: { frameW: 302, frameH: 293, anchorX: 104, anchorY: 289, count: 4 },
-    kcast: { frameW: 212, frameH: 293, anchorX: 76.4, anchorY: 275.8, count: 6 }   // Kali form: hurling a gold orb
+    kcast: { frameW: 212, frameH: 293, anchorX: 76.4, anchorY: 275.8, count: 6 },  // Kali form: hurling a gold orb
+    sattack: { frameW: 330, frameH: 300, anchorX: 140, anchorY: 296, count: 6 }    // the super blow: every third swing after two hits
   }
 };
 // Maa Kali's gold orbs (Level 4, after the skull mala): Kali form [X] attacks with them instead of the blade
@@ -75,7 +76,14 @@ export const KALI_ORB = {
 };
 // Level 4: after the mala, Kali form needs a full charge, filled by the damage Rakti deals with blade and Trishul
 export const KALI_CHARGE_FULL = 100;
-const SWORD_COOLDOWN = 0.6;    // seconds from one talwar swing to the next (the swing itself is ~0.39 s)
+const SWORD_COOLDOWN = 0.5;    // seconds from one talwar swing to the next (the swing itself is ~0.39 s)
+// The super blow: after SUPER_AFTER sword hits that land in a row (each within SUPER_WINDOW s of the last), her next
+// swing is a heavy blow (its own sprite) that deals SUPER_BONUS more damage and knocks a Betal or an archer back.
+// Bosses take the extra damage but are not knocked back. Not in Kali form.
+const SUPER_AFTER = 2;
+const SUPER_WINDOW = 1.4;
+const SUPER_BONUS = 2;
+const SUPER_FRAME = 0.075;      // 6 frames = 0.45 s, inside the 0.5 s cooldown
 const SWORD_BUFFER = 0.15;     // a click this close to the end of the cooldown is kept and swings when it ends
 const CAST_FRAME_TIME = 0.075;                       // 10 frames = 0.75 s
 const CAST_RELEASE_FRAME = 7;                         // the stone answers when the green burst leaves her hand
@@ -205,6 +213,9 @@ export class Player {
     this.attackFrame = 0;
     this.attackTimer = 0;
     this.attackFrameDuration = 0.065;
+    this.comboHits = 0;            // sword hits landed in a row (the super blow comes after SUPER_AFTER)
+    this.comboTimer = 0;
+    this.isSuperSwing = false;
     this.slashes = [];
     // Every swing gets a new id; an enemy can only be damaged once per swing id.
     this.attackId = 0;
@@ -357,8 +368,18 @@ export class Player {
     if (!this.isAttacking || !target) return false;
     if (target.lastSwingHitId === this.attackId) return false;
     target.lastSwingHitId = this.attackId;
+    if (this.comboSwingId !== this.attackId) {   // a swing that lands counts once toward the super blow
+      this.comboSwingId = this.attackId;
+      if (!this.isSuperSwing) this.comboHits++;
+      this.comboTimer = SUPER_WINDOW;
+    }
     return true;
   }
+
+  /** The damage of the current swing: the super blow deals SUPER_BONUS more. Enemies use this for sword hits. */
+  get swingDamage() { return this.swordDamage + (this.isAttacking && this.isSuperSwing ? SUPER_BONUS : 0); }
+  /** True while the current swing is the super blow: Betals and archers it hits are knocked back (not bosses). */
+  get swingKnockback() { return this.isAttacking && this.isSuperSwing; }
 
   /** Back to the normal battle-outfit state (used on every level load). */
   resetPrologueState() {
@@ -470,6 +491,8 @@ export class Player {
     this.swordCooldown = SWORD_COOLDOWN;
     Sfx.play('sword_swing');
     this.attackQueued = false;
+    this.isSuperSwing = !this.isDivine && this.comboHits >= SUPER_AFTER;
+    if (this.isSuperSwing) this.comboHits = 0;
     this.isAttacking = true;
     this.attackFrame = 0;
     this.attackTimer = 0;
@@ -483,7 +506,8 @@ export class Player {
       life: 0.22,
       maxLife: 0.22,
       isDivine: this.isDivine,
-      mighty: this.relicMight > 1
+      mighty: this.relicMight > 1,
+      big: this.isSuperSwing
     });
 
     for (let i = 0; i < 6; i++) {
@@ -972,9 +996,10 @@ export class Player {
       if (ta.t >= sum(THROW_FRAME_TIMES)) this.throwAnim = null;
     }
 
+    if (this.comboTimer > 0) { this.comboTimer -= dt; if (this.comboTimer <= 0) this.comboHits = 0; }
     if (this.isAttacking) {
       this.attackTimer += dt;
-      if (this.attackTimer >= this.attackFrameDuration) {
+      if (this.attackTimer >= (this.isSuperSwing ? SUPER_FRAME : this.attackFrameDuration)) {
         this.attackTimer = 0;
         this.attackFrame++;
         if (this.attackFrame >= 6) {
@@ -1081,7 +1106,9 @@ export class Player {
       this.jumpBufferTimer = this.jumpBufferMax;
     }
 
-    const canGroundJump = (this.isGrounded || this.coyoteTimer > 0);
+    // sticky ground (Level 3's vine bed) holds her feet: no jump, in either form
+    const stuck = Boolean(this.currentPlatform?.sticky);
+    const canGroundJump = !stuck && (this.isGrounded || this.coyoteTimer > 0);
     if (this.jumpBufferTimer > 0) {
       if (canGroundJump) {
         this.jumpBufferTimer = 0;
@@ -1137,9 +1164,10 @@ export class Player {
         this.coyoteTimer = 0;
       } else if (this.isGrounded) {
         if (!level.isOnPlatform(this.x, this.y, this.isDivine)) {
+          const wasStuck = Boolean(this.currentPlatform?.sticky);
           this.isGrounded = false;
           this.currentPlatform = null;
-          this.coyoteTimer = this.coyoteMax;
+          this.coyoteTimer = wasStuck ? 0 : this.coyoteMax;   // no late jump out of sticky ground either
         }
       }
     }
@@ -1573,18 +1601,19 @@ export class Player {
       const arcColor = s.isDivine ? '#ffd700' : (s.mighty ? '#fff1b0' : '#ffffff');
       const innerColor = s.isDivine ? '#ff0055' : (s.mighty ? '#7dff9a' : '#38e1ff');   // the Forest Heart's green
 
-      ctx.strokeStyle = arcColor;
-      ctx.lineWidth = 3;
+      const R = s.big ? 34 : 24;   // the super blow's arc is wider and heavier
+      ctx.strokeStyle = s.big ? '#ffe9a0' : arcColor;
+      ctx.lineWidth = s.big ? 4.5 : 3;
       ctx.beginPath();
       const startAngle = s.dir > 0 ? -Math.PI * 0.45 : Math.PI * 0.55;
       const endAngle = s.dir > 0 ? Math.PI * 0.35 : Math.PI * 1.35;
-      ctx.arc(s.x, s.y, 24, startAngle, endAngle);
+      ctx.arc(s.x, s.y, R, startAngle, endAngle);
       ctx.stroke();
 
       ctx.strokeStyle = innerColor;
-      ctx.lineWidth = 1.5;
+      ctx.lineWidth = s.big ? 2.5 : 1.5;
       ctx.beginPath();
-      ctx.arc(s.x, s.y, 22, startAngle, endAngle);
+      ctx.arc(s.x, s.y, R - 2, startAngle, endAngle);
       ctx.stroke();
     }
     ctx.restore();
@@ -1676,7 +1705,7 @@ export class Player {
     if (this.isCasting) return { set: 'qcast', index: Math.min(9, Math.floor(this.castTimer / CAST_FRAME_TIME)) };
     if (this.throwAnim) return { set: 'tthrow', index: timedFrame(THROW_FRAME_TIMES, this.throwAnim.t) };
     if (this.catchTimer > 0) return { set: 'tcatch', index: Math.min(3, Math.floor((1 - this.catchTimer / CATCH_TIME) * 4)) };
-    if (this.isAttacking) return { set: 'attack', index: Math.min(5, this.attackFrame) };
+    if (this.isAttacking) return { set: this.isSuperSwing ? 'sattack' : 'attack', index: Math.min(5, this.attackFrame) };
     if (!this.isGrounded) {
       const j = this.skin.jumpFrames;
       if (this.vy < -250) return { set: 'jump', index: j.rise };

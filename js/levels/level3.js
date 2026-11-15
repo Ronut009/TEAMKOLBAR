@@ -20,11 +20,12 @@ import { Betal } from '../entities/betal.js';
 import { EnemySpriteSheet } from '../entities/enemySprites.js';
 import { drawShrineBeacon } from '../render/shrineBeacon.js';
 import { Sfx } from '../core/audio.js';
+import { Mode } from '../core/mode.js';
 
 // Backgrounds (v2) are 2171 x 724; the sunlit floor line sits at image y = 588, the roots band below it
 // reaches past the bottom of the view.
-const BG_W = 2171, BG_H = 724;
-const BG_SCALE = 368 / 588;
+const BG_W = 2172, BG_H = 724;
+const BG_SCALE = 368 / 560;           // v3 groves: image y 560 at the floor line, so their low mist stays behind the floor
 const SCREEN_W = BG_W * BG_SCALE;      // ~1359 world px per screen
 const SCREEN_H = BG_H * BG_SCALE;      // ~453
 const BG_EXT = 80;                     // the art continues below itself (a mirrored strip), so no black band shows under the floor
@@ -34,7 +35,7 @@ const X = (screen, imageX = 0) => screen * (SCREEN_W - FEATHER) + imageX * BG_SC
 
 // Jungle piers (v2): the jungle slab's own end caps on a solid mossy brick column that darkens and fades into
 // the pit (150 x 560, made by tools/make_pier2.py).
-const PILLAR_ART = { tall: { src: 'assets/level3/jungle_pier_v2.webp', w: 150, h: 560, surface: 30 } };
+const PILLAR_ART = { tall: { src: 'assets/level3/jungle_pillar.webp', w: 150, h: 560, surface: 30 } };   // (v2 in backup)
 const PIT_PILLAR_SCALE = 0.5;
 const PIER_CRUMBLE = 0.6;      // a crumbling pier gives way this long after Rakti lands on it
 const PIER_RETURN = 2.6;       // and rises back out of the pit this long after it fell
@@ -59,14 +60,16 @@ const VINE_HP = 10;
 const VINE_DAMAGE = 4;
 const PIT_DAMAGE = 3;
 
-// Jungle pathway stones (v3: the user's 6-frame morph sheets, rock -> cracking -> split -> floating slab, cut by
-// tools/qstone_cut.py; cells 228 x 276 drawn at 0.5; deckY = walking surface of the slab, half = half its walkable
-// width). The green sheet is the way out; the earthen copy marks the stones the jungle has changed on the way
-// back.
-const PATH_ART = { src: 'assets/level3/jungle_qstone_sheet.webp', earth: 'assets/level3/earthen_qstone_sheet.webp',
-  frameW: 228, frameH: 276, anchorX: 114, deckY: 135, scale: 0.5, half: 46 };
-// The race back to the Forest Heart: once the door's ambush falls she has HEART_TIME seconds to reach it
-const HEART_TIME = 50;
+// Jungle pathway stones (v4: the user's 6-frame morph sheets, rock -> cracking -> split -> floating slab; cells
+// 456 x 552 drawn at 0.25, the same size on screen as v3's 228 x 276 at 0.5, now in assets/level3/backup; deckY =
+// walking surface of the slab, half = half its walkable width). The green sheet is the way out; the earthen copy
+// marks the stones the jungle has changed on the way back.
+const PATH_ART = { src: 'assets/level3/jungle_qstone_v3.webp', earth: 'assets/level3/earthen_qstone_v4.webp',
+  frameW: 456, frameH: 552, anchorX: 228, deckY: 270, scale: 0.25, half: 46 };
+// The race back to the Forest Heart: once the door's ambush falls she has HEART_TIME seconds to reach it (90 on
+// phones and tablets, whose touch controls are slower than a keyboard; Mobile Mode is fixed for a page load, and
+// switching it in Settings reloads the game)
+const HEART_TIME = Mode.isMobile ? 90 : 50;
 const RESTART_CUE = 1.2;          // after a death or a withered heart: this long at the door before the clock runs again
 const PATH_MORPH_TIME = 0.3;
 const PATH_HOLD = 3;              // a stone stays a platform this long after [Q], then closes back into a rock
@@ -98,13 +101,15 @@ export class Level3 {
     this.usesScriptedDefeat = false;     // the old horde level ended in a scripted death; this one has normal checkpoints
 
     const img = (src) => { const i = new Image(); i.src = src; return i; };
-    this.bgA = img('assets/level3/jungle_a2.webp');
-    this.bgB = img('assets/level3/jungle_b2.webp');
+    // v3 backdrops: two painted groves, then the same two mirrored (v2's jungle_a2 / jungle_b2 are in backup)
+    this.bgA = img('assets/level3/jungle_grove_C.webp');
+    this.bgB = img('assets/level3/jungle_grove_D.webp');
     this.screens = [
       { img: this.bgA, mirror: false }, { img: this.bgB, mirror: false },
       { img: this.bgA, mirror: true }, { img: this.bgB, mirror: true }
     ];
-    this.platformArt = new PlatformArt('jungle');
+    this.platformArt = new PlatformArt('jungleSlab');     // the floors
+    this.ledgeArt = new PlatformArt('jungleIsland');     // the floating ledges
     this.pillarImgs = { tall: img(PILLAR_ART.tall.src) };
     this.spikeSheet = img(JSPIKE_ART.src);
     this.vineAImg = img(VINE_A.src);
@@ -894,7 +899,6 @@ export class Level3 {
       b.update(dt, player, this, !talking);
     }
     this.revealReturnWave(player);
-    this.updateVines(dt, player);
     for (let i = this.fx.length - 1; i >= 0; i--) {
       const q = this.fx[i];
       q.life -= dt; q.x += q.vx * dt; q.y += q.vy * dt; q.vy += 260 * dt;
@@ -983,7 +987,7 @@ export class Level3 {
       if (onLevel && v.state !== 'hidden' && player.isAttacking && Math.abs(dx) < VINE_SWORD_REACH) {
         const facingIt = dx === 0 || (dx > 0 ? player.facing === 'left' : player.facing !== 'left');
         if (facingIt && player.claimSwingHit(v)) {
-          v.hp -= player.swordDamage;
+          v.hp -= player.swingDamage ?? player.swordDamage;
           v.flash = 0.2;
           this.cameraShake = Math.max(this.cameraShake, 0.2);
           this.leafBurst(v.x, FLOOR_Y - 40, v.hp <= 0 ? 22 : 8);
@@ -1089,9 +1093,6 @@ export class Level3 {
       g.scale(1, -1);
       g.drawImage(image, 0, 0, SCREEN_W, SCREEN_H);
       g.restore();
-      // the reflected part is the deep forest floor: a little darker
-      g.fillStyle = 'rgba(4, 12, 6, 0.35)';
-      g.fillRect(0, SCREEN_H, SCREEN_W, BG_EXT);
       if (feather) {
         g.globalCompositeOperation = 'destination-in';
         const grad = g.createLinearGradient(0, 0, SCREEN_W, 0);
@@ -1133,7 +1134,7 @@ export class Level3 {
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
     for (const f of this.floors) if (this.inView(f.x1, f.x2)) this.platformArt.draw(ctx, f.x1, f.x2, FLOOR_Y);
-    for (const l of this.ledges) if (this.inView(l.x1, l.x2)) this.platformArt.draw(ctx, l.x1, l.x2, l.y);
+    for (const l of this.ledges) if (this.inView(l.x1, l.x2)) this.ledgeArt.draw(ctx, l.x1, l.x2, l.y);
     ctx.restore();
 
     // 3. Pillars, hazards, props
@@ -1156,14 +1157,28 @@ export class Level3 {
     ctx.restore();
   }
 
+  /** The pits: a soft green shade deepening downward, its two sides faded out (the misty backdrops are bright down
+   *  there, so a hard edge at the lip of a pit would show as a dark vertical band). */
   renderPits(ctx) {
     for (const pit of this.pits) {
       if (!this.inView(pit.x1, pit.x2)) continue;
-      const g = ctx.createLinearGradient(0, FLOOR_Y - 6, 0, FLOOR_Y + 70);
-      g.addColorStop(0, 'rgba(2, 10, 6, 0)');
-      g.addColorStop(1, 'rgba(3, 14, 8, 0.8)');   // deep green shade, not a black slab
-      ctx.fillStyle = g;
-      ctx.fillRect(pit.x1, FLOOR_Y - 6, pit.x2 - pit.x1, this.height - FLOOR_Y + 8);
+      const w = pit.x2 - pit.x1, h = this.height - FLOOR_Y + 8;
+      const c = this.cachedArt(`pit:${pit.x1}`, w, h, true, (g) => {
+        const v = g.createLinearGradient(0, 0, 0, 76);
+        v.addColorStop(0, 'rgba(2, 10, 6, 0)');
+        v.addColorStop(1, 'rgba(3, 14, 8, 0.6)');
+        g.fillStyle = v;
+        g.fillRect(0, 0, w, h);
+        const f = Math.min(110, w / 2), side = g.createLinearGradient(0, 0, w, 0);
+        side.addColorStop(0, 'rgba(0,0,0,0)');
+        side.addColorStop(f / w, 'rgba(0,0,0,1)');
+        side.addColorStop(1 - f / w, 'rgba(0,0,0,1)');
+        side.addColorStop(1, 'rgba(0,0,0,0)');
+        g.globalCompositeOperation = 'destination-in';
+        g.fillStyle = side;
+        g.fillRect(0, 0, w, h);
+      });
+      if (c) ctx.drawImage(c, pit.x1, FLOOR_Y - 6, w, h);
     }
   }
 
@@ -1407,5 +1422,4 @@ export class Level3 {
   /** Drawn over Rakti (engine hook). The old guide arrow to the Forest Heart is gone (playtest feedback): the
    *  camera pan at the reveal shows where the heart is, and its shrine beacon marks it on screen. */
   renderForeground() {}
-
 }
