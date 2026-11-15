@@ -56,6 +56,26 @@ const LEVEL_NAMES = {
   5: 'Chaos Mode  ·  The Siege Wall'
 };
 
+// The opening film's narration (the film has no captions of its own; times in seconds, from its score.js)
+const INTRO_SUBTITLES = [
+  [1.0, 8.2, 'Long ago, in a kingdom of gold and sunlight, lived a girl named Rakti.'],
+  [9.6, 15.4, 'Her father was her teacher, and her dearest friend.'],
+  [16.0, 20.6, 'He taught her the blade. She only wanted the time with him.'],
+  [21.2, 23.7, 'She never knew how many lives that blade had saved.'],
+  [24.6, 28.3, 'Then one evening, the sky turned black.'],
+  [28.8, 32.6, 'Her father knew what was coming.'],
+  [33.6, 38.5, 'Darkness poured over the town.'],
+  [39.6, 44.2, 'He stood between Rakti and the dark.'],
+  [45.9, 47.7, 'And it took him.'],
+  [48.8, 52.4, 'Then it was gone, as if nothing had happened.'],
+  [52.9, 56.5, 'Only he was missing.'],
+  [57.6, 61.7, 'Through her tears, she saw a thread of golden light.'],
+  [62.1, 65.7, 'With nothing left to lose, she followed it.'],
+  [66.6, 74.3, 'It led her out of the town, and deep into the forest,'],
+  [75.4, 79.7, 'to an ancient gate, where a faint voice called her name.'],
+  [80.1, 84.2, 'She stepped through, and her story began.']
+];
+
 const SPEAKER_NAMES = { kali: '⚜ MAA KALI ⚜', rakti: '⚜ RAKTI ⚜', father: '⚜ PITAJI ⚜', demon: '⚜ THE ASURA ⚜' };
 const divineActiveNow = (p) => p.isDivine || p.isTransforming;
 
@@ -542,7 +562,7 @@ export class Engine {
   }
 
   // ======================================================================== the opening cutscene
-  /** New Game: the opening film (assets/video/start_cutscene.mp4) plays full screen first; when it ends, or [Esc]
+  /** New Game: the opening film (assets/video/opening_film.mp4) plays full screen first; when it ends, or [Esc]
    *  has been held for INTRO_SKIP_HOLD s, the loading screen takes over and Level 1 begins. */
   playIntroCutscene(onDone) {
     const box = document.getElementById('introCutscene'), video = document.getElementById('introVideo');
@@ -598,6 +618,13 @@ export class Engine {
       skip.classList.add('show');
     }
     if (it.hold >= INTRO_SKIP_HOLD) { this.finishIntroCutscene(); return; }
+    // the narration's subtitle for where the film is
+    const subs = document.getElementById('introSubs'), video = document.getElementById('introVideo');
+    if (subs && video) {
+      const t = video.currentTime || 0, line = INTRO_SUBTITLES.find(([a, b]) => t >= a && t <= b);
+      if (line && subs.textContent !== line[2]) subs.textContent = line[2];
+      subs.classList.toggle('show', Boolean(line));
+    }
   }
 
   finishIntroCutscene() {
@@ -607,6 +634,7 @@ export class Engine {
     const box = document.getElementById('introCutscene'), video = document.getElementById('introVideo');
     video?.pause();
     if (video) { video.onended = null; video.onerror = null; }
+    document.getElementById('introSubs')?.classList.remove('show');
     box?.classList.remove('active');
     box?.setAttribute('aria-hidden', 'true');
     this.intro = null;

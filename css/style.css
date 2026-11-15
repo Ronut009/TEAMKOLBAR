@@ -1545,6 +1545,23 @@ html, body {
   --fill: 0%;
 }
 .ic-skip.show { opacity: 0.9; transform: none; }
+/* the narration: centred, in the skip button's Cinzel, its bottom always clear of the button's top */
+.ic-subs {
+  position: absolute;
+  left: 50%;
+  bottom: calc(clamp(16px, 4vh, 40px) + clamp(50px, 6.2vh, 64px) + clamp(10px, 2vh, 22px));
+  transform: translateX(-50%);
+  width: min(1100px, calc(100vw - 32px));
+  text-align: center;
+  font: 700 clamp(15px, 1.7vw, 26px)/1.35 'Cinzel', Georgia, serif;
+  letter-spacing: 1px;
+  color: #f8e8bb;
+  text-shadow: 0 2px 4px #06130f, 0 0 3px #000, 0 0 12px rgba(0, 0, 0, 0.85);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  pointer-events: none;
+}
+.ic-subs.show { opacity: 1; }
 .ic-skip::before {
   content: '';
   position: absolute;
