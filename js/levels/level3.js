@@ -55,6 +55,7 @@ const SPIKE_DAMAGE = 4;
 // attack: grows (0-5), spins (6-13), settles and sinks (14-18).
 const VINE_A = { src: 'assets/level3/vine_a.webp', cw: 206, ch: 281, cols: 9, ground: 278, scale: 0.34 };
 const VINE_B = { src: 'assets/level3/vine_b.webp', cw: 372, ch: 331, cols: 10, ground: 328, scale: 0.34 };
+const EDGE_OVERRUN = 400;      // how far the first and last floors are drawn past the level's edges
 const VINE_NOTICE = 150;       // she is noticed this close (and roughly level with the vine)
 const VINE_HIT = 62;           // the spin reaches this far to either side
 const VINE_SWORD_REACH = 72;
@@ -193,7 +194,7 @@ export class Level3 {
     // Jungle spikes: packs of two, x = left edge of the pack (none placed for now)
     this.spikes = [].map((x, i) => ({ x, phase: i * 1.3 }));
     // Jungle vines: always one at a time
-    this.vines = [803, 1669, 2028, 3251, 5170].map((x, i) => ({ x, phase: i * 0.9, state: 'hidden', t: 0, wait: 0.6 + (i % 3) * 0.5, hp: VINE_HP, cool: 0, flash: 0, removed: false }));
+    this.vines = [803, 1669, 2028, 3251, 4975, 5170].map((x, i) => ({ x, phase: i * 0.9, state: 'hidden', t: 0, wait: 0.6 + (i % 3) * 0.5, hp: VINE_HP, cool: 0, flash: 0, removed: false }));
     this.fx = [];
 
     this.checkpoints = [1395, 2995, 3593, 4640, 5835];
@@ -328,6 +329,10 @@ export class Level3 {
   }
 
   // ======================================================================== the way back & the heart's clock
+  /** The chasm's stones are earthen (the outer two open and crumbling) only on the run back to the heart; once the
+   *  heart is hers they are the green [Q] stones of the way out again. */
+  get stonesEarthen() { return this.altered && !this.relic.collected; }
+
   /** Puts the piers and the jungle stones in their forward or way-back arrangement (this.altered), at rest. */
   applyLayout() {
     this.pillars = this.altered ? this.returnPillars : this.forwardPillars;
@@ -338,7 +343,7 @@ export class Level3 {
     }
     for (const s of this.pathStones) {
       Object.assign(s, { open: 0, m: 0, fall: null });
-      if (this.altered && s.i !== 1) {
+      if (this.stonesEarthen && s.i !== 1) {
         s.m = 1;
         s.fall = { cx: s.cx, top: s.y, phase: s.phase, state: 'idle', t: 0, dy: 0, vy: 0, alpha: 1 };
       }
@@ -588,6 +593,8 @@ export class Level3 {
   collectRelic(player) {
     if (this.relic.collected || !this.relic.spawned) return false;
     this.relic.collected = true;
+    // the heart is hers: the earthen stones over the chasm go back to the green ones, closed rocks that [Q] opens
+    for (const s of this.pathStones) Object.assign(s, { open: 0, m: 0, fall: null });
     this.stopClock();
     Sfx.play('item_get');
     this.relic.fly = 0.0001;
@@ -1155,7 +1162,10 @@ export class Level3 {
     ctx.save();
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
-    for (const f of this.floors) if (this.inView(f.x1, f.x2)) this.platformArt.draw(ctx, f.x1, f.x2, FLOOR_Y);
+    // (the first and last floors run on past the level's edges, so their end caps are never in view)
+    for (const f of this.floors) {
+      if (this.inView(f.x1, f.x2)) this.platformArt.draw(ctx, f.x1 <= 0 ? f.x1 - EDGE_OVERRUN : f.x1, f.x2 >= this.width ? f.x2 + EDGE_OVERRUN : f.x2, FLOOR_Y);
+    }
     for (const l of this.ledges) if (this.inView(l.x1 - 20, l.x2 + 20)) this.drawIsland(ctx, l);
     ctx.restore();
 
@@ -1259,7 +1269,7 @@ export class Level3 {
     const A = PATH_ART, k = A.scale;
     for (const s of this.pathStones) {
       if (!this.inView(s.cx - 120, s.cx + 120)) continue;
-      const earth = this.altered;
+      const earth = this.stonesEarthen;
       const f = Math.max(0, Math.min(5, Math.round(s.m * 5)));
       const c = this.stoneFrame(earth, f);
       if (!c) continue;
