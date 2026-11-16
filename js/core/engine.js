@@ -56,12 +56,13 @@ const LEVEL_NAMES = {
   5: 'Chaos Mode  ·  The Siege Wall'
 };
 
-// The opening film's narration (the film has no captions of its own; times in seconds, from its score.js)
+// The opening film's narration, spoken in the film's sound by Maa Kali's voice and shown here as subtitles (the film
+// has no captions of its own; times in seconds, from its score.js)
 const INTRO_SUBTITLES = [
   [1.0, 8.2, 'Long ago, in a kingdom of gold and sunlight, lived a girl named Rakti.'],
   [9.6, 15.4, 'Her father was her teacher, and her dearest friend.'],
   [16.0, 20.6, 'He taught her the blade. She only wanted the time with him.'],
-  [21.2, 23.7, 'She never knew how many lives that blade had saved.'],
+  [21.2, 24.4, 'She never knew how many lives that blade had saved.'],
   [24.6, 28.3, 'Then one evening, the sky turned black.'],
   [28.8, 32.6, 'Her father knew what was coming.'],
   [33.6, 38.5, 'Darkness poured over the town.'],

@@ -36,7 +36,7 @@ const X = (screen, imageX = 0) => screen * (SCREEN_W - FEATHER) + imageX * BG_SC
 // Jungle piers (v2): the jungle slab's own end caps on a solid mossy brick column that darkens and fades into
 // the pit (150 x 560, made by tools/make_pier2.py).
 // v3 pillar: carved brick wrapped in vines and ferns (380 x 1137 px, drawn as 190 x 569 logical px); half = the walkable
-// half-width of its top as a fraction of w. (v2 and the dark variant are in assets/level3/backup.)
+// half-width of its top as a fraction of w. (v2 and the dark variant are in backup/assets/level3.)
 const PILLAR_ART = { tall: { src: 'assets/level3/jungle_pillar_v3.webp', w: 190, h: 569, surface: 31, half: 0.33 } };
 const PIT_PILLAR_SCALE = 0.5;
 const PIER_CRUMBLE = 0.6;      // a crumbling pier gives way this long after Rakti lands on it
@@ -64,7 +64,7 @@ const VINE_DAMAGE = 4;
 const PIT_DAMAGE = 3;
 
 // Jungle pathway stones (v4: the user's 6-frame morph sheets, rock -> cracking -> split -> floating slab; cells
-// 456 x 552 drawn at 0.25, the same size on screen as v3's 228 x 276 at 0.5, now in assets/level3/backup; deckY =
+// 456 x 552 drawn at 0.25, the same size on screen as v3's 228 x 276 at 0.5, now in backup/assets/level3; deckY =
 // walking surface of the slab, half = half its walkable width). The green sheet is the way out; the earthen copy
 // marks the stones the jungle has changed on the way back.
 const PATH_ART = { src: 'assets/level3/jungle_qstone_v3.webp', earth: 'assets/level3/earthen_qstone_v4.webp',

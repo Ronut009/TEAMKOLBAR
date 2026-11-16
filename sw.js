@@ -1,7 +1,7 @@
 // Rakti: The Last Guardian - offline cache.
 // Bump ASSET_VERSION whenever shipped files change in a way the network-first shell cannot pick up
 // (renamed/replaced assets under assets/ are cache-first, so they need a bump to refresh).
-const ASSET_VERSION = 'v24-subtitles';
+const ASSET_VERSION = 'v26-tidy';
 
 const SHELL_CACHE = `rakti-shell-${ASSET_VERSION}`;
 const ASSET_CACHE = `rakti-assets-${ASSET_VERSION}`;
@@ -259,7 +259,6 @@ const LEVEL1_URLS = [
   'assets/level1/tower_shrine.webp',
   'assets/level1/towers_bg.webp',
   'assets/platforms/temple_platform_v2.webp',
-  'assets/portraits/kali2_0.webp',
   'assets/portraits/kali4_0.webp',
   'assets/portraits/kali4_1.webp',
   'assets/portraits/kali4_2.webp',

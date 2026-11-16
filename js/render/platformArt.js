@@ -29,27 +29,7 @@ export const PLATFORM_STYLES = {
     capLeft: 345,
     capRight: 752
   },
-  // Level 3 jungle slab: moss-topped carved brick with hanging roots (960 x 187, middle is made to tile)
-  // Level 3 jungle slab v2: mossy carved brick with roots and glowing flowers (809 x 125: left cap | 272 px
-  // module that tiles | right cap). The previous strip is assets/level3/jungle_platform.webp.
-  jungle: {
-    src: 'assets/level3/backup/jungle_platform_v2.webp',
-    surfaceY: 30,
-    scale: 0.75,       // ~70 world px below the walking surface
-    capLeft: 311,
-    capRight: 583
-  },
-  // Level 3 floor v3: a flat-ended slab of carved brick, roots and ferns under a grassy path (745 x 340: left cap |
-  // 401 px module that tiles | right cap). Like the other levels' floors, the repeating middle is ~200 world px, so
-  // Level 3's 400-560 px floors hold one or two whole repeats instead of one long one squeezed to fit. Deep enough
-  // to run past the bottom of the view. (The long 1768 px cut and v2's 'jungle' slab are in assets/level3/backup.)
-  jungleSlab: {
-    src: 'assets/level3/backup/jungle_floor_slab.webp',
-    surfaceY: 79,      // the middle of the grassy path
-    scale: 0.5,        // ~130 world px below the walking surface
-    capLeft: 207,
-    capRight: 608
-  },
+  // (Level 3's earlier floors, the 'jungle' strip and the 'jungleSlab', are retired; their art is in backup/assets/level3.)
   // Level 3 floor v4: a deep mossy stone ledge with a carved-brick path on top, from three pieces (a left end, a
   // middle that repeats, a right end; 1511 x 383). Its rocky underside reaches ~110 world px below the walking
   // surface, past the bottom of the view, so no background shows under a floor. noStretch: the middle repeats at

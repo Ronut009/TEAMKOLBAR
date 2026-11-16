@@ -56,7 +56,7 @@ const PROLOGUE_SPRITES = {
   }
 };
 // Level 2 ability frames (same green-and-gold design as v3, drawn at the v3 scale for every skin):
-// earthcast = Kali's earth-shaping cast [Q] (the old qcast frames are in backup); tthrow / tcatch = throwing and catching the Trishul.
+// earthcast = Kali's earth-shaping cast [Q] (the old qcast frames are in backup/assets/anims/rakti_v3); tthrow / tcatch = throwing and catching the Trishul.
 const ABILITY_SPRITES = {
   folder: 'assets/anims/rakti_v3',
   scale: 0.23,

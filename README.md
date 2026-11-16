@@ -35,4 +35,13 @@ There are **not** two apps in here — Mobile Mode replaces only the behavior th
 Local test: `python -m http.server 8123` in this folder, open http://localhost:8123
 (or use `play-rakti.bat` / `rakti-server.ps1`, carried over from the PC build).
 Deploy like the mobile build: any static host over HTTPS (the service worker needs it).
-After changing any shipped file, bump `ASSET_VERSION` in `sw.js` (currently `v15-hybrid`).
+After changing any shipped file, bump `ASSET_VERSION` in `sw.js`.
+
+## Folder layout
+
+- `index.html`, `css/`, `js/` (`core/`, `entities/`, `levels/`, `render/`), `sw.js`, `manifest.webmanifest`, `icons/` — the game.
+- `assets/` — only files the game loads: `anims/`, `audio/`, `level1/`–`level4/`, `endless/`, `platforms/`,
+  `portraits/`, `title/`, `ui/`, `weapons/`, and `video/opening_film.mp4` (the opening film, narrated, no burned-in captions).
+- `backup/` — everything retired or unused (old art, old portraits, old animation frames, the captioned film),
+  kept under the same paths it had in the game, e.g. `backup/assets/level3/`. It is ignored by git, so it lives
+  only on your own computer and is never deployed.
