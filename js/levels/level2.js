@@ -409,6 +409,7 @@ export class Level2 {
   }
 
   freshStart() {
+    this.enemiesFresh = true;       // every Betal back at his post on the next reset()
     this.checkpointIndex = 0;
     this.saved = freshProgress();
   }
@@ -512,6 +513,9 @@ export class Level2 {
     this.hordeEntries = [];
     this.hordeTalked = false;
     for (const id of ['H1', 'H2']) { const a = this.archers[id]; a.entry = null; a.x = a.x0; a.y = FLOOR_Y; }
+    const fresh = this.enemiesFresh !== false;
+    this.enemiesFresh = false;
+    const slain = new Set(this.betals.filter((b) => !fresh && b.orig && (b.dead || b.removed)));
     for (const b of this.betals) {
       b.entry = null;
       b.reset();
@@ -522,6 +526,16 @@ export class Level2 {
     }
     // the desert's first Betal are gone for good once the way back has begun (they used to come back on a respawn)
     if (p.doorTried) for (const b of this.betals) if (b.orig) { b.dead = true; b.removed = true; }
+    // before that, after a death: what she killed stays dead, a Betal ahead of the checkpoint stays at his post, one
+    // behind it is gone (in the hall the desert is all behind her anyway)
+    if (!fresh && !p.doorTried) {
+      const spawnX = this.getRespawnPoint().x;
+      for (const b of this.betals) {
+        if (!b.orig || b.dead) continue;
+        if (slain.has(b) || this.area !== 'out') { b.dead = true; b.removed = true; continue; }
+        b.settleAfterRespawn(spawnX, 1);
+      }
+    }
     const anchor = this.getRespawnPoint().x;   // the door wave forms up around where she comes back
     for (const m of this.returnMembers) this.placeReturnMember(m, p, anchor);
     for (const q of this.slabFallers) Object.assign(q, { state: 'idle', t: 0, dy: 0, vy: 0, alpha: 1, sank: false });

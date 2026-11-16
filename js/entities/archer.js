@@ -436,6 +436,15 @@ export class Archer {
       }
     }
 
+    // 0b. Sliding back from Rakti's super blow, slowing down; it never pushes him off his ledge or tower
+    if (this.knockV && this.alive) {
+      const nx = this.x + this.knockV * dt;
+      const onGround = !level?.isOnPlatform || level.isOnPlatform(nx, this.y);
+      if (onGround) this.x = nx; else this.knockV = 0;
+      this.knockV *= Math.exp(-9 * dt);
+      if (Math.abs(this.knockV) < 12) this.knockV = 0;
+    }
+
     // 1. Defeated state & removal timer
     if (!this.alive) {
       this.deathTimer += dt;
@@ -459,9 +468,11 @@ export class Archer {
       if (dist < 60 && player.claimSwingHit(this)) {
         const knock = player.swingKnockback;
         const killed = this.takeDamage(player.swingDamage ?? player.swordDamage, player.x);
-        if (knock && !killed) {   // Rakti's super blow: a short shove back and a longer flinch
-          this.x += (player.x > this.x ? -1 : 1) * 20;
+        if (knock && !killed) {   // Rakti's super blow: thrown back like a Betal (about 60 px) and staggered
+          this.knockV = (player.x > this.x ? -1 : 1) * 520;
           this.hurtTimer = Math.max(this.hurtTimer || 0, 0.55);
+          this.cooldownTimer = Math.max(this.cooldownTimer || 0, 1.2);   // a moment before he can aim again
+          this.attachedArrow = null;
         }
         if (level) {
           level.cameraShake = 0.35;
@@ -642,6 +653,7 @@ export class Archer {
 
   reset() {
     this.x = this.startX;
+    this.knockV = 0;
     this.y = this.startY;
     if (Run.campaign) this.maxHp = Run.archerHp;   // the story: 12, or 20 in Hard and Hardcore
     this.hp = this.maxHp;

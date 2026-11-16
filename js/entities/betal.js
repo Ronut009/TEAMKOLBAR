@@ -28,9 +28,24 @@ export class Betal {
       attackAnimTimer: 0, attackAnimDuration: 0.7, attackHitAt: 0.38, attackHitDone: false,
       attackCooldown: 0.6, hurtTimer: 0, hitFlash: 0,
       dead: false, deathTimer: 0, fadeAlpha: 1, animTime: 0, removed: false, hidden: false,
-      patrolSpeed: 34, chaseSpeed: 72, noticeRange: 190, attackRange: 46, damage: 4,
-      aggro: false, aggroLock: 0
+      patrolSpeed: 34, chaseSpeed: 72, noticeRange: 330, attackRange: 46, damage: 4,   // (notices her from 1.75x further than before: 190 -> 330)
+      aggro: false, aggroLock: 0, calm: 0
     });
+  }
+
+  /** After Rakti respawns at a checkpoint at x = spawnX, heading `dir` (+1 east, -1 west on a way back): a Betal
+   *  behind her is gone for good, one ahead stays at his post. One posted close to where she appears waits at the
+   *  far end of his beat and needs a moment (calm) before he notices her, so a respawn is never an ambush. */
+  settleAfterRespawn(spawnX, dir = 1) {
+    if (this.dead || this.removed) return;
+    const ahead = dir > 0 ? this.spawn.x > spawnX : this.spawn.x < spawnX;
+    if (!ahead) { this.dead = true; this.removed = true; return; }
+    if (!this.hidden && Math.abs(this.x - spawnX) < 300) {
+      this.x = dir > 0 ? this.maxX : this.minX;
+      this.facing = dir > 0 ? 'right' : 'left';
+      this.patrolDir = dir > 0 ? 1 : -1;
+      this.calm = 1.5;
+    }
   }
 
   /** `active` false = he ignores Rakti (e.g. before she has her powers). */
@@ -46,6 +61,7 @@ export class Betal {
     this.hurtTimer = Math.max(0, this.hurtTimer - dt);
     this.attackCooldown = Math.max(0, this.attackCooldown - dt);
     this.aggroLock = Math.max(0, this.aggroLock - dt);
+    this.calm = Math.max(0, this.calm - dt);
 
     if (this.dead) {
       this.deathTimer += dt;
@@ -101,9 +117,9 @@ export class Betal {
 
     // 3. Notice Rakti -> aggro: he locks on (a short roar), then chases her down to attack. He keeps hunting her
     // beyond the distance he first noticed her at (the leash) and gives up only when she gets clear away.
-    const inBounds = alive && player.x > this.minX - 60 && player.x < this.maxX + 60;
-    const inSight = inBounds && closeVertically && Math.abs(dx) < this.noticeRange;
-    const leashed = inBounds && Math.abs(player.y - this.y) < 140 && Math.abs(dx) < this.noticeRange * 1.9;
+    const inBounds = alive && player.x > this.minX - 160 && player.x < this.maxX + 160;   // she can be seen a little past his beat
+    const inSight = inBounds && closeVertically && Math.abs(dx) < this.noticeRange && this.calm <= 0;
+    const leashed = inBounds && Math.abs(player.y - this.y) < 140 && Math.abs(dx) < this.noticeRange * 1.6;
     if (!this.aggro && inSight) this.startAggro(player.x);
     else if (this.aggro && !leashed) this.aggro = false;
     if (this.aggro) {
@@ -113,7 +129,7 @@ export class Betal {
         const nx = this.clampX(this.x + Math.sign(dx) * this.chaseSpeed * dt);
         this.isMoving = nx !== this.x;
         this.x = nx;
-        if (this.isMoving) Sfx.hold('mob_growl', Math.max(0.35, 1 - Math.abs(dx) / (this.noticeRange * 1.9)));   // one shared growl however many chase
+        if (this.isMoving) Sfx.hold('mob_growl', Math.max(0.35, 1 - Math.abs(dx) / (this.noticeRange * 1.6)));   // one shared growl however many chase
       } else {
         this.isMoving = false;
         if (this.attackCooldown <= 0 && closeVertically) {

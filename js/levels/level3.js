@@ -311,8 +311,13 @@ export class Level3 {
       } else if (this.phase !== 'first') {
         b.dead = true; b.removed = true;     // the first Betal are gone once the door has been touched
       }
-      // no spawn camping: a Betal waiting near where she comes back to life is gone
-      if (!fresh && !b.hidden && !b.dead && !b.entry && Math.abs(b.x - spawn.x) < 450) { b.dead = true; b.removed = true; }
+      // After a death: a Betal ahead of the checkpoint stays (one posted close by waits a moment at the far end of
+      // his beat), one behind it is gone. Ahead is west on the run back to the heart (a death there restarts the
+      // race at the door, so the whole pack is ahead), east otherwise. Only the pack of the part she is in counts:
+      // the first Betal before the door, the return pack after it (it waits hidden until then); the door's ambush
+      // keeps its own entry.
+      const current = this.phase === 'first' ? b.wave === 'first' : (this.phase === 'return' || this.phase === 'carry') && b.wave === 'return';
+      if (!fresh && !b.entry && current) b.settleAfterRespawn(spawn.x, this.phase === 'return' ? -1 : 1);
     }
     for (const f of this.fallers) Object.assign(f, { state: 'idle', t: 0, dy: 0, vy: 0, alpha: 1 });
     for (const v of this.vines) Object.assign(v, { state: 'hidden', t: 0, wait: 0.6 + (v.phase % 3) * 0.5, hp: VINE_HP, cool: 0, flash: 0, removed: false });

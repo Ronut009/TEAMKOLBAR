@@ -372,10 +372,23 @@ export class Level {
     this.scene = { stage: 'wake' };   // prologue: wake -> free -> walk -> talk -> outfit -> done
     this.isCompleted = false;
     this.animTime = 0;      // spike traps restart their cycle
+    // After a death (not a fresh start): what she killed stays dead, a Betal ahead of the checkpoint stays at his post,
+    // one behind it is gone (see Betal.settleAfterRespawn)
+    const fresh = this.enemiesFresh !== false;
+    this.enemiesFresh = false;
+    const slain = this.betals.map((b) => !fresh && (b.dead || b.removed));
     for (const b of this.betals) b.reset();
     // the first-test Betal stays hidden until Kali calls him (and stays gone once the test is passed)
     this.betals[0].hidden = true;
     if (this.testDone) { this.betals[0].dead = true; this.betals[0].removed = true; }
+    if (!fresh) {
+      const spawnX = this.getRespawnPoint().x;
+      this.betals.forEach((b, i) => {
+        if (i === 0) return;                       // Kali's test has its own rule above
+        if (slain[i]) { b.dead = true; b.removed = true; return; }
+        b.settleAfterRespawn(spawnX, 1);
+      });
+    }
   }
 
   /** Arriving from outside (new game, level select): the prologue test and checkpoints start over. */
@@ -397,6 +410,7 @@ export class Level {
   }
 
   freshStart() {
+    this.enemiesFresh = true;       // every Betal back at his post on the next reset()
     this.checkpointIndex = -1;
     this.abilityGranted = false;
     this.bridgeTold = false;
