@@ -59,22 +59,22 @@ const LEVEL_NAMES = {
 // The opening film's narration, spoken in the film's sound by the narrator (Rida M, ElevenLabs) and shown here as
 // subtitles (the film has no captions of its own; times in seconds, matched to where each line is spoken)
 const INTRO_SUBTITLES = [
-  [1.0, 8.2, 'Long ago, in a kingdom of gold and sunlight, lived a girl named Rakti.'],
-  [9.6, 15.4, 'Her father was her teacher, and her dearest friend.'],
-  [16.0, 20.8, 'He taught her the blade. She only wanted the time with him.'],
-  [21.2, 25.3, 'She never knew how many lives that blade had saved.'],
-  [25.5, 29.5, 'Then one evening, the sky turned black.'],
-  [29.6, 32.8, 'Her father knew what was coming.'],
-  [33.6, 38.5, 'Darkness poured over the town.'],
-  [39.6, 44.2, 'He stood between Rakti and the dark.'],
-  [45.9, 48.5, 'And it took him.'],
-  [48.8, 52.5, 'Then it was gone, as if nothing had happened.'],
-  [52.9, 56.5, 'Only he was missing.'],
-  [57.6, 62.0, 'Through her tears, she saw a thread of golden light.'],
-  [62.1, 65.7, 'With nothing left to lose, she followed it.'],
-  [66.6, 74.3, 'It led her out of the town, and deep into the forest,'],
-  [75.4, 80.2, 'to an ancient gate, where a faint voice called her name.'],
-  [80.3, 84.2, 'She stepped through, and her story began.']
+  [1.1, 8.3, 'Long ago, in a kingdom of gold and sunlight, lived a girl named Rakti.'],
+  [9.9, 15.4, 'Her father was her teacher, and her dearest friend.'],
+  [16.0, 20.9, 'He taught her the blade. She only wanted the time with him.'],
+  [21.1, 25.2, 'She never knew how many lives that blade had saved.'],
+  [25.3, 29.3, 'Then one evening, the sky turned black.'],
+  [29.4, 33.0, 'Her father knew what was coming.'],
+  [34.0, 38.5, 'Darkness poured over the town.'],
+  [39.9, 44.2, 'He stood between Rakti and the dark.'],
+  [45.8, 48.5, 'And it took him.'],
+  [48.8, 52.7, 'Then it was gone, as if nothing had happened.'],
+  [53.3, 56.5, 'Only he was missing.'],
+  [57.6, 61.9, 'Through her tears, she saw a thread of golden light.'],
+  [62.1, 66.0, 'With nothing left to lose, she followed it.'],
+  [67.5, 74.3, 'It led her out of the town, and deep into the forest,'],
+  [75.3, 80.0, 'to an ancient gate, where a faint voice called her name.'],
+  [80.2, 84.3, 'She stepped through, and her story began.']
 ];
 
 const SPEAKER_NAMES = { kali: '⚜ MAA KALI ⚜', rakti: '⚜ RAKTI ⚜', father: '⚜ PITAJI ⚜', demon: '⚜ THE ASURA ⚜' };
