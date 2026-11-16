@@ -36,7 +36,7 @@ const SWAP = svg('0 0 28 12', '<path d="M3 4 H23 L19 1 M25 8 H5 L9 11"/>', 'swap
 const MAIN_BUTTONS = [
   { id: 'attack', size: 'attack', code: 'MouseLeft', vibrate: true, html: '<img class="touch-icon" data-weapon-icon alt=""><span class="touch-cap">ATTACK</span>' },
   { id: 'jump', size: 'big', code: 'Space', html: `${UP_ARROW}<span class="touch-cap">JUMP</span>` },
-  { id: 'divine', size: 'big', code: 'KeyX', html: '<img class="touch-medallion" src="assets/ui/hud/kali_medallion.webp" alt="">' },   // the medallion is the whole button
+  { id: 'divine', size: 'big', code: 'KeyX', html: '<img class="touch-medallion" src="assets/ui/hud/kali_ult_button.webp" alt="">' },   // the Maa Kali medallion is the whole button
   { id: 'interact', size: 'mid', code: 'KeyE', html: `${HAND}<span class="touch-cap">USE</span>` },
   { id: 'morph', size: 'mid', code: 'KeyQ', html: `${STONE}<span class="touch-cap">EARTH</span>` },
   { id: 'sands', size: 'mid', code: 'KeyF', html: `${GLASS}<span class="touch-cap">SANDS</span>` },

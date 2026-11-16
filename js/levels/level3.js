@@ -72,7 +72,7 @@ const PATH_ART = { src: 'assets/levels/level3/jungle_qstone_v3.webp', earth: 'as
 // The race back to the Forest Heart: once the door's ambush falls she has HEART_TIME seconds to reach it (90 on
 // phones and tablets, whose touch controls are slower than a keyboard; Mobile Mode is fixed for a page load, and
 // switching it in Settings reloads the game)
-const HEART_TIME = Mode.isMobile ? 90 : 50;
+const HEART_TIME = Mode.isMobile ? 90 : 60;
 const RESTART_CUE = 1.2;          // after a death or a withered heart: this long at the door before the clock runs again
 const PATH_MORPH_TIME = 0.3;
 const PATH_HOLD = 3;              // a stone stays a platform this long after [Q], then closes back into a rock

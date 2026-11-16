@@ -14,6 +14,7 @@
  */
 
 import { Options } from './options.js';
+import { Mode } from './mode.js';
 
 const BASE = 'assets/audio/sfx/';
 
@@ -90,6 +91,9 @@ class MusicPlayer {
     this.base = null;
     this.overlay = null;
     this.dying = [];
+    // The start menu's music always waits for the player's first key press (PC) or touch (phone), with a hint on the
+    // start screen, even where the browser would let it play at once (an installed app, a site visited often)
+    this.awaitingInput = typeof window !== 'undefined';
     if (typeof window !== 'undefined') {
       // The music is a media element like a YouTube tab: switching to another tab never pauses it. If the browser
       // held it back at load (autoplay blocked), try again whenever the page is shown, focused or restored.
@@ -136,6 +140,10 @@ class MusicPlayer {
   }
 
   start(L) {
+    if (this.awaitingInput) {   // nothing plays before the first key press or touch
+      if (!L.blocked) { L.blocked = true; this.startOnFirstInput(L); }
+      return;
+    }
     L.audio.play().then(() => { L.blocked = false; this.showHint(false); }).catch(() => {
       if (this.base !== L && this.overlay !== L) return;
       L.blocked = true;
@@ -173,6 +181,7 @@ class MusicPlayer {
 
   /** Starts a wanted track that is sitting paused because the browser refused it. */
   tryStart() {
+    if (this.awaitingInput) return;
     for (const L of [this.base, this.overlay]) if (L && L.blocked && !L.held) this.start(L);
   }
 
@@ -189,6 +198,7 @@ class MusicPlayer {
     const events = ['pointerdown', 'pointerup', 'mousedown', 'click', 'keydown', 'touchstart', 'touchend'];
     const done = () => { for (const type of events) window.removeEventListener(type, go); this.showHint(false); };
     const go = () => {
+      this.awaitingInput = false;   // the player has pressed something: music may play from now on
       if (this.base !== L && this.overlay !== L) { done(); return; }   // no longer wanted: never revive it
       L.audio.play().then(() => { L.blocked = false; done(); }).catch(() => {});
     };
@@ -197,7 +207,11 @@ class MusicPlayer {
   }
 
   showHint(on) {
-    if (typeof document !== 'undefined') document.getElementById('musicHint')?.classList.toggle('show', on);
+    if (typeof document === 'undefined') return;
+    const el = document.getElementById('musicHint');
+    if (!el) return;
+    if (on) el.textContent = Mode.isMobile ? '\u266a TAP THE SCREEN FOR MUSIC' : '\u266a PRESS ANY KEY OR CLICK FOR MUSIC';
+    el.classList.toggle('show', on);
   }
 
   setDuck(k) { this.duck = k; }

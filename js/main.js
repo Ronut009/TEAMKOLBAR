@@ -10,7 +10,6 @@ import { Level } from './levels/level1.js';
 import { Player } from './entities/player.js';
 import { Engine } from './core/engine.js';
 import { Input } from './core/input.js';
-import './dev.js';
 
 window.addEventListener('DOMContentLoaded', () => {
   const canvas = document.getElementById('gameCanvas');

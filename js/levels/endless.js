@@ -307,7 +307,7 @@ export class EndlessLevel {
   // ======================================================================== [Q] mud
   castQ(player) {
     if (!player || player.isDead || !player.hasPearl) return;
-    if (!player.isGrounded || player.isCasting || player.isClimbing) return;
+    if (player.isCasting || player.isClimbing) return;   // (mid-air is fine: she keeps her jump while casting)
     if (this.mudCooldown > 0) {
       this.toast(`✧ THE EARTH IS RESTING: ${Math.ceil(this.mudCooldown)}s ✧`, 1);
       return;

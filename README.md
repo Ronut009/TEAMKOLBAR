@@ -14,7 +14,6 @@ css/style.css            all styling
 js/
   main.js                starts the game
   pwa.js                 phone screen handling (landscape lock, wake lock)
-  dev.js                 developer shortcuts (off in normal play)
   core/                  engine, input, touch controls, audio, settings, save slots, preloader
   entities/              Rakti, Betal, the archer, the Level 4 boss
   levels/                level1.js - level4.js, endless.js (Unlimited mode)

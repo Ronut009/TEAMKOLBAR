@@ -1,7 +1,7 @@
 // Rakti: The Last Guardian - offline cache.
 // Bump ASSET_VERSION whenever shipped files change in a way the network-first shell cannot pick up
 // (renamed/replaced assets under assets/ are cache-first, so they need a bump to refresh).
-const ASSET_VERSION = 'v27-clean-layout';
+const ASSET_VERSION = 'v29-narrator';
 
 const SHELL_CACHE = `rakti-shell-${ASSET_VERSION}`;
 const ASSET_CACHE = `rakti-assets-${ASSET_VERSION}`;
@@ -16,7 +16,6 @@ const SHELL_URLS = [
   'css/style.css',
   'js/main.js',
   'js/pwa.js',
-  'js/dev.js',
   'js/core/preload.js',
   'js/core/audio.js',
   'js/core/engine.js',
@@ -340,6 +339,7 @@ const LEVEL1_URLS = [
   'assets/ui/hud/ability_bar.webp',
   'assets/ui/hud/hp_bar.webp',
   'assets/ui/hud/kali_medallion.webp',
+  'assets/ui/hud/kali_ult_button.webp',
   'assets/ui/hud/rakti_medallion.webp',
   'assets/ui/hud/rakti_medallion_hurt.webp',
   'assets/ui/hud/talwar.webp',

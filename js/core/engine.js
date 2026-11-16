@@ -56,25 +56,25 @@ const LEVEL_NAMES = {
   5: 'Chaos Mode  ·  The Siege Wall'
 };
 
-// The opening film's narration, spoken in the film's sound by Maa Kali's voice and shown here as subtitles (the film
-// has no captions of its own; times in seconds, from its score.js)
+// The opening film's narration, spoken in the film's sound by the narrator (Rida M, ElevenLabs) and shown here as
+// subtitles (the film has no captions of its own; times in seconds, matched to where each line is spoken)
 const INTRO_SUBTITLES = [
   [1.0, 8.2, 'Long ago, in a kingdom of gold and sunlight, lived a girl named Rakti.'],
   [9.6, 15.4, 'Her father was her teacher, and her dearest friend.'],
-  [16.0, 20.6, 'He taught her the blade. She only wanted the time with him.'],
-  [21.2, 24.4, 'She never knew how many lives that blade had saved.'],
-  [24.6, 28.3, 'Then one evening, the sky turned black.'],
-  [28.8, 32.6, 'Her father knew what was coming.'],
+  [16.0, 20.8, 'He taught her the blade. She only wanted the time with him.'],
+  [21.2, 25.3, 'She never knew how many lives that blade had saved.'],
+  [25.5, 29.5, 'Then one evening, the sky turned black.'],
+  [29.6, 32.8, 'Her father knew what was coming.'],
   [33.6, 38.5, 'Darkness poured over the town.'],
   [39.6, 44.2, 'He stood between Rakti and the dark.'],
-  [45.9, 47.7, 'And it took him.'],
-  [48.8, 52.4, 'Then it was gone, as if nothing had happened.'],
+  [45.9, 48.5, 'And it took him.'],
+  [48.8, 52.5, 'Then it was gone, as if nothing had happened.'],
   [52.9, 56.5, 'Only he was missing.'],
-  [57.6, 61.7, 'Through her tears, she saw a thread of golden light.'],
+  [57.6, 62.0, 'Through her tears, she saw a thread of golden light.'],
   [62.1, 65.7, 'With nothing left to lose, she followed it.'],
   [66.6, 74.3, 'It led her out of the town, and deep into the forest,'],
-  [75.4, 79.7, 'to an ancient gate, where a faint voice called her name.'],
-  [80.1, 84.2, 'She stepped through, and her story began.']
+  [75.4, 80.2, 'to an ancient gate, where a faint voice called her name.'],
+  [80.3, 84.2, 'She stepped through, and her story began.']
 ];
 
 const SPEAKER_NAMES = { kali: '⚜ MAA KALI ⚜', rakti: '⚜ RAKTI ⚜', father: '⚜ PITAJI ⚜', demon: '⚜ THE ASURA ⚜' };
@@ -270,7 +270,7 @@ export class Engine {
     this.cameraSnap = false;
 
     startKeyLabels();      // on-screen [KEY] names follow the device in use (keyboard, Xbox or PlayStation pad)
-    Music.play('title');   // the start screen's music: it begins at once, or on the first click if the browser blocks that
+    Music.play('title');   // the start screen's music: it waits for the first key press or touch (see audio.js) that
 
     // Campaign: the three save slots (js/core/slots.js). An empty slot asks for the difficulty, then the game begins.
     this.slotIndex = null;      // the slot being played (null: Chaos mode, the test keys)
@@ -429,7 +429,7 @@ export class Engine {
     this.player.inputLocked = introHidden;
     this.player.spawnAlpha = introHidden ? 0 : 1;
     // The Trishul is found in Level 2's sun shrine and kept from then on
-    this.player.hasTrishul = index >= 3 || Boolean(this.level.playerHasTrishul?.()) || (this.devSkipUsed && index >= 2);
+    this.player.hasTrishul = index >= 3 || Boolean(this.level.playerHasTrishul?.());
     // Kali's gold orbs and the damage charge belong to Level 4 (it switches them on once the mala is taken)
     this.player.kaliOrbs = false;
     this.player.chargeMode = false;
@@ -855,11 +855,10 @@ export class Engine {
    *  appear as the story gives them), and only what the arena uses in Chaos mode. */
   controlsHave() {
     const i = this.currentLevelIndex, p = this.player;
-    if (i === 5) return { jump: true, ledge: true, attack: true, trishul: true, kali: true, earth: true, sands: true, arena: true };
+    if (i === 5) return { jump: true, attack: true, trishul: true, kali: true, earth: true, sands: true, arena: true };
     return {
       climb: i >= 2,                                   // ladders begin in Level 2
       jump: !p.isCivilian,                             // no jumping in the sari (Level 1's prologue)
-      ledge: !p.isCivilian,                            // dropping through a ledge needs the jump button too
       attack: !p.isCivilian,                           // not before the blade (Level 1's prologue)
       trishul: Boolean(p.hasTrishul),
       kali: Boolean(p.hasDivineUnlocked),
@@ -878,28 +877,6 @@ export class Engine {
       ? 'Chaos mode starts over from round one. Your current run will be lost.'
       : 'You will go back to the very start of this level. All progress in it, and its checkpoints, will be lost.';
     document.getElementById(show ? 'pauseNo' : 'pauseContinue')?.focus({ focusVisible: false });
-  }
-
-  /** Developer menu: jump straight to a level (1-4) or the unlimited arena (5), from the title screen or mid-game. */
-  devJumpToLevel(index) {
-    if (this.isLoading || !LEVEL_NAMES[index]) return;
-    this.devSkipUsed = true;           // skipping past Level 2's shrine still hands Rakti the Trishul
-    this.slotIndex = null;             // a developer jump is never written to a save slot
-    this.resume();
-    this.closeDialogue();
-    this.playerDying = false;
-    this.levelCompleted = false;
-    this.deathScreen?.classList.remove('active');
-    this.levelCompleteModal?.classList.remove('active');
-    this.endlessHud?.classList.remove('active');
-    if (index === 1) {
-      this.prologueComplete = false;
-      this.level1.checkpointIndex = -1;
-      this.level1.abilityGranted = false;
-    } else {
-      this.prologueComplete = true;    // later levels never replay the wake-up
-    }
-    this.beginLoadingTransition(index);
   }
 
   /** Restart (confirmed): back to the very start of the level (or round one of the arena), whatever was done. */

@@ -1748,62 +1748,6 @@ html.compact .music-hint { bottom: calc(var(--safe-b) + 8px); font-size: 9px; le
 html.compact .loading-sigil { width: min(34vh, 160px); }
 html.compact .loading-screen { gap: 12px; }
 
-/* ===== Developer options: three dots on the main menu, level-skip button and menu ===== */
-.dev-dots {
-  position: absolute; z-index: 5;
-  top: calc(10px + env(safe-area-inset-top, 0px)); right: calc(12px + env(safe-area-inset-right, 0px));
-  width: 44px; height: 44px; border-radius: 50%;
-  display: grid; place-items: center; padding: 0;
-  font: 700 26px/1 'Cinzel', serif; color: #e8c97a;
-  background: rgba(8, 14, 20, 0.55); border: 1px solid rgba(214, 176, 102, 0.45);
-  cursor: pointer; -webkit-tap-highlight-color: transparent;
-}
-.dev-dots:active { background: rgba(214, 176, 102, 0.25); }
-.dev-modal {
-  position: fixed; inset: 0; z-index: 400; display: grid; place-items: center;
-  background: rgba(0, 0, 0, 0.62); padding: 12px;
-}
-.dev-modal[hidden], .dev-skip-btn[hidden] { display: none; }
-.dev-card {
-  width: min(420px, 100%); max-height: calc(100dvh - 24px); overflow-y: auto;
-  padding: 18px 20px; border-radius: 10px; color: #f1e3bd;
-  background: rgba(10, 16, 22, 0.96); border: 1px solid rgba(214, 176, 102, 0.55);
-  box-shadow: 0 0 0 3px rgba(214, 176, 102, 0.08), 0 14px 40px rgba(0, 0, 0, 0.6);
-  font-family: 'Marcellus', serif;
-}
-.dev-card h2 { margin: 0 0 14px; font: 700 17px/1.2 'Cinzel', serif; letter-spacing: 0.14em; color: #e8c97a; text-align: center; }
-.dev-row { display: flex; align-items: center; gap: 14px; cursor: pointer; padding: 8px 0; }
-.dev-row input { position: absolute; opacity: 0; pointer-events: none; }
-.dev-switch { flex: none; width: 46px; height: 26px; border-radius: 13px; background: #2a3138; border: 1px solid rgba(214, 176, 102, 0.4); position: relative; transition: background 0.15s; }
-.dev-switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: #c9b98a; transition: transform 0.15s; }
-.dev-row input:checked + .dev-switch { background: #8a6a1f; }
-.dev-row input:checked + .dev-switch::after { transform: translateX(20px); background: #ffe9a8; }
-.dev-row input:focus-visible + .dev-switch { outline: 2px solid #e8c97a; outline-offset: 2px; }
-.dev-label { font-size: 16px; line-height: 1.25; }
-.dev-label small { display: block; margin-top: 2px; font-size: 12px; opacity: 0.7; }
-.dev-close, .dev-levels button {
-  display: block; width: 100%; min-height: 44px; margin-top: 8px; padding: 8px 12px; border-radius: 8px;
-  font: 600 14px/1.2 'Marcellus', serif; letter-spacing: 0.06em; color: #f1e3bd;
-  background: rgba(214, 176, 102, 0.12); border: 1px solid rgba(214, 176, 102, 0.45);
-  cursor: pointer; -webkit-tap-highlight-color: transparent;
-}
-.dev-close:active, .dev-levels button:active { background: rgba(214, 176, 102, 0.3); }
-.dev-levels { display: grid; gap: 0; }
-.dev-skip-btn {
-  position: fixed; z-index: 150; left: 50%; transform: translateX(-50%);
-  bottom: calc(6px + env(safe-area-inset-bottom, 0px));
-  min-height: 34px; padding: 4px 14px; border-radius: 17px;
-  font: 700 12px/1 'Cinzel', serif; letter-spacing: 0.12em; color: #e8c97a;
-  background: rgba(8, 14, 20, 0.6); border: 1px solid rgba(214, 176, 102, 0.5);
-  cursor: pointer; -webkit-tap-highlight-color: transparent;
-}
-@media (max-height: 500px) {
-  .dev-card { padding: 12px 16px; }
-  .dev-card h2 { margin-bottom: 8px; font-size: 15px; }
-  .dev-close, .dev-levels button { min-height: 38px; margin-top: 5px; }
-  .dev-levels { grid-template-columns: 1fr 1fr; column-gap: 8px; }
-}
-
 /* ===== Unlimited mode stats: one line, top centre ===== */
 .endless-hud,
 html.compact .endless-hud {
@@ -1894,7 +1838,7 @@ html.compact .endless-hud.active + .kill-toast { top: calc(var(--safe-t, 0px) + 
 /* ---- the joystick: a gold ring with a teal knob; a faint one rests where the left thumb usually lands ---- */
 .touch-stick-base {
   position: absolute; width: 124px; height: 124px; margin: -62px 0 0 -62px; border-radius: 50%; pointer-events: none;
-  background: radial-gradient(circle, rgba(6, 22, 28, 0.5) 0 58%, rgba(6, 22, 28, 0.3) 59% 100%);
+  background: radial-gradient(circle, rgba(10, 52, 38, 0.32) 0 58%, rgba(10, 52, 38, 0.18) 59% 100%);
   border: 3px solid #e2b955;
   box-shadow: 0 0 0 1px rgba(40, 22, 4, 0.8), inset 0 0 0 1px rgba(255, 241, 176, 0.6), inset 0 0 0 4px rgba(122, 77, 16, 0.55),
     0 4px 14px rgba(0, 0, 0, 0.5), inset 0 0 18px rgba(0, 0, 0, 0.55);
@@ -1912,7 +1856,7 @@ html.compact .endless-hud.active + .kill-toast { top: calc(var(--safe-t, 0px) + 
 .touch-stick-base.live { opacity: 1; }
 .touch-stick-knob {
   position: absolute; left: 50%; top: 50%; width: 50px; height: 50px; margin: -25px 0 0 -25px; border-radius: 50%;
-  background: radial-gradient(circle at 50% 35%, #2f7180 0%, #123a45 55%, #06171c 100%) padding-box,
+  background: radial-gradient(circle at 50% 35%, rgba(52, 150, 112, 0.6) 0%, rgba(20, 88, 66, 0.5) 55%, rgba(6, 36, 28, 0.45) 100%) padding-box,
     conic-gradient(from 0deg, #8a5a14, #ffe08a, #b07818, #fff1b0, #8a5a14) border-box;
   border: 3px solid transparent;
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.6), inset 0 0 0 2px rgba(10, 4, 0, 0.45);
@@ -1923,16 +1867,24 @@ html.compact .endless-hud.active + .kill-toast { top: calc(var(--safe-t, 0px) + 
   position: absolute; pointer-events: auto; box-sizing: border-box;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
   border-radius: 50%; border: 3px solid transparent;
-  background: radial-gradient(circle at 50% 32%, #1f5866 0%, #0d303a 52%, #051419 100%) padding-box,
-    conic-gradient(from 210deg, #7a4d10, #ffe08a, #b07818, #fff1b0, #8a5a14, #f2c75a, #7a4d10) border-box;
-  box-shadow: 0 0 0 1px rgba(40, 22, 4, 0.85), inset 0 0 0 2px rgba(8, 3, 0, 0.5), inset 0 -6px 12px rgba(0, 0, 0, 0.45),
-    0 5px 12px rgba(0, 0, 0, 0.55);
+  /* translucent green glass: the game shows through the face; the gold rim, icon and name stay clear */
+  background: radial-gradient(circle at 50% 32%, rgba(28, 156, 112, 0.5) 0%, rgba(12, 98, 72, 0.4) 52%, rgba(4, 52, 40, 0.34) 100%) padding-box;
+  box-shadow: 0 0 0 1px rgba(40, 22, 4, 0.5), inset 0 0 0 2px rgba(8, 3, 0, 0.22), inset 0 -6px 12px rgba(0, 20, 12, 0.2),
+    0 4px 10px rgba(0, 0, 0, 0.3);
   color: #f6e6b8; font-family: 'Cinzel', Georgia, serif; text-shadow: 0 1px 2px #000, 0 0 6px rgba(0, 0, 0, 0.8);
-  opacity: 0.92; transition: transform 0.06s, filter 0.06s, opacity 0.2s;
+  opacity: 0.8; transition: transform 0.06s, filter 0.06s, opacity 0.2s;
 }
+/* the gold rim, drawn on its own ring so it never shows through the see-through face */
+.touch-btn::after {
+  content: ''; position: absolute; inset: -3px; border-radius: 50%; padding: 3px; pointer-events: none;
+  background: conic-gradient(from 210deg, #7a4d10, #ffe08a, #b07818, #fff1b0, #8a5a14, #f2c75a, #7a4d10);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+}
+.touch-btn-divine::after { display: none; }
 /* the teal gem on the rim, as on the menu buttons */
 .touch-btn::before {
-  content: ''; position: absolute; top: -6px; left: 50%; width: 9px; height: 9px; margin-left: -6px; transform: rotate(45deg);
+  content: ''; position: absolute; z-index: 1; top: -6px; left: 50%; width: 9px; height: 9px; margin-left: -6px; transform: rotate(45deg);
   background: radial-gradient(circle at 35% 35%, #9ff5e4, #1f9c8a 60%, #0b4a42); border: 2px solid #e2b955;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
 }
@@ -1956,11 +1908,12 @@ html.compact .endless-hud.active + .kill-toast { top: calc(var(--safe-t, 0px) + 
 .touch-btn-jump .touch-svg { width: 42%; height: 34%; }
 .touch-btn-interact { width: var(--t-mid); height: var(--t-mid);
   right: calc(var(--t-edge) + (var(--t-attack) - var(--t-mid)) / 2); bottom: calc(var(--safe-b, 0px) + var(--t-gap) * 2.8 + var(--t-attack)); }
-.touch-btn-divine { width: calc(var(--t-big) * 1.06); height: calc(var(--t-big) * 1.28); padding: 0; overflow: visible;
-  right: calc(var(--t-edge) + var(--t-attack) + var(--t-gap) - var(--t-big) * 0.03); bottom: calc(var(--safe-b, 0px) + var(--t-gap) * 1.6 + var(--t-big));
+/* Kali form (the ult): the round Maa Kali medallion is the whole button */
+.touch-btn-divine { width: calc(var(--t-big) * 1.2); height: calc(var(--t-big) * 1.2); padding: 0; overflow: visible;
+  right: calc(var(--t-edge) + var(--t-attack) + var(--t-gap) - var(--t-big) * 0.1); bottom: calc(var(--safe-b, 0px) + var(--t-gap) * 1.6 + var(--t-big));
   border: 0; border-radius: 0; background: none; box-shadow: none; }
 .touch-btn-divine::before { display: none; }
-.touch-medallion { display: block; width: 100%; height: 100%; object-fit: contain; pointer-events: none; filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.6)); }
+.touch-medallion { display: block; width: 100%; height: 100%; object-fit: contain; pointer-events: none; opacity: 0.9; filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.5)); }
 .touch-btn-divine.touch-active { filter: brightness(1.3) drop-shadow(0 0 12px rgba(255, 210, 100, 0.9)); }
 /* the weapon switch sits above USE, within the right thumb's reach; it shows the weapon it switches to */
 .touch-btn-weapon { width: var(--t-mid); height: var(--t-mid);

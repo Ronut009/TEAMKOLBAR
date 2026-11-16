@@ -1181,7 +1181,7 @@ export class Level2 {
     const p = this.progress;
     if (!p.qUnlocked || this.transition || this.intro || !player || player.isDead) return;
     if (!player.hasPearl) return;   // the earth answers through the Pearl of the Tide
-    if (!player.isGrounded || player.isCasting || player.isClimbing) return;
+    if (player.isCasting || player.isClimbing) return;   // (mid-air is fine: she keeps her jump while casting)
     if (this.area !== 'out') {
       this.toast('✧ NOTHING HERE ANSWERS ✧', 1.2);
       return;

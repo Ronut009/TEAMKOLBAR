@@ -143,7 +143,6 @@ export class Player {
     this.divineJumpImpulse = -560;
     this.isGrounded = true;
     this.currentPlatform = null;
-    this.dropThroughTimer = 0;
 
     // Platformer Jump Quality of Life (Coyote Time & Jump Buffer)
     this.coyoteTimer = 0;
@@ -304,16 +303,20 @@ export class Player {
     if (!this.hasTrishul) this.weapon = 'sword';
   }
 
-  /** [Q]: plays Kali's cast; `onRelease` runs when the green burst leaves her hand. Returns false if she is busy. */
+  /** [Q]: plays Kali's cast; `onRelease` runs when the green burst leaves her hand. Returns false if she is busy.
+   *  Works on the ground and in mid-air (she keeps her jump), in Kali form (instant), while the form arrives (instant:
+   *  she is already becoming Kali) and while it leaves (it runs as soon as she is Rakti again). */
   startCast(onRelease, faceX = null) {
-    if (this.isCasting || this.isTransforming || this.isReverting || this.isClimbing || this.isDead) return false;
+    if (this.isCasting || this.isClimbing || this.isDead) return false;
+    if (this.isReverting) { this.queuedCast = { onRelease, faceX }; return true; }
     if (faceX !== null) this.facing = faceX < this.x ? 'left' : 'right';
+    if (this.isTransforming) { onRelease?.(); return true; }
     this.isCasting = true;
     this.castTimer = 0;
     this.castCallback = onRelease;
     this.isAttacking = false;
     this.throwAnim = null;
-    this.vx = 0;
+    if (this.isGrounded) this.vx = 0;   // in the air she keeps her momentum
     if (this.isDivine) {
       // Kali herself needs no gesture: the stone answers at once
       this.isCasting = false;
@@ -531,8 +534,7 @@ export class Player {
     Sfx.play('morph');
     this.transFrame = 0;
     this.transTimer = 0;
-    this.vx = 0;
-    this.vy = this.isGrounded ? 0 : -30;
+    if (this.isGrounded) { this.vx = 0; this.vy = 0; }   // in mid-air her jump carries on (transitionPhysics)
     this.speed = this.divineSpeed;
     this.canDoubleJump = false;
     this.isAttacking = false;      // a swing in progress does not carry into Kali form
@@ -562,6 +564,8 @@ export class Player {
 
   /** Instantly back to mortal form (level loads). Use startRevert() for the animated return. */
   revertToMortal() {
+    this.divineEndNow = false;
+    this.queuedCast = null;
     this.isDivine = false;
     this.isTransforming = false;
     this.isReverting = false;
@@ -584,14 +588,63 @@ export class Player {
     }
   }
 
-  /** Plays the 6-frame Kali -> Rakti return; she hangs in place briefly, then normal physics resumes. */
+  /** Plays the 6-frame Kali -> Rakti return. On the ground she stays planted for it; in mid-air she keeps falling
+   *  and steering (transitionPhysics), so the return never leaves her hanging in the air. */
   startRevert() {
     this.revertToMortal();
     this.isReverting = true;
     this.revertFrame = 0;
     this.revertTimer = 0;
-    this.vx = 0;
-    this.vy = 0;
+    if (this.isGrounded) { this.vx = 0; this.vy = 0; }
+  }
+
+  /** How far down she can fall before it counts as a pit. The added chapters use taller maps than Levels 1-2. */
+  pitDeathY(level) {
+    return level?.deathY ?? (level?.levelIndex === 2 ? 585
+      : level?.levelIndex === 3 ? 550
+      : level?.levelIndex === 4 ? 670
+      : 434);
+  }
+
+  /** Movement during the short animations that take over control: the [Q] cast and the Kali form arriving or
+   *  leaving. On the ground she stays planted. In the air the jump simply carries on: gravity, momentum and
+   *  steering with A / D (or the stick), landing on whatever is below, and a pit is still a pit. */
+  transitionPhysics(dt, level) {
+    if (this.isGrounded) {
+      this.vx = 0;
+      this.vy = 0;
+      this.isMoving = false;
+      // the ground can go from under her (a crumbling slab): then she falls, still animating
+      if (!level.isOnPlatform(this.x, this.y, this.isDivine)) { this.isGrounded = false; this.currentPlatform = null; }
+      return;
+    }
+    let dir = 0;
+    if (Input.isDown('left') || Input.isDown('KeyA')) dir -= 1;
+    if (Input.isDown('right') || Input.isDown('KeyD')) dir += 1;
+    if (dir < 0) this.facing = 'left';
+    else if (dir > 0) this.facing = 'right';
+    this.isMoving = dir !== 0;
+    const speed = (this.isDivine || this.isTransforming) ? this.divineSpeed : this.baseSpeed;
+    this.vx = dir ? this.approach(this.vx, dir * speed, this.acceleration * dt) : this.approach(this.vx, 0, this.friction * dt);
+    this.vy += this.gravity * dt;
+    const prevY = this.y;
+    this.x += this.vx * dt;
+    this.y += this.vy * dt;
+    this.x = Math.max((level.minX || 0) + 16, Math.min(this.x, level.width - 16));
+    this.x = level.resolvePitWallCollision(this.x, this.y);
+    if (this.vy >= 0) {
+      const landed = level.checkPlatformLanding(prevY, this.y, this.x, false, this.isDivine);
+      if (landed) {
+        this.y = landed.y;
+        this.vy = 0;
+        this.vx = 0;
+        this.landingTimer = 0.12;
+        this.isGrounded = true;
+        this.currentPlatform = landed;
+        this.coyoteTimer = 0;
+      }
+    }
+    if (this.y > this.pitDeathY(level)) this.respawnFromPit(level);
   }
 
   update(dt, level, dialogueActive = false) {
@@ -599,7 +652,6 @@ export class Player {
     this.dialogueOpen = dialogueActive;   // levels pause their enemies while Kali is speaking
     this.divinePulse += dt * 4.0;
 
-    if (this.dropThroughTimer > 0) this.dropThroughTimer -= dt;
     if (this.landingTimer > 0) this.landingTimer -= dt;
     if (this.coyoteTimer > 0) this.coyoteTimer -= dt;
     if (this.jumpBufferTimer > 0) this.jumpBufferTimer -= dt;
@@ -846,10 +898,10 @@ export class Player {
       return;
     }
 
-    // 0. Kali's [Q] cast: she stands still while the green energy gathers, then the level reacts
+    // 0. Kali's [Q] cast: on the ground she stands still while the green energy gathers, in the air she keeps her
+    //    jump; then the level reacts
     if (this.isCasting) {
-      this.vx = 0;
-      this.isMoving = false;
+      this.transitionPhysics(dt, level);
       const before = Math.floor(this.castTimer / CAST_FRAME_TIME);
       this.castTimer += dt;
       const after = Math.floor(this.castTimer / CAST_FRAME_TIME);
@@ -864,13 +916,6 @@ export class Player {
         this.castCallback?.();
         this.castCallback = null;
       }
-      if (!this.isGrounded) {
-        this.vy += this.gravity * dt;
-        const prevY = this.y;
-        this.y += this.vy * dt;
-        const landed = level.checkPlatformLanding(prevY, this.y, this.x, false, this.isDivine);
-        if (landed) { this.y = landed.y; this.vy = 0; this.isGrounded = true; this.currentPlatform = landed; }
-      }
       this.updateParticles(dt);
       this.updateTrishul(dt, level);
       this.updateGoldOrbs(dt, level);
@@ -879,12 +924,9 @@ export class Player {
 
     // 0. Divine Transformation Sequence Playback
     if (this.isTransforming) {
-      this.vx = 0;
-      this.isMoving = false;
+      // on the ground she stays planted; in mid-air the jump carries on (no more hanging in the air)
+      this.transitionPhysics(dt, level);
       this.transTimer += dt;
-      // Gentle bob in mid-air only; on the ground she stays planted (the drift used to leave her floating)
-      this.vy = Math.sin(this.transTimer * 9.0) * -12;
-      if (!this.isGrounded) this.y += this.vy * dt;
 
       if (this.transTimer >= this.transFrameDuration) {
         this.transTimer = 0;
@@ -893,7 +935,6 @@ export class Player {
           // Finished transformation: Manifest Divine Kali!
           this.isTransforming = false;
           this.isDivine = true;
-          if (this.isGrounded) this.vy = 0;
           this.divineTimer = this.divineDuration;
           this.hoverFrame = 0;
           this.hoverTimer = 0;
@@ -915,14 +956,12 @@ export class Player {
       }
 
       this.updateParticles(dt);
-      return; // Locked in place during transformation sequence
+      return; // the animation has control (on the ground she is planted, in the air she keeps falling)
     }
 
-    // 0b. Kali -> Rakti return playback (brief hang in the air, then normal physics)
+    // 0b. Kali -> Rakti return playback (planted on the ground; in the air she keeps falling and steering)
     if (this.isReverting) {
-      this.vx = 0;
-      this.vy = 0;
-      this.isMoving = false;
+      this.transitionPhysics(dt, level);
       this.revertTimer += dt;
       if (this.revertTimer >= this.revertFrameDuration) {
         this.revertTimer = 0;
@@ -930,6 +969,8 @@ export class Player {
         if (this.revertFrame >= 6) {
           this.isReverting = false;
           this.revertFrame = 0;
+          // a [Q] pressed during the return happens now
+          if (this.queuedCast && !this.isDead) { const q = this.queuedCast; this.queuedCast = null; this.startCast(q.onRelease, q.faceX); }
         }
       }
       if (Math.random() < 0.4) {
@@ -1014,8 +1055,9 @@ export class Player {
           this.divineDuration = this.kaliOrbs ? 10 : 6;
           this.triggerDivineTransformation();
         }
-      } else if (this.isDivine && this.isGrounded && !(this.currentPlatform && this.currentPlatform.divineOnly)) {
-        this.divineTimer = 0;   // [X] again on solid ground: back to Rakti early (Kali form cannot fight)
+      } else if (this.isDivine && !(this.isGrounded && this.currentPlatform && this.currentPlatform.divineOnly)) {
+        this.divineTimer = 0;   // [X] again: back to Rakti early, on the ground or in mid-air (Kali form cannot fight)
+        this.divineEndNow = true;
       }
     }
 
@@ -1041,8 +1083,10 @@ export class Player {
           color: Math.random() > 0.4 ? '#ffd700' : '#ff0055'
         });
       }
-      // the form never ends in mid-air (the return animation would freeze her over a pit): it waits until she lands
-      if (this.divineTimer <= 0 && (this.isGrounded || this.isClimbing || this.divineTimer < -1.5)) {
+      // When the time runs out in mid-air the form waits for her to land (up to 1.5 s, a kindness over pits); [X]
+      // pressed again ends it at once, in mid-air too: the return no longer stops her in the air
+      if (this.divineTimer <= 0 && (this.divineEndNow || this.isGrounded || this.isClimbing || this.divineTimer < -1.5)) {
+        this.divineEndNow = false;
         this.startRevert();
 
         // If standing on the divine golden bridge when power expires, fall!
@@ -1092,9 +1136,8 @@ export class Player {
       this.idleFrame = (this.idleFrame + 1) % 6;
     }
 
-    // 4. Jump & Drop-Through Handling
+    // 4. Jump (there is no dropping through ledges: [S] + [Space] is just a jump)
     const jumpPressed = Input.isPressed('jump') || Input.isPressed('Space');   // Space only (W climbs ladders)
-    const isDownHeld = Input.isDown('down') || Input.isDown('KeyS');
 
     if (jumpPressed && !this.isCivilian) {   // no jumping in the sari
       this.jumpBufferTimer = this.jumpBufferMax;
@@ -1108,19 +1151,12 @@ export class Player {
         this.jumpBufferTimer = 0;
         this.coyoteTimer = 0;
 
-        if (isDownHeld && this.currentPlatform && this.currentPlatform.oneWay) {
-          this.dropThroughTimer = 0.28;
-          this.isGrounded = false;
-          this.currentPlatform = null;
-          this.vy = 90;
-        } else {
-          const impulse = this.isDivine ? this.divineJumpImpulse : this.jumpImpulse;
-          this.vy = impulse;
-          Sfx.play('jump');
-          this.isGrounded = false;
-          this.currentPlatform = null;
-          this.spawnPoof(8);
-        }
+        const impulse = this.isDivine ? this.divineJumpImpulse : this.jumpImpulse;
+        this.vy = impulse;
+        Sfx.play('jump');
+        this.isGrounded = false;
+        this.currentPlatform = null;
+        this.spawnPoof(8);
       }
     }
 
@@ -1144,8 +1180,7 @@ export class Player {
     this.x = level.resolvePitWallCollision(this.x, this.y);
 
     if (this.vy >= 0) {
-      const dropping = (this.dropThroughTimer > 0);
-      const landed = level.checkPlatformLanding(prevY, this.y, this.x, dropping, this.isDivine);
+      const landed = level.checkPlatformLanding(prevY, this.y, this.x, false, this.isDivine);
 
       if (landed) {
         this.y = landed.y;
@@ -1166,12 +1201,8 @@ export class Player {
       }
     }
 
-    // 7. Pit Fall & Respawn. The added chapters use taller maps than Levels 1–2.
-    const deathY = level?.deathY ?? (level?.levelIndex === 2 ? 585
-      : level?.levelIndex === 3 ? 550
-      : level?.levelIndex === 4 ? 670
-      : 434);
-    if (this.y > deathY) {
+    // 7. Pit Fall & Respawn
+    if (this.y > this.pitDeathY(level)) {
       this.respawnFromPit(level);
     }
 
