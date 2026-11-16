@@ -15,7 +15,7 @@ const stats = {};
 for (const g of GROUPS) stats[g] = { total: 0, done: 0 };
 
 const groupOf = (url) => {
-  const m = /assets\/(level2|level3|level4|endless)\//.exec(url || '');
+  const m = /assets\/levels\/(level2|level3|level4|endless)\//.exec(url || '');
   return m ? m[1] : 'core';         // title, UI, audio, Rakti, portraits and Level 1 are needed from the first frame
 };
 

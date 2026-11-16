@@ -1,38 +1,35 @@
-# Rakti: The Last Guardian — hybrid experimental build
+# Rakti: The Last Guardian
 
-**Experimental.** One app, two experiences. The two originals are untouched:
-`TEAMKOLBAR` (PC) and `TEAMKOLBAR-mobile` stay as they were; every hybrid change lives only here.
+A 2D action platformer in plain JavaScript and canvas. One build plays on PC (keyboard, mouse, gamepad) and on
+phones (touch controls); the title screen's **MODE** switch picks one, and the first visit guesses from the device.
 
-## How the hybrid works
+## Folder layout
 
-Think of two overlapping circles:
+```
+index.html               the page: title screen, menus, HUD, dialogue, cutscene
+manifest.webmanifest     install-as-app details
+sw.js                    offline cache (bump ASSET_VERSION whenever a shipped file changes)
+icons/                   app and browser icons
+css/style.css            all styling
+js/
+  main.js                starts the game
+  pwa.js                 phone screen handling (landscape lock, wake lock)
+  dev.js                 developer shortcuts (off in normal play)
+  core/                  engine, input, touch controls, audio, settings, save slots, preloader
+  entities/              Rakti, Betal, the archer, the Level 4 boss
+  levels/                level1.js - level4.js, endless.js (Unlimited mode)
+  render/                shared drawing helpers (platform art, shrine beacon)
+assets/
+  audio/music, audio/sfx
+  characters/            rakti, rakti_prologue, betal, archer, weapons, portraits
+  cutscenes/             opening_film.mp4
+  levels/                level1, level2, level3, level4, endless (each level's own art)
+  ui/                    hud, title, card_frame.webp
+backup/                  retired art, old scripts and old files (git-ignored, never deployed)
+```
 
-- **Shared middle** — the whole game: levels, engine, WebP assets, preloader, Kali's Decrees,
-  dev menu, dialogue system, settings, gamepad support, PWA manifest + service worker.
-  (The mobile build was the newer superset of the PC build, so it is the shared base.)
-- **Mobile Mode only** (`js/core/mode.js` → `Mode.isMobile`):
-  - the touch overlay (`js/core/touch.js`) — joystick, buttons, auto-aim
-  - the PWA screen behavior (`js/pwa.js`) — landscape lock, wake lock, `html.touch/compact` CSS classes
-  - the touch-tuned jump (`js/entities/player.js`): impulse −612 / Kali −840, softer jump-cut
-- **PC Mode only**: the original keyboard/mouse jump feel (−470 / −560, uniform jump-cut);
-  no touch overlay ever mounts, so every `Touch.active` branch behaves exactly like `TEAMKOLBAR`.
+## Updating the live game
 
-There are **not** two apps in here — Mobile Mode replaces only the behavior that genuinely differs
-(like a git diff applied on top of the shared base).
-
-## Choosing a mode
-
-- The title screen has one **MODE: 🖥 PC / 📱 MOBILE** switch (`#modeSwitch`). The choice is saved in
-  `localStorage` (`raktiMode`) and switching reloads the page so every module starts in the right mode.
-- First visit auto-detects: coarse pointer → Mobile Mode, otherwise PC Mode.
-- Narrow-and-tall viewport prompt (`#orientationPrompt`, driven by `js/core/mode.js`):
-  - touch device in PC Mode → one button: **SWITCH TO MOBILE MODE** (or stay);
-  - Mobile Mode in portrait → the classic **rotate your phone** screen;
-  - a tall desktop window → "best in landscape, try resizing" (dismissable).
-
-## Running it
-
-Local test: `python -m http.server 8123` in this folder, open http://localhost:8123
-(or use `play-rakti.bat` / `rakti-server.ps1`, carried over from the PC build).
-Deploy like the mobile build: any static host over HTTPS (the service worker needs it).
-After changing any shipped file, bump `ASSET_VERSION` in `sw.js` (currently `v15-hybrid`).
+1. Test in the browser (any local server, e.g. VS Code's Live Server or `python -m http.server`).
+2. In VS Code: Source Control, type a message, **Commit**, then **Sync Changes**.
+3. Render redeploys from `main` in a few minutes. Press Ctrl+F5 once it is live.

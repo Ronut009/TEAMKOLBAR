@@ -56,6 +56,27 @@ const LEVEL_NAMES = {
   5: 'Chaos Mode  ·  The Siege Wall'
 };
 
+// The opening film's narration, spoken in the film's sound by Maa Kali's voice and shown here as subtitles (the film
+// has no captions of its own; times in seconds, from its score.js)
+const INTRO_SUBTITLES = [
+  [1.0, 8.2, 'Long ago, in a kingdom of gold and sunlight, lived a girl named Rakti.'],
+  [9.6, 15.4, 'Her father was her teacher, and her dearest friend.'],
+  [16.0, 20.6, 'He taught her the blade. She only wanted the time with him.'],
+  [21.2, 24.4, 'She never knew how many lives that blade had saved.'],
+  [24.6, 28.3, 'Then one evening, the sky turned black.'],
+  [28.8, 32.6, 'Her father knew what was coming.'],
+  [33.6, 38.5, 'Darkness poured over the town.'],
+  [39.6, 44.2, 'He stood between Rakti and the dark.'],
+  [45.9, 47.7, 'And it took him.'],
+  [48.8, 52.4, 'Then it was gone, as if nothing had happened.'],
+  [52.9, 56.5, 'Only he was missing.'],
+  [57.6, 61.7, 'Through her tears, she saw a thread of golden light.'],
+  [62.1, 65.7, 'With nothing left to lose, she followed it.'],
+  [66.6, 74.3, 'It led her out of the town, and deep into the forest,'],
+  [75.4, 79.7, 'to an ancient gate, where a faint voice called her name.'],
+  [80.1, 84.2, 'She stepped through, and her story began.']
+];
+
 const SPEAKER_NAMES = { kali: '⚜ MAA KALI ⚜', rakti: '⚜ RAKTI ⚜', father: '⚜ PITAJI ⚜', demon: '⚜ THE ASURA ⚜' };
 const divineActiveNow = (p) => p.isDivine || p.isTransforming;
 
@@ -77,8 +98,28 @@ const OLD_GESTURE_TO_FRAME = {
   father: { 0: 0, 9: 2, 10: 5, 11: 2, 12: 4, 13: 3, 14: 1, 15: 1 },
   demon: { 0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 10 }
 };
-/** The still frame for a line: its explicit `p`, else its old gesture mapped, else its tone. */
+// v4 sheets (Kali and both Rakti outfits, 24 frames: row 1 at rest, row 2 speaking, row 3 gestures). The lines keep
+// their v3 frame numbers (meanings above); V4_FRAME maps each onto the v4 drawing that shows the same thing.
+//  kali v4:  0-7 at rest (2 / 7 eyes closed, 5 head raised)  8 speaking  9 shouting  10 surprised  11-12 speaking
+//            13 frowning  14 snarl  15 calm  16 hand on chest  17 palm out  18 finger raised  19 open palm  20 hand on
+//            chin  21 hands together, eyes closed  22 both palms open  23 open palm (left)
+//  rakti v4: 0-7 at rest (4 eyes closed)  8-15 speaking (10 surprised)  16 open palm  17 finger raised  18 hand on chest
+//            19 worried  20 hand on chin  21 hands together  22 open palm  23 eyes closed, smiling
+//  rakti_sari v4: 0-7 at rest (2 / 7 eyes closed)  8-15 speaking (10 surprised)  16 open palm  17 finger raised
+//            18 hand on chest  19 worried  20 hand on chin  21 open palm  22 both palms up  23 hands together, eyes closed
+const V4_FRAME = {
+  kali: [0, 8, 9, 13, 5, 7, 19, 18, 16, 17, 14, 12],
+  rakti: [0, 9, 19, 13, 20, 23, 16, 17, 18, 22, 10, 14],
+  rakti_sari: [0, 8, 19, 11, 16, 20]
+};
+/** The still frame for a line: its explicit `p`, else its old gesture mapped, else its tone (v3 numbering), then the
+ *  v4 drawing for it. */
 function pickPortrait(setName, gesture, text, p) {
+  const f = pickPortraitV3(setName, gesture, text, p);
+  return V4_FRAME[setName]?.[f] ?? f;
+}
+/** The still frame for a line: its explicit `p`, else its old gesture mapped, else its tone. */
+function pickPortraitV3(setName, gesture, text, p) {
   const n = setName === 'rakti_sari' ? 6 : 12;
   if (Number.isInteger(p) && p >= 0 && p < n) return p;
   const map = OLD_GESTURE_TO_FRAME[setName];
@@ -166,10 +207,10 @@ export class Engine {
     this.fatherFill = document.getElementById('fatherFill');
     this.fatherFillLag = document.getElementById('fatherFillLag');
 
-    // Dialogue portraits (v3, assets/portraits/*3_N.png): still busts, one expression per line, no talking animation.
+    // Dialogue portraits (v3, assets/characters/portraits/*3_N.png): still busts, one expression per line, no talking animation.
     // Frames (see PORTRAIT_FRAMES below for what each one shows):
-    const still = (prefix, n) => Array.from({ length: n }, (_, i) => { const im = new Image(); im.src = `assets/portraits/${prefix}_${i}.webp`; return im; });
-    this.portraitSets = { kali: still('kali3', 12), rakti: still('rakti3', 12), rakti_sari: still('rakti_sari3', 6),
+    const still = (prefix, n) => Array.from({ length: n }, (_, i) => { const im = new Image(); im.src = `assets/characters/portraits/${prefix}_${i}.webp`; return im; });
+    this.portraitSets = { kali: still('kali4', 24), rakti: still('rakti4', 24), rakti_sari: still('rakti_sari4', 24),
       father: still('father3', 12), demon: still('demon3', 12) };
     this.portraitAnim = 0;
     this.portraitFrame = -1;
@@ -202,11 +243,6 @@ export class Engine {
     this.pauseConfirm = document.getElementById('pauseConfirm');
     const on = (id, fn) => document.getElementById(id)?.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); fn(); });
     on('pauseContinue', () => this.resume());
-    on('pauseSkip', () => {
-      // same as [C]: the rest of the conversation is skipped (a line that teaches a key still stops it)
-      this.resume();
-      this.skipConversation();
-    });
     // Settings: from the pause menu and the title screen (js/core/settings.js)
     this.settings = new SettingsMenu();
     on('pauseSettings', () => this.settings.show(document.getElementById('pauseSettings'), this.controlsHave()));
@@ -331,6 +367,7 @@ export class Engine {
       : index === 2 ? this.level2
       : this.level1;
     Run.campaign = index >= 1 && index <= 4;    // the difficulty only counts in the story (enemy health is set in reset())
+    Run.level = index;
     this.level.reset();
     this.levelCompleted = false;
     this.levelTransitionTimer = 0;
@@ -526,7 +563,7 @@ export class Engine {
   }
 
   // ======================================================================== the opening cutscene
-  /** New Game: the opening film (assets/video/start_cutscene.mp4) plays full screen first; when it ends, or [Esc]
+  /** New Game: the opening film (assets/cutscenes/opening_film.mp4) plays full screen first; when it ends, or [Esc]
    *  has been held for INTRO_SKIP_HOLD s, the loading screen takes over and Level 1 begins. */
   playIntroCutscene(onDone) {
     const box = document.getElementById('introCutscene'), video = document.getElementById('introVideo');
@@ -582,6 +619,13 @@ export class Engine {
       skip.classList.add('show');
     }
     if (it.hold >= INTRO_SKIP_HOLD) { this.finishIntroCutscene(); return; }
+    // the narration's subtitle for where the film is
+    const subs = document.getElementById('introSubs'), video = document.getElementById('introVideo');
+    if (subs && video) {
+      const t = video.currentTime || 0, line = INTRO_SUBTITLES.find(([a, b]) => t >= a && t <= b);
+      if (line && subs.textContent !== line[2]) subs.textContent = line[2];
+      subs.classList.toggle('show', Boolean(line));
+    }
   }
 
   finishIntroCutscene() {
@@ -591,6 +635,7 @@ export class Engine {
     const box = document.getElementById('introCutscene'), video = document.getElementById('introVideo');
     video?.pause();
     if (video) { video.onended = null; video.onerror = null; }
+    document.getElementById('introSubs')?.classList.remove('show');
     box?.classList.remove('active');
     box?.setAttribute('aria-hidden', 'true');
     this.intro = null;
@@ -739,8 +784,6 @@ export class Engine {
     // Hard and Hardcore: no Restart (a death already sends Rakti back to the start, or ends the run)
     const restart = document.getElementById('pauseRestart');
     if (restart) restart.style.display = Run.noCheckpoints ? 'none' : '';
-    const skipBtn = document.getElementById('pauseSkip');
-    if (skipBtn) skipBtn.hidden = !this.dialogueActive;   // only while a conversation is on screen
     this.pauseScreen?.classList.add('active');
     this.pauseScreen?.setAttribute('aria-hidden', 'false');
     document.getElementById('pauseContinue')?.focus({ focusVisible: false });   // [Enter] works, no outline box
@@ -1689,10 +1732,12 @@ export class Engine {
     if (this.killToast) {
       if (this.level && this.level.killToastTimer > 0) {
         if (this.killToastText && this.level.killToastText && this.killToastText.textContent !== this.level.killToastText) {
-          this.killToastText.textContent = this.level.killToastText;
+          this.killToastText.textContent = String(this.level.killToastText).replace(/[✦⚔]/g, '').trim();
         }
-        // Hard and Hardcore have no checkpoints to come back to: their notice is not shown
-        this.killToast.classList.toggle('active', !(Run.noCheckpoints && String(this.level.killToastText).includes('CHECKPOINT')));
+        // Only the checkpoint notice is shown (the other toasts are switched off), and not in Hard and Hardcore,
+        // which have no checkpoints to come back to
+        const isCheckpoint = String(this.level.killToastText).includes('CHECKPOINT');
+        this.killToast.classList.toggle('active', isCheckpoint && !Run.noCheckpoints);
       } else {
         this.killToast.classList.remove('active');
       }

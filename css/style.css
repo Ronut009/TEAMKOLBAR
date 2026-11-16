@@ -203,9 +203,9 @@ html, body {
   transition: opacity 0.22s ease-out, transform 0.28s cubic-bezier(0.2, 0.8, 0.25, 1), filter 0.28s ease-out;
 }
 .dlg-actor[data-who="kali"] { --name: #ffcf4d; --aura: rgba(255, 25, 60, 0.38); }
-.dlg-actor[data-who="rakti"] { --name: #8fe6c0; --aura: rgba(40, 210, 150, 0.3); }
-.dlg-actor[data-who="father"] { --name: #ffbf73; --aura: rgba(255, 180, 80, 0.3); }
-.dlg-actor[data-who="demon"] { --name: #c9a2ff; --aura: rgba(170, 60, 255, 0.4); }
+.dlg-actor[data-who="rakti"] { --name: #ffcf4d; --aura: rgba(40, 210, 150, 0.3); }
+.dlg-actor[data-who="father"] { --name: #ffcf4d; --aura: rgba(255, 180, 80, 0.3); }
+.dlg-actor[data-who="demon"] { --name: #ffcf4d; --aura: rgba(170, 60, 255, 0.4); }
 .dlg-actor.left { left: var(--edge); }
 .dlg-actor.right { right: var(--edge); }
 .dlg-actor.on { opacity: 1; transform: none; }
@@ -488,14 +488,15 @@ html, body {
   top: 24px;
   left: 50%;
   transform: translateX(-50%) translateY(-60px);
-  background: linear-gradient(180deg, rgba(22, 15, 10, 0.98) 0%, rgba(12, 8, 5, 0.99) 100%);
-  border: 1px solid #ffd700;
-  border-radius: 4px;
-  padding: 8px 20px;
+  /* every notification wears the same pill as the [E] prompt ("✦ [E] SEALED DOOR ✦") */
+  background: linear-gradient(180deg, rgba(22, 15, 10, 0.95) 0%, rgba(12, 8, 5, 0.98) 100%);
+  border: 1px solid #cda24e;
+  border-radius: 20px;
+  padding: 5px 16px;
   display: flex;
   align-items: center;
-  gap: 10px;
-  box-shadow: 0 0 18px rgba(255, 215, 0, 0.45), 0 6px 20px rgba(0, 0, 0, 0.9);
+  justify-content: center;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.8), 0 0 10px rgba(205, 162, 78, 0.3);
   z-index: 45;
   opacity: 0;
   pointer-events: none;
@@ -518,7 +519,7 @@ html, body {
   font-size: 10px;
   font-weight: 700;
   color: #ffd700;
-  letter-spacing: 1.5px;
+  letter-spacing: 2px;
 }
 
 .death-screen-modal, .sands-death {
@@ -617,7 +618,7 @@ html, body {
 .title-backdrop {
   background-image:
     linear-gradient(90deg, rgba(2, 5, 11, 0.02) 0%, rgba(2, 5, 11, 0.04) 35%, rgba(2, 5, 11, 0.24) 58%, rgba(2, 5, 11, 0.4) 100%),
-    url('../assets/title/start-screen.webp');
+    url('../assets/ui/title/start-screen.webp');
   background-position: center, center;
   background-size: cover;
   filter: saturate(0.94) brightness(0.78);
@@ -746,7 +747,7 @@ html, body {
   padding: 0 48px;
   border: 0;
   color: #f8e8bb;
-  background: url('../assets/title/menu-button.webp') center / 100% 100% no-repeat;
+  background: url('../assets/ui/title/menu-button.webp') center / 100% 100% no-repeat;
   cursor: pointer;
   font: 900 clamp(12px, 1.3vw, 17px)/1 'Cinzel', Georgia, serif;
   letter-spacing: clamp(1.5px, 0.3vw, 3px);
@@ -757,7 +758,7 @@ html, body {
 .menu-button:hover,
 .menu-button:focus-visible,
 .menu-button:active {
-  background-image: url('../assets/title/menu-button-pressed.webp');
+  background-image: url('../assets/ui/title/menu-button-pressed.webp');
   color: #eaffcf;
   filter: drop-shadow(0 0 12px rgba(43, 222, 130, 0.42));
   outline: none;
@@ -765,9 +766,9 @@ html, body {
 .menu-button:hover { transform: translateY(-2px); }
 .menu-button:active { transform: translateY(2px) scale(0.985); filter: drop-shadow(0 0 18px rgba(38, 230, 133, 0.6)); }
 .menu-button:focus-visible { outline: 2px solid #8cf0b0; outline-offset: 3px; }
-.menu-button.pad-focus { background-image: url('../assets/title/menu-button-pressed.webp'); transform: translateY(-2px); outline: 2px solid #8cf0b0; outline-offset: 3px; }   /* a controller's highlight */
+.menu-button.pad-focus { background-image: url('../assets/ui/title/menu-button-pressed.webp'); transform: translateY(-2px); outline: 2px solid #8cf0b0; outline-offset: 3px; }   /* a controller's highlight */
 .menu-button:disabled { color: rgba(230, 220, 195, 0.72); cursor: not-allowed; filter: saturate(0.55) brightness(0.72); }
-.menu-button:disabled:hover { transform: none; background-image: url('../assets/title/menu-button.webp'); }
+.menu-button:disabled:hover { transform: none; background-image: url('../assets/ui/title/menu-button.webp'); }
 /* ---- Settings (title screen and pause menu): the device choice and the controls list. Sized by the window's
    height so the whole screen fits without scrolling (checked down to 1280 x 650). ---- */
 .settings-screen {
@@ -798,7 +799,7 @@ html, body {
 .settings-devices { display: flex; flex-wrap: wrap; gap: 8px 12px; width: 100%; justify-content: center; }
 .settings-screen .settings-devices .menu-button { width: min(280px, 31%); min-height: clamp(42px, 6.6vh, 62px); padding: 0 26px; font-size: clamp(10px, 1.45vh, 13px); letter-spacing: 2px; }
 .settings-screen .menu-button.chosen {
-  background-image: url('../assets/title/menu-button-pressed.webp');
+  background-image: url('../assets/ui/title/menu-button-pressed.webp');
   color: #eaffcf;
   filter: drop-shadow(0 0 12px rgba(43, 222, 130, 0.45));
 }
@@ -1353,7 +1354,7 @@ html, body {
   filter: drop-shadow(0 0 6px var(--hc-glow));
 }
 .hc-heart.green {
-  background-image: url('../assets/level3/forest_heart_beat.webp');
+  background-image: url('../assets/levels/level3/forest_heart_beat.webp');
   background-size: 800% 100%;
   animation: hcBeat8 var(--hc-beat) steps(8, jump-none) infinite;
 }
@@ -1537,18 +1538,35 @@ html, body {
   height: clamp(50px, 6.2vh, 64px);
   padding: 0 56px;
   transform: translateY(8px);
-  background: url('../assets/title/menu-button.webp') center / 100% 100% no-repeat;
+  background: url('../assets/ui/title/menu-button.webp') center / 100% 100% no-repeat;
   opacity: 0;
   transition: opacity 0.35s ease, transform 0.35s ease, filter 0.25s ease;
   pointer-events: none;
   --fill: 0%;
 }
 .ic-skip.show { opacity: 0.9; transform: none; }
+/* the narration: centred, in the skip button's Cinzel, its bottom always clear of the button's top */
+.ic-subs {
+  position: absolute;
+  left: 50%;
+  bottom: calc(clamp(16px, 4vh, 40px) + clamp(50px, 6.2vh, 64px) + clamp(10px, 2vh, 22px));
+  transform: translateX(-50%);
+  width: min(1100px, calc(100vw - 32px));
+  text-align: center;
+  font: 700 clamp(15px, 1.7vw, 26px)/1.35 'Cinzel', Georgia, serif;
+  letter-spacing: 1px;
+  color: #f8e8bb;
+  text-shadow: 0 2px 4px #06130f, 0 0 3px #000, 0 0 12px rgba(0, 0, 0, 0.85);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  pointer-events: none;
+}
+.ic-subs.show { opacity: 1; }
 .ic-skip::before {
   content: '';
   position: absolute;
   inset: 0;
-  background: url('../assets/title/menu-button-pressed.webp') center / 100% 100% no-repeat;
+  background: url('../assets/ui/title/menu-button-pressed.webp') center / 100% 100% no-repeat;
   clip-path: inset(0 calc(100% - var(--fill)) 0 0);
 }
 .ic-skip.holding { opacity: 1; filter: drop-shadow(0 0 12px rgba(43, 222, 130, 0.45)); }
@@ -1665,7 +1683,7 @@ html.compact .boss-name { font-size: 8px; letter-spacing: 2px; }
 html.compact .father-name { font-size: 7px; letter-spacing: 2px; }
 
 html.compact .interact-prompt { top: calc(var(--safe-t) + 6px); padding: 3px 12px; font-size: 9px; }
-html.compact .kill-toast { top: calc(var(--safe-t) + 6px); padding: 4px 14px; gap: 7px; }
+html.compact .kill-toast { top: calc(var(--safe-t) + 6px); padding: 3px 12px; }
 html.compact .kill-toast-text { font-size: 9px; }
 
 /* dialogue: a low, wide strip with a small portrait window */

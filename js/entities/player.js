@@ -13,12 +13,11 @@ import { Run } from '../core/run.js';
 // ---------------------------------------------------------------------------
 // Rakti sprite skin. Every frame of a set shares one canvas; (anchorX, anchorY) is the
 // point between her feet in that canvas, and scale converts frame pixels to world pixels.
-// (The earlier v1 / v2 designs are archived in unused_assets/assets/anims/.)
 // ---------------------------------------------------------------------------
 export const RAKTI_SKINS = {
   // 30 Oct night, aligned sheets: sheathed-talwar run, 12-frame ledge climb, Kali stands then hovers
   v3: {
-    folder: 'assets/anims/rakti_v3',
+    folder: 'assets/characters/rakti',
     scale: 0.23,
     frameCounts: { mantle: 12 },
     descendLoop: [0, 1, 2, 1],                      // descend 0-2 climb down
@@ -47,7 +46,7 @@ export const DEFAULT_RAKTI_SKIN = 'v3';
 // Level 1 prologue frames: Rakti in her everyday sari, before Maa Kali's blessing.
 // They are the same for every skin and end in the v3 battle outfit.
 const PROLOGUE_SPRITES = {
-  folder: 'assets/anims/rakti_prologue',
+  folder: 'assets/characters/rakti_prologue',
   scale: 0.23,
   metrics: {
     wake: { frameW: 207, frameH: 282, anchorX: 101, anchorY: 280 },     // 0 unconscious ... 3 dazed ... 5 standing
@@ -56,12 +55,12 @@ const PROLOGUE_SPRITES = {
   }
 };
 // Level 2 ability frames (same green-and-gold design as v3, drawn at the v3 scale for every skin):
-// qcast = Kali's earth-shaping cast [Q]; tthrow / tcatch = throwing and catching the Trishul.
+// earthcast = Kali's earth-shaping cast [Q] (the old qcast frames are in backup/assets/characters/rakti); tthrow / tcatch = throwing and catching the Trishul.
 const ABILITY_SPRITES = {
-  folder: 'assets/anims/rakti_v3',
+  folder: 'assets/characters/rakti',
   scale: 0.23,
   metrics: {
-    qcast: { frameW: 355, frameH: 294, anchorX: 93, anchorY: 289, count: 10 },
+    earthcast: { frameW: 355, frameH: 294, anchorX: 93, anchorY: 289, count: 10 },   // [Q]; its glow and stones are in the art
     tthrow: { frameW: 422, frameH: 253, anchorX: 144, anchorY: 250, count: 5 },
     tcatch: { frameW: 302, frameH: 293, anchorX: 104, anchorY: 289, count: 4 },
     kcast: { frameW: 212, frameH: 293, anchorX: 76.4, anchorY: 275.8, count: 6 },  // Kali form: hurling a gold orb
@@ -72,7 +71,7 @@ const ABILITY_SPRITES = {
 export const KALI_ORB = {
   damage: 8, speed: 700, cooldown: 0.5, range: 760, aimRange: 620, aimCone: 1.35,
   castFrame: 0.06, releaseFrame: 3,
-  art: { src: 'assets/level4/sprites/orb_gold_', count: 6, frameW: 76, frameH: 47, anchorX: 50.6, anchorY: 23.2, scale: 0.5 }
+  art: { src: 'assets/levels/level4/sprites/orb_gold_', count: 6, frameW: 76, frameH: 47, anchorX: 50.6, anchorY: 23.2, scale: 0.5 }
 };
 // Level 4: after the mala, Kali form needs a full charge, filled by the damage Rakti deals with blade and Trishul
 export const KALI_CHARGE_FULL = 100;
@@ -93,7 +92,9 @@ const CATCH_TIME = 0.26;
 
 // Trishul: a thrown weapon that flies at the nearest enemy in front of Rakti and returns to her hand.
 export const TRISHUL = {
-  damage: 6,
+  damage: 6,          // at full range; it hits harder the further it has flown: the first third of its range deals
+                       // a third of this, the middle third two thirds, the last third all of it (2 / 4 / 6, and
+                       // 4 / 8 / 12 once the Forest Heart doubles it)
   speed: 640,
   returnSpeed: 720,
   range: 380,          // world px before it turns back
@@ -279,7 +280,7 @@ export class Player {
     this.aimWorld = null;         // the engine keeps this on the cursor's world position
     this.catchTimer = 0;
     this.trishulImg = new Image();
-    this.trishulImg.src = 'assets/weapons/trishul_throw.webp';   // 240 x 60, points right
+    this.trishulImg.src = 'assets/characters/weapons/trishul_throw.webp';   // 240 x 60, points right
 
     // Kali's [Q] cast (Level 2): a short locked animation; the level reacts at the release frame
     this.isCasting = false;
@@ -857,14 +858,7 @@ export class Player {
         this.castCallback = null;
         cb();
       }
-      if (after >= 5 && Math.random() < 0.7) {
-        const dir = this.facing === 'left' ? -1 : 1;
-        this.particles.push({
-          x: this.x + dir * (16 + Math.random() * 14), y: this.y - 40 + (Math.random() - 0.5) * 16,
-          vx: dir * (30 + Math.random() * 60), vy: (Math.random() - 0.5) * 40,
-          life: 0.4, maxLife: 0.4, size: 2 + Math.random() * 2, color: Math.random() > 0.4 ? '#b8ffcf' : '#ffe9a0'
-        });
-      }
+      // (no sparks drawn here: the green glow and the flying stones are part of the cast's sprite frames)
       if (this.castTimer >= CAST_FRAME_TIME * 10) {
         this.isCasting = false;
         this.castCallback?.();
@@ -1403,10 +1397,13 @@ export class Player {
       const hw = (e.hitHalfW ?? 16) + 8, hh = e.hitHeight ?? 64;
       if (Math.abs(tr.x - e.x) > hw || tr.y < e.y - hh - 6 || tr.y > e.y + 6) continue;
       tr.hit.add(e);
+      const reach = level?.trishulRange ?? TRISHUL.range;
+      const band = Math.min(3, 1 + Math.floor((tr.dist / reach) * 3));   // 1 near, 2 middle, 3 far
+      const dmg = Math.round(this.trishulDamage * band / 3);
       if (e.takeHit) {
-        e.takeHit(this.trishulDamage, this.x, level);
+        e.takeHit(dmg, this.x, level);
       } else if (e.takeDamage) {
-        const killed = e.takeDamage(this.trishulDamage, this.x);
+        const killed = e.takeDamage(dmg, this.x);
         if (killed && level?.registerKill) level.registerKill(e);
       }
       if (level) level.cameraShake = Math.max(level.cameraShake || 0, 0.3);
@@ -1702,7 +1699,7 @@ export class Player {
     }
     // Level exits fade the player out; show her running into the doorway.
     if (this.doorwayFade < 1) return { set: 'runBack', index: Math.floor(this.animTime / 0.09) % 6 };
-    if (this.isCasting) return { set: 'qcast', index: Math.min(9, Math.floor(this.castTimer / CAST_FRAME_TIME)) };
+    if (this.isCasting) return { set: 'earthcast', index: Math.min(9, Math.floor(this.castTimer / CAST_FRAME_TIME)) };
     if (this.throwAnim) return { set: 'tthrow', index: timedFrame(THROW_FRAME_TIMES, this.throwAnim.t) };
     if (this.catchTimer > 0) return { set: 'tcatch', index: Math.min(3, Math.floor((1 - this.catchTimer / CATCH_TIME) * 4)) };
     if (this.isAttacking) return { set: this.isSuperSwing ? 'sattack' : 'attack', index: Math.min(5, this.attackFrame) };

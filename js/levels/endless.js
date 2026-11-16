@@ -13,7 +13,7 @@
  * [Q] Kali's mud: the floor around Rakti sinks into a mud patch. Only enemies standing in it are slowed.
  * Rakti keeps every weapon: talwar, Trishul and Kali's form [X].
  *
- * Art (assets/endless): floor_grass.webp (base tile), mud_sheet.webp (3 x 4 morph frames: grass -> mud -> grass),
+ * Art (assets/levels/endless): floor_grass.webp (base tile), mud_sheet.webp (3 x 4 morph frames: grass -> mud -> grass),
  * sky_0.webp / sky_1.webp (calm and blood sky, no wall in them) and castle_wall.webp (the wall, its own layer).
  * ==========================================================================
  */
@@ -37,9 +37,9 @@ const HIGH_AT = 1;               // full crowd = blood sky
 const CALM_AT = 0.4;             // 40% of the crowd or fewer = calm sky
 const SKY_SPEED = 0.4;           // sky blend per second (the full change takes ~2.5 s)
 
-// Mud patch (assets/endless/mud_sheet.webp: 3 columns x 4 rows of 650 x 150, frames 0 grass .. 6 mud .. 11 grass)
-// v2 (the jungle-stone slab, cut by assets/endless/source/build_v2.py): 3 x 4 cells of 650 x 180; v1 is in assets/endless/backup
-const MUD = { src: 'assets/endless/mud_sheet.webp', cw: 650, ch: 180, cols: 3, surface: 98, scale: 0.5, halfW: 145 };
+// Mud patch (assets/levels/endless/mud_sheet.webp: 3 columns x 4 rows of 650 x 150, frames 0 grass .. 6 mud .. 11 grass)
+// v2 (the jungle-stone slab, cut by assets/levels/endless/source/build_v2.py): 3 x 4 cells of 650 x 180; v1 is in assets/levels/endless/backup
+const MUD = { src: 'assets/levels/endless/mud_sheet.webp', cw: 650, ch: 180, cols: 3, surface: 98, scale: 0.5, halfW: 145 };
 const MUD_FORM = 1.2, MUD_HOLD = 5.5, MUD_FADE = 1.4;
 const MUD_LIFE = MUD_FORM + MUD_HOLD + MUD_FADE;
 const MUD_SLOW = 0.3;
@@ -66,9 +66,9 @@ const KINDS = {
   brute: { hp: 28, speed: 0.6, damage: 7, height: 108, range: 56, tint: 'sepia(0.55) hue-rotate(-25deg) saturate(2.2) brightness(0.8)' }
 };
 
-// The castle wall (assets/endless/castle_wall.webp, 2000 x 715) is its own layer, its foot on the floor line.
-// v2: the sun fortress (2000 x 704, cropped to the art); v1 is in assets/endless/backup
-const WALL = { src: 'assets/endless/castle_wall.webp', w: 2000, h: 704, scale: 0.5, footDrop: 6 };
+// The castle wall (assets/levels/endless/castle_wall.webp, 2000 x 715) is its own layer, its foot on the floor line.
+// v2: the sun fortress (2000 x 704, cropped to the art); v1 is in assets/levels/endless/backup
+const WALL = { src: 'assets/levels/endless/castle_wall.webp', w: 2000, h: 704, scale: 0.5, footDrop: 6 };
 WALL.x = (WORLD_W - WALL.w * WALL.scale) / 2;
 WALL.y = FLOOR_Y + WALL.footDrop - WALL.h * WALL.scale;
 const wallPoint = (sx, sy) => ({ x: WALL.x + sx * WALL.scale, y: WALL.y + sy * WALL.scale });
@@ -130,10 +130,10 @@ export class EndlessLevel {
     this.pitDamage = 3;
     this.ladders = [];
 
-    this.skies = Array.from({ length: SKY_COUNT }, (_, i) => img(`assets/endless/sky_${i}.webp`));
+    this.skies = Array.from({ length: SKY_COUNT }, (_, i) => img(`assets/levels/endless/sky_${i}.webp`));
     this.wallImg = img(WALL.src);
     this.mudImg = img(MUD.src);
-    const A = 'assets/level2/archer/';
+    const A = 'assets/characters/archer/';
     const frames = (name, n) => Array.from({ length: n }, (_, i) => img(`${A}${name}_${i}.webp`));
     const aim = frames('aim', 6), aimUp = frames('aimup', 6), hurt = frames('hurt', 2), die = frames('die', 3);
     this.archerSprites = {
@@ -144,7 +144,7 @@ export class EndlessLevel {
       hurtFrames: [hurt[0], hurt[1], hurt[1], hurt[0]],
       dieFrames: [die[0], die[1], die[2], die[2]],
       defeated: die[2],
-      arrow: img('assets/anims/archer_arrow.webp')
+      arrow: img('assets/characters/archer/arrow.webp')
     };
     this.platformArt = new PlatformArt('grass');
     this.enemySprites = new EnemySpriteSheet();

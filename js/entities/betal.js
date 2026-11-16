@@ -4,7 +4,7 @@
  * Grey blade demon that patrols a stretch of floor. When Rakti comes close it
  * turns, closes in and swings: a raised-blade wind-up (readable tell), then the
  * cut lands. Hitting him during the wind-up staggers him and cancels the swing.
- * 10 HP = two hits of Rakti's sword (5 damage each).
+ * Health from Run.betalHp: 15 on Levels 1-2 and 20 on Level 3 (Hard / Hardcore 20 and 30).
  * ==========================================================================
  */
 
@@ -22,7 +22,7 @@ export class Betal {
   reset() {
     Object.assign(this, {
       x: this.spawn.x, y: this.spawn.y,
-      hp: Math.round(10 * Run.enemyHp), maxHp: Math.round(10 * Run.enemyHp),   // more in Hard and Hardcore
+      hp: Run.betalHp, maxHp: Run.betalHp,   // by level and difficulty (run.js)
       facing: 'left', patrolDir: -1,
       isMoving: false, isAttacking: false,
       attackAnimTimer: 0, attackAnimDuration: 0.7, attackHitAt: 0.38, attackHitDone: false,

@@ -14,7 +14,7 @@
 export const PLATFORM_STYLES = {
   // Sunken-temple slab with bevelled ends: sandstone top, turquoise-inlaid sun frieze.
   temple: {
-    src: 'assets/platforms/temple_platform_v2.webp', // 2172 x 233
+    src: 'assets/levels/level1/temple_platform_v2.webp', // 2172 x 233
     surfaceY: 23,      // image row where feet stand (on the top face)
     scale: 0.386,      // image px -> world px (bottom edge lands ~79 px below the feet)
     capLeft: 489,      // image columns [0, 489) = left end cap
@@ -23,47 +23,29 @@ export const PLATFORM_STYLES = {
   // Level 2 desert slab: sandstone top, mudbrick frieze with turquoise inlays (1085 x 184; built from the
   // source strip as left cap | one 543 px module that tiles | right cap)
   desert: {
-    src: 'assets/level2/sprites/mudbrick_platform.webp',
+    src: 'assets/levels/level2/sprites/mudbrick_platform.webp',
     surfaceY: 20,
     scale: 0.48,       // ~79 world px thick, like the temple slab
     capLeft: 345,
     capRight: 752
   },
-  // Level 3 jungle slab: moss-topped carved brick with hanging roots (960 x 187, middle is made to tile)
-  // Level 3 jungle slab v2: mossy carved brick with roots and glowing flowers (809 x 125: left cap | 272 px
-  // module that tiles | right cap). The previous strip is assets/level3/jungle_platform.webp.
-  jungle: {
-    src: 'assets/level3/backup/jungle_platform_v2.webp',
-    surfaceY: 30,
-    scale: 0.75,       // ~70 world px below the walking surface
-    capLeft: 311,
-    capRight: 583
+  // (Level 3's earlier floors, the 'jungle' strip and the 'jungleSlab', are retired; their art is in backup/assets/levels/level3.)
+  // Level 3 floor v4: a deep mossy stone ledge with a carved-brick path on top, from three pieces (a left end, a
+  // middle that repeats, a right end; 1511 x 383). Its rocky underside reaches ~110 world px below the walking
+  // surface, past the bottom of the view, so no background shows under a floor. noStretch: the middle repeats at
+  // its true size (never squeezed or stretched to fit) and the right end overlaps the last repeat with a feathered
+  // edge of `feather` image px.
+  jungleLedgeFloor: {
+    src: 'assets/levels/level3/jungle_floor_v4.webp',
+    surfaceY: 83,      // the middle of the path's top face
+    scale: 0.5,
+    capLeft: 529,
+    capRight: 1026,
+    noStretch: true,
+    feather: 54
   },
-  // Level 3 floor v3: a flat-ended slab of carved brick, roots and ferns under a grassy path (745 x 340: left cap |
-  // 401 px module that tiles | right cap). Like the other levels' floors, the repeating middle is ~200 world px, so
-  // Level 3's 400-560 px floors hold one or two whole repeats instead of one long one squeezed to fit. Deep enough
-  // to run past the bottom of the view. (The long 1768 px cut and v2's 'jungle' slab are in assets/level3/backup.)
-  jungleSlab: {
-    src: 'assets/level3/jungle_floor_slab.webp',
-    surfaceY: 79,      // the middle of the grassy path
-    scale: 0.5,        // ~130 world px below the walking surface
-    capLeft: 207,
-    capRight: 608
-  },
-  // Level 3's floating ledges v3: a chunky island of mossy brick, roots and ferns with a rounded underside (873 x 299:
-  // left cap | 326 px module | right cap).
-  jungleIsland: {
-    src: 'assets/level3/jungle_island.webp',
-    surfaceY: 57,      // the middle of the grassy path on top
-    scale: 0.45,
-    capLeft: 269,
-    capRight: 595
-  },
-  // Chaos mode floor v2: the jungle-stone strip (2158 x 265, its ends are the caps; the stretch between two gem
-  // pillars is the middle). Scaled so the whole strip spans the arena (-140 .. WORLD_W + 140) once.
-  // v1 (the plain grass slab) is in assets/endless/backup/floor_grass_v1.webp.
   grass: {
-    src: 'assets/endless/floor_grass.webp',
+    src: 'assets/levels/endless/floor_grass.webp',
     surfaceY: 80,
     scale: 0.5945,
     capLeft: 773,
@@ -97,6 +79,27 @@ export class PlatformArt {
     g.imageSmoothingQuality = 'high';
     g.drawImage(im, 0, 0, c.width, c.height);
     this.cache = c; this.cacheK = k; this.cacheF = c.width / im.naturalWidth;
+    return c;
+  }
+
+  /** The right end cap cut from the scaled strip `im` at column R, its first `fpx` columns fading in (cached). */
+  featheredRight(im, R, fpx) {
+    if (this.rightCap && this.rightCapSrc === im) return this.rightCap;
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(im.width - R)); c.height = im.height;
+    const g = c.getContext('2d');
+    g.drawImage(im, R, 0, c.width, c.height, 0, 0, c.width, c.height);
+    if (fpx > 0) {
+      // one fill over the whole cap (destination-in clears whatever a fill does not cover)
+      const grad = g.createLinearGradient(0, 0, c.width, 0);
+      grad.addColorStop(0, 'rgba(0,0,0,0)');
+      grad.addColorStop(Math.min(1, fpx / c.width), 'rgba(0,0,0,1)');
+      grad.addColorStop(1, 'rgba(0,0,0,1)');
+      g.globalCompositeOperation = 'destination-in';
+      g.fillStyle = grad;
+      g.fillRect(0, 0, c.width, c.height);
+    }
+    this.rightCap = c; this.rightCapSrc = im;
     return c;
   }
 
@@ -137,6 +140,20 @@ export class PlatformArt {
       capL *= k; capR *= k; mid = 0;
     }
     const L = st.capLeft * f, R = st.capRight * f, W = im.width;
+    if (st.noStretch) {
+      // the middle at its true size, cut off under the right end, which is drawn over it with a soft left edge
+      const midW = (st.capRight - st.capLeft) * s, fw = (st.feather || 0) * s;
+      ctx.drawImage(im, 0, 0, L, sih, x1, top, capL + 0.5, h);
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(x1 + capL - 0.5, top - 1, Math.max(0, w - capL - capR + fw + 1), h + 2);
+      ctx.clip();
+      for (let x = x1 + capL; x < x2 - capR + fw; x += midW) ctx.drawImage(im, L, 0, R - L, sih, x, top, midW + 0.5, h);
+      ctx.restore();
+      ctx.drawImage(this.featheredRight(im, R, (st.feather || 0) * f), x2 - capR, top, capR, h);
+      ctx.restore();
+      return;
+    }
     ctx.drawImage(im, 0, 0, L, sih, x1, top, capL + 0.5, h);
     ctx.drawImage(im, R, 0, W - R, sih, x2 - capR, top, capR, h);
     if (mid > 0) {

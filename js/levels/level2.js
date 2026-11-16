@@ -56,7 +56,7 @@ const BG_EXT = 110;
 // The start screen's portal stands on its own ground line (image row ~800), so that screen is drawn lower
 const PORTAL_DY = 54;    // screens continue below the art (a mirrored strip) so chasms fade out instead of ending in a hard edge
 
-// ---------------------------------------------------------------- sprites (assets/level2/sprites, measured)
+// ---------------------------------------------------------------- sprites (assets/levels/level2/sprites, measured)
 // Tower: 474 x 744 (tower.png and tower_ladder.png share the canvas). roofY = where feet stand on the roof.
 const TOWER = { w: 474, h: 744, cx: 235.2, roofY: 108, baseY: 729.6, roofL: 43, roofR: 427, ladderX: 339.3 };
 // The first tower (the Sun Key's) has its own art with the sun painted in its window: tower_sun.png and
@@ -172,7 +172,7 @@ export class Level2 {
     this.pitDamage = PIT_DAMAGE;
 
     // ------------------------------------------------------------ art
-    const B = 'assets/level2/bg/', S = 'assets/level2/sprites/';
+    const B = 'assets/levels/level2/bg/', S = 'assets/levels/level2/sprites/';
     this.bg = {
       portal: img(B + 'portal.webp'), filler: img(B + 'filler.webp'),
       doorClosed: img(B + 'door_closed.webp'), doorOpen: img(B + 'door_open.webp'),
@@ -191,10 +191,10 @@ export class Level2 {
     this.quicksandImg = img(S + QS.src);
     this.pierImg = img(S + 'pier.webp');
     this.shrineImg = img(S + 'shrine.webp');
-    this.trishulImg = img('assets/weapons/trishul_upright.webp');
+    this.trishulImg = img('assets/characters/weapons/trishul_upright.webp');
     this.platformArt = new PlatformArt('desert');
     this.enemySprites = new EnemySpriteSheet();
-    const A = 'assets/level2/archer/';
+    const A = 'assets/characters/archer/';
     const frames = (name, n) => Array.from({ length: n }, (_, i) => img(`${A}${name}_${i}.webp`));
     const aim = frames('aim', 6), aimUp = frames('aimup', 6), hurt = frames('hurt', 2), die = frames('die', 3);
     this.archerSprites = {
@@ -205,7 +205,7 @@ export class Level2 {
       hurtFrames: [hurt[0], hurt[1], hurt[1], hurt[0]],
       dieFrames: [die[0], die[1], die[2], die[2]],
       defeated: die[2],
-      arrow: img('assets/anims/archer_arrow.webp')
+      arrow: img('assets/characters/archer/arrow.webp')
     };
     // walking archers (the way back's enemies walking in): the 6 walk frames in the idle slot
     const walk = frames('walk', 6);
